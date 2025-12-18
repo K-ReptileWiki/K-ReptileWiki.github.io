@@ -36,9 +36,8 @@
     }
     .easy { background: #16a34a; }
     .safe { background: #2563eb; }
-    .ground { background: #7c2d12; }
+    .ground { background: #92400e; }
     h2 { margin-top: 30px; }
-    textarea { width: 100%; height: 80px; }
   </style>
 </head>
 
@@ -61,49 +60,40 @@
   <h2>📌 기본 정보</h2>
   <ul>
     <li>학명: Eublepharis macularius</li>
-    <li>서식지: 파키스탄, 인도, 아프가니스탄</li>
-    <li>수명: 약 15~20년 (관리 시 25년 이상)</li>
-    <li>크기: 약 20~25cm</li>
+    <li>서식지: 파키스탄, 인도</li>
+    <li>수명: 약 15~20년</li>
+    <li>활동성: 야행성</li>
   </ul>
 
   <h2>🌡️ 사육 환경</h2>
   <ul>
-    <li>핫존 30~32℃ / 쿨존 24~26℃</li>
+    <li>온도: 26~32℃</li>
     <li>습도: 30~40%</li>
-    <li>습식 은신처 필수</li>
+    <li>은신처 필수</li>
   </ul>
 
-  <h2>🍽️ 먹이</h2>
+  <h2>🪱 먹이</h2>
   <ul>
     <li>귀뚜라미</li>
-    <li>밀웜, 슈퍼밀웜</li>
-    <li>칼슘 + 비타민 더스팅 필수</li>
+    <li>밀웜</li>
+    <li>슈퍼밀웜 (성체)</li>
   </ul>
-
-  <h2>🧠 성격 및 특징</h2>
-  <p>
-    온순하고 핸들링이 쉬워 초보자에게 적합하다.
-    위협을 느끼면 꼬리 자절을 할 수 있다.
-  </p>
 
   <h2>⚠️ 주의사항</h2>
-  <ul>
-    <li>모래 단독 바닥재 ❌ (임팩션 위험)</li>
-    <li>꼬리는 지방 저장 → 마르면 건강 이상</li>
-  </ul>
-
-  <hr>
+  <p>
+    바닥재로 모래 사용 ❌ (장폐색 위험)
+  </p>
 
   <!-- ❤️ 좋아요 -->
+  <hr>
   <h2>❤️ 좋아요</h2>
   <input id="username" placeholder="닉네임 입력">
   <button onclick="like()">❤️</button>
   <p>하트 수: <span id="likeCount">0</span></p>
   <p id="likeMsg"></p>
 
-  <hr>
-
   <!-- 📝 사용자 기여 -->
+  <hr>
   <h2>📝 사용자 기여</h2>
   <input id="contributor" placeholder="닉네임"><br><br>
   <textarea id="content" placeholder="추가할 내용을 적어주세요"></textarea><br>
@@ -116,9 +106,9 @@
 </main>
 
 <!-- ✅ 공통 JS -->
-<script src="../js/wiki.js"></script>
+<script type="module" src="../js/wiki.js"></script>
 <script>
-  initWiki("leopard"); // ← 이 문자열만 종마다 변경
+  initWiki("leopard");
 </script>
 
 </body>
