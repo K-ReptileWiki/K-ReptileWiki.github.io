@@ -38,6 +38,7 @@
     h2 { margin-top: 30px; }
   </style>
 </head>
+
 <body>
 
 <header>
@@ -75,17 +76,34 @@
   </ul>
 
   <h2>⚠️ 주의사항</h2>
-  <p>
-    꼬리 자절이 일어날 수 있으므로 과도한 핸들링은 주의.
-  </p>
+  <p>꼬리 자절이 일어날 수 있으므로 과도한 핸들링은 주의.</p>
+
+  <!-- ❤️ 좋아요 -->
+  <hr>
+  <h2>❤️ 좋아요</h2>
+  <input id="username" placeholder="닉네임 입력">
+  <button onclick="like()">❤️</button>
+  <p>하트 수: <span id="likeCount">0</span></p>
+  <p id="likeMsg"></p>
+
+  <!-- 📝 사용자 기여 -->
+  <hr>
+  <h2>📝 사용자 기여</h2>
+  <input id="contributor" placeholder="닉네임"><br><br>
+  <textarea id="content" placeholder="추가할 내용을 적어주세요"></textarea><br>
+  <button onclick="addContribution()">기여하기</button>
+
+  <ul id="contributions"></ul>
 
   <hr>
   <p><a href="../index.html">← 메인으로 돌아가기</a></p>
 </main>
 
+<!-- ✅ 공통 JS는 body 맨 아래 -->
+<script src="../js/wiki.js"></script>
+<script>
+  initWiki("crested");
+</script>
+
 </body>
 </html>
-
-<script>
-const PAGE_ID = "crested"; // ← 여기만 종마다 다르게
-</script>
