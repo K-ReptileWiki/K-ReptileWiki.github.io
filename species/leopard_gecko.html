@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <title>레오파드 게코 | K-ReptileWiki</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -37,8 +38,10 @@
     .safe { background: #2563eb; }
     .ground { background: #7c2d12; }
     h2 { margin-top: 30px; }
+    textarea { width: 100%; height: 80px; }
   </style>
 </head>
+
 <body>
 
 <header>
@@ -59,43 +62,64 @@
   <ul>
     <li>학명: Eublepharis macularius</li>
     <li>서식지: 파키스탄, 인도, 아프가니스탄</li>
-    <li>수명: 약 15~20년 (관리 잘하면 25년 이상)</li>
+    <li>수명: 약 15~20년 (관리 시 25년 이상)</li>
     <li>크기: 약 20~25cm</li>
   </ul>
 
   <h2>🌡️ 사육 환경</h2>
   <ul>
-    <li>적정 온도: 핫존 30~32℃ / 쿨존 24~26℃</li>
+    <li>핫존 30~32℃ / 쿨존 24~26℃</li>
     <li>습도: 30~40%</li>
-    <li>습식 은신처 필수 (탈피용)</li>
+    <li>습식 은신처 필수</li>
   </ul>
 
   <h2>🍽️ 먹이</h2>
   <ul>
     <li>귀뚜라미</li>
     <li>밀웜, 슈퍼밀웜</li>
-    <li>더스팅 (칼슘 + 비타민) 필수</li>
+    <li>칼슘 + 비타민 더스팅 필수</li>
   </ul>
 
   <h2>🧠 성격 및 특징</h2>
   <p>
-    비교적 온순하고 핸들링이 쉬워 초보자에게 매우 적합하다.
-    위협을 느끼면 꼬리를 흔들거나 자절할 수 있다.
+    온순하고 핸들링이 쉬워 초보자에게 적합하다.
+    위협을 느끼면 꼬리 자절을 할 수 있다.
   </p>
 
   <h2>⚠️ 주의사항</h2>
   <ul>
-    <li>바닥재 모래 단독 사용 ❌ (임팩션 위험)</li>
-    <li>꼬리는 지방 저장고 → 마르면 건강 이상 신호</li>
+    <li>모래 단독 바닥재 ❌ (임팩션 위험)</li>
+    <li>꼬리는 지방 저장 → 마르면 건강 이상</li>
   </ul>
+
+  <hr>
+
+  <!-- ❤️ 좋아요 -->
+  <h2>❤️ 좋아요</h2>
+  <input id="username" placeholder="닉네임 입력">
+  <button onclick="like()">❤️</button>
+  <p>하트 수: <span id="likeCount">0</span></p>
+  <p id="likeMsg"></p>
+
+  <hr>
+
+  <!-- 📝 사용자 기여 -->
+  <h2>📝 사용자 기여</h2>
+  <input id="contributor" placeholder="닉네임"><br><br>
+  <textarea id="content" placeholder="추가할 내용을 적어주세요"></textarea><br>
+  <button onclick="addContribution()">기여하기</button>
+
+  <ul id="contributions"></ul>
 
   <hr>
   <p><a href="../index.html">← 메인으로 돌아가기</a></p>
 </main>
 
+<!-- ✅ 공통 JS -->
+<script src="../js/wiki.js"></script>
+<script>
+  initWiki("leopard"); // ← 이 문자열만 종마다 변경
+</script>
+
 </body>
 </html>
-
-<script>
-const PAGE_ID = "leopard"; // ← 여기만 종마다 다르게
-</script>
