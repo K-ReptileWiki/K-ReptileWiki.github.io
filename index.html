@@ -56,6 +56,28 @@
     });
   </script>
 </body>
+</html>      const filtered = wikiPages.filter(p =>
+        p.title.toLowerCase().includes(q) ||
+        p.keywords.some(k => k.toLowerCase().includes(q))
+      );
+
+      if (filtered.length === 0) {
+        results.innerHTML = "<p>검색 결과가 없습니다.</p>";
+        return;
+      }
+
+      filtered.forEach(p => {
+        const a = document.createElement("a");
+        a.href = p.url;
+        a.textContent = p.title;
+        a.style.display = "block";
+        a.style.padding = "8px";
+        a.style.borderBottom = "1px solid #ddd";
+        results.appendChild(a);
+      });
+    });
+  </script>
+</body>
 </html>    }
   ];
 
