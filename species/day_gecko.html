@@ -14,7 +14,6 @@
     .safe { background:#2563eb; }
     .tree { background:#15803d; }
     .fast { background:#7c3aed; }
-    h2 { margin-top: 30px; }
   </style>
 </head>
 
@@ -26,7 +25,7 @@
 </header>
 
 <main>
-  <img src="../images/day/main.jpg" alt="데이게코">
+  <img src="../images/day/main.jpg">
 
   <p>
     <span class="badge mid">중급자용</span>
@@ -43,101 +42,30 @@
     <li>활동성: 주행성</li>
   </ul>
 
-  <h2>🌞 사육 환경</h2>
-  <ul>
-    <li>온도: 26~30℃</li>
-    <li>UVB 조명 필수</li>
-    <li>습도: 60~80%</li>
-  </ul>
-
-  <h2>🍯 먹이</h2>
-  <ul>
-    <li>과일 퓌레</li>
-    <li>게코 전용 푸드</li>
-    <li>소형 곤충</li>
-  </ul>
-
-  <h2>🧠 특징</h2>
-  <p>
-    색상이 매우 화려하지만 핸들링이 거의 불가능하며,
-    피부가 쉽게 벗겨질 수 있다.
-  </p>
-
-  <h2>⚠️ 주의사항</h2>
-  <ul>
-    <li>맨손 핸들링 ❌</li>
-    <li>탈출 위험 매우 높음</li>
-  </ul>
-
-  <!-- ❤️ 좋아요 -->
   <hr>
+
   <h2>❤️ 좋아요</h2>
-  <input id="username" placeholder="닉네임 입력">
+  <input id="username" placeholder="닉네임">
   <button onclick="like()">❤️</button>
   <p>하트 수: <span id="likeCount">0</span></p>
-  <p id="likeMsg"></p>
 
-  <!-- 📝 사용자 기여 -->
   <hr>
+
   <h2>📝 사용자 기여</h2>
   <input id="contributor" placeholder="닉네임"><br><br>
-  <textarea id="content" placeholder="추가할 내용을 적어주세요"></textarea><br>
+  <textarea id="content"></textarea><br>
   <button onclick="addContribution()">기여하기</button>
 
   <ul id="contributions"></ul>
 
   <hr>
-  <p><a href="../index.html">← 메인으로 돌아가기</a></p>
+  <a href="../index.html">← 메인</a>
 </main>
 
-<!-- ✅ 공통 JS -->
 <script src="../js/wiki.js"></script>
 <script>
   initWiki("daygecko");
 </script>
 
 </body>
-</html>  <h2>📌 기본 정보</h2>
-  <ul>
-    <li>학명: Phelsuma spp.</li>
-    <li>서식지: 마다가스카르</li>
-    <li>수명: 약 10~15년</li>
-    <li>활동성: 주행성</li>
-  </ul>
-
-  <h2>🌞 사육 환경</h2>
-  <ul>
-    <li>온도: 26~30℃</li>
-    <li>UVB 조명 필수</li>
-    <li>습도: 60~80%</li>
-  </ul>
-
-  <h2>🍯 먹이</h2>
-  <ul>
-    <li>과일 퓌레</li>
-    <li>게코 전용 푸드</li>
-    <li>소형 곤충</li>
-  </ul>
-
-  <h2>🧠 특징</h2>
-  <p>
-    색상이 매우 화려하지만 핸들링이 거의 불가능하며,
-    피부가 쉽게 벗겨질 수 있다.
-  </p>
-
-  <h2>⚠️ 주의사항</h2>
-  <ul>
-    <li>맨손 핸들링 ❌</li>
-    <li>탈출 위험 매우 높음</li>
-  </ul>
-
-  <hr>
-  <p><a href="../index.html">← 메인으로 돌아가기</a></p>
-</main>
-
-</body>
 </html>
-
-<script>
-const PAGE_ID = "daygecko"; // ← 여기만 종마다 다르게
-</script>
