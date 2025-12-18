@@ -1,40 +1,80 @@
-function initWiki(pageId) {
-  /* 좋아요 */
-  const likeKey = "like_" + pageId;
-  const contribKey = "contrib_" + pageId;
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import {
+  getFirestore,
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  collection,
+  addDoc,
+  onSnapshot,
+  serverTimestamp
+} from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
 
-  let likes = JSON.parse(localStorage.getItem(likeKey)) || {
-    count: 0,
-    users: []
-  };
+/* 🔥 Firebase 설정 */
+const firebaseConfig = {
+  apiKey: "네 apiKey",
+  authDomain: "네 authDomain",
+  projectId: "네 projectId",
+};
 
-  document.getElementById("likeCount").textContent = likes.count;
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 
-  window.like = function () {
+/* ======================= */
+window.initWiki = async function (pageId) {
+  const likeRef = doc(db, "wiki", pageId);
+
+  /* 좋아요 초기화 */
+  const snap = await getDoc(likeRef);
+  if (!snap.exists()) {
+    await setDoc(likeRef, { likes: 0 });
+  }
+
+  /* 실시간 좋아요 */
+  onSnapshot(likeRef, (docSnap) => {
+    document.getElementById("likeCount").textContent =
+      docSnap.data().likes || 0;
+  });
+
+  window.like = async function () {
     const user = document.getElementById("username").value.trim();
-    const msg = document.getElementById("likeMsg");
+    if (!user) return alert("닉네임 입력");
 
-    if (!user) {
-      msg.textContent = "닉네임을 입력하세요.";
-      return;
-    }
-    if (likes.users.includes(user)) {
-      msg.textContent = "이미 하트를 눌렀습니다.";
-      return;
-    }
-
-    likes.count++;
-    likes.users.push(user);
-    localStorage.setItem(likeKey, JSON.stringify(likes));
-
-    document.getElementById("likeCount").textContent = likes.count;
-    msg.textContent = "하트 완료 ❤️";
+    await updateDoc(likeRef, {
+      likes: (snap.data()?.likes || 0) + 1
+    });
   };
 
-  /* 기여 */
-  let contribs = JSON.parse(localStorage.getItem(contribKey)) || [];
-  const list = document.getElementById("contributions");
+  /* ===== 기여 ===== */
+  const contribRef = collection(db, "wiki", pageId, "contributions");
 
+  onSnapshot(contribRef, (snapshot) => {
+    const list = document.getElementById("contributions");
+    list.innerHTML = "";
+    snapshot.forEach((doc) => {
+      const li = document.createElement("li");
+      li.textContent = `${doc.data().user}: ${doc.data().text}`;
+      list.appendChild(li);
+    });
+  });
+
+  window.addContribution = async function () {
+    const user = document.getElementById("contributor").value.trim();
+    const text = document.getElementById("content").value.trim();
+    if (!user || !text) return;
+
+    await addDoc(contribRef, {
+      user,
+      text,
+      time: serverTimestamp()
+    });
+
+    document.getElementById("content").value = "";
+  };
+};
+</script>
   function render() {
     list.innerHTML = "";
     contribs.forEach(c => {
