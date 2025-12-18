@@ -25,13 +25,15 @@
   <button onclick="addContribution()">추가</button>
   <ul id="contributions"></ul>
 
+  <!-- Firebase + Wiki.js -->
   <script src="js/wiki.js" type="module"></script>
+
+  <!-- 검색 기능 -->
   <script>
     const wikiPages = [
       { title: "크레스티드 게코", keywords: ["크레","크레스티드","게코"], url: "species/crested_gecko.html" },
       { title: "레오파드 게코", keywords: ["레게","레오파드","게코"], url: "species/leopard_gecko.html" },
-      { title: "데이게코", keywords: ["데이게코","마다가스카르","푸른게코"], url: "species/day_gecko.html" },
-    
+      { title: "데이게코", keywords: ["데이게코","마다가스카르","푸른게코"], url: "species/day_gecko.html" }
     ];
 
     const input = document.getElementById("searchInput");
