@@ -25,16 +25,126 @@
   <button onclick="addContribution()">추가</button>
   <ul id="contributions"></ul>
 
-  <!-- Firebase + Wiki.js -->
-  <script src="js/wiki.js" type="module"></script>
+  <!-- 🔥 Firebase 통합 -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+    import {
+      getFirestore,
+      doc,
+      getDoc,
+      setDoc,
+      updateDoc,
+      collection,
+      addDoc,
+      onSnapshot,
+      serverTimestamp,
+      increment
+    } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
 
-  <!-- 검색 기능 -->
-  <script>
+    // Firebase 설정
+    const firebaseConfig = {
+      apiKey: "AIzaSyDfrvgcAed9VvS5MFXVZFIxch8aCAfMp1w",
+      authDomain: "k-reptilewiki-1f09f.firebaseapp.com",
+      projectId: "k-reptilewiki-1f09f",
+      messagingSenderId: "557869324836",
+      appId: "1:557869324836:web:3eda21e6ba0333422856b1"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // 좋아요 문서 참조
+    const likeRef = doc(db, "wiki", "mainPage");
+
+    // 문서 없으면 생성
+    getDoc(likeRef).then((snap) => {
+      if (!snap.exists()) {
+        setDoc(likeRef, { likes: 0 });
+      }
+    });
+
+    // ❤️ 실시간 좋아요 반영
+    onSnapshot(likeRef, (docSnap) => {
+      document.getElementById("likeCount").textContent =
+        docSnap.data().likes || 0;
+    });
+
+    // 좋아요 버튼 기능
+    window.like = async function () {
+      const user = document.getElementById("username").value.trim();
+      if (!user) {
+        alert("닉네임 입력하세요");
+        return;
+      }
+      await updateDoc(likeRef, { likes: increment(1) });
+    };
+
+    // 📝 사용자 기여
+    const contribRef = collection(db, "wiki", "mainPage", "contributions");
+
+    onSnapshot(contribRef, (snapshot) => {
+      const list = document.getElementById("contributions");
+      list.innerHTML = "";
+      snapshot.forEach((doc) => {
+        const li = document.createElement("li");
+        li.textContent = `${doc.data().user}: ${doc.data().text}`;
+        list.appendChild(li);
+      });
+    });
+
+    window.addContribution = async function () {
+      const user = document.getElementById("contributor").value.trim();
+      const text = document.getElementById("content").value.trim();
+      if (!user || !text) return;
+
+      await addDoc(contribRef, {
+        user,
+        text,
+        time: serverTimestamp()
+      });
+
+      document.getElementById("content").value = "";
+    };
+
+    // 검색 기능
     const wikiPages = [
       { title: "크레스티드 게코", keywords: ["크레","크레스티드","게코"], url: "species/crested_gecko.html" },
       { title: "레오파드 게코", keywords: ["레게","레오파드","게코"], url: "species/leopard_gecko.html" },
       { title: "데이게코", keywords: ["데이게코","마다가스카르","푸른게코"], url: "species/day_gecko.html" }
     ];
+
+    const input = document.getElementById("searchInput");
+    const results = document.getElementById("searchResults");
+
+    input.addEventListener("input", () => {
+      const q = input.value.toLowerCase();
+      results.innerHTML = "";
+
+      if (q.length === 0) return;
+
+      const filtered = wikiPages.filter(p =>
+        p.title.toLowerCase().includes(q) ||
+        p.keywords.some(k => k.toLowerCase().includes(q))
+      );
+
+      if (filtered.length === 0) {
+        results.innerHTML = "<p>검색 결과가 없습니다.</p>";
+        return;
+      }
+
+      filtered.forEach(p => {
+        const a = document.createElement("a");
+        a.href = p.url;
+        a.textContent = p.title;
+        a.style.display = "block";
+        a.style.padding = "8px";
+        a.style.borderBottom = "1px solid #ddd";
+        results.appendChild(a);
+      });
+    });
+  </script>
+</body>
+</html>    ];
 
     const input = document.getElementById("searchInput");
     const results = document.getElementById("searchResults");
