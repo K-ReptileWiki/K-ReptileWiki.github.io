@@ -51,8 +51,9 @@ function initPosts() {
         imgHtml = p.images.map(url => `<img src="${url}" style="max-width:200px;margin:5px;">`).join("");
       }
 
+      // ✅ 제목에 상세 페이지 링크 추가
       div.innerHTML = `
-        <h3>${p.title}</h3>
+        <h3><a href="post.html?id=${d.id}">${p.title}</a></h3>
         <div>${p.content}</div>
         ${imgHtml}
         <small>작성자: ${p.author ?? "익명"} | ${p.time?.toDate?.().toLocaleString()}</small>
@@ -106,6 +107,31 @@ function initPosts() {
       if (confirm("작성 중인 글을 취소하고 메인으로 돌아가시겠습니까?")) {
         window.location.href = "index.html";
       }
+    });
+  }
+
+  // ✅ 미리보기 버튼
+  const previewBtn = document.getElementById("previewBtn");
+  if (previewBtn) {
+    previewBtn.addEventListener("click", () => {
+      const title = document.getElementById("postTitle").value.trim();
+      const content = quill.root.innerHTML;
+      const files = document.getElementById("images").files;
+
+      let imgHtml = "";
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const url = URL.createObjectURL(file);
+        imgHtml += `<img src="${url}" style="max-width:200px;margin:5px;">`;
+      }
+
+      const previewArea = document.getElementById("previewArea");
+      previewArea.style.display = "block";
+      previewArea.innerHTML = `
+        <h3>${title || "(제목 없음)"}</h3>
+        <div>${content || "(내용 없음)"}</div>
+        ${imgHtml}
+      `;
     });
   }
 }
