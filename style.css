@@ -62,15 +62,16 @@ button:hover { background:#1e40af; }
 .post-card h3 a { color:#2563eb; text-decoration:none; }
 .post-card h3 a:hover { text-decoration:underline; }
 
-/* 상세 글 보기 이미지 (중간 크기) */
-.post-image,
+/* 종 페이지 이미지 (중간 크기 강제 적용) */
 .species-image {
-  max-width: 300px;   /* ✅ 중간 크기 */
+  max-width: 300px !important;  /* ✅ 강제 적용 */
   height: auto;
-  margin: 10px;
+  display: block;
+  margin: 10px auto;            /* 중앙 정렬 */
   border-radius: 8px;
-  box-shadow:0 1px 4px rgba(0,0,0,0.1);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
 }
+
 
 /* 댓글 카드 */
 .comment-card {
