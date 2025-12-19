@@ -1,11 +1,9 @@
-import { db, auth, storage } from "./firebase.js";
-import {
-  collection, addDoc, onSnapshot, serverTimestamp
-} from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
-import {
-  signInAnonymously, onAuthStateChanged
-} from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-storage.js";
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
+
+// Supabase 초기화
+const supabaseUrl = "https://cpaikpjzlzzujwfgnanb.supabase.co";
+const supabaseKey = "sb_publishable_-dZ6xDssPQs29A_hHa2Irw_WxZ24NxB"; // 세민님 키
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Quill 에디터 초기화
 const quill = new Quill('#editor', {
@@ -21,121 +19,110 @@ const quill = new Quill('#editor', {
   }
 });
 
-// 로그인 (익명)
-signInAnonymously(auth);
+// 글 목록 불러오기
+async function initPosts() {
+  const { data, error } = await supabase
+    .from("wiki_posts")
+    .select("*")
+    .order("time", { ascending: false });
 
-let currentUser = null;
-let userData = { nickname: "익명" };
+  const list = document.getElementById("postList");
+  list.innerHTML = "";
 
-onAuthStateChanged(auth, async (user) => {
-  if (!user) return;
-  currentUser = user;
-  document.getElementById("postBtn").disabled = false;
-  initPosts();
+  if (error) {
+    console.error("글 불러오기 실패:", error.message);
+    return;
+  }
+
+  data.forEach(p => {
+    const div = document.createElement("div");
+    div.className = "post-card";
+
+    let imgHtml = "";
+    if (p.images && Array.isArray(p.images)) {
+      imgHtml = p.images.map(url => `<img src="${url}" style="max-width:150px;margin:5px;">`).join("");
+    }
+
+    const plainText = p.content.replace(/<[^>]+>/g, "");
+    const shortText = plainText.length > 100 ? plainText.substring(0, 100) + "..." : plainText;
+
+    div.innerHTML = `
+      <h3><a href="post.html?id=${p.id}">${p.title}</a></h3>
+      <p>${shortText}</p>
+      ${imgHtml}
+      <a href="post.html?id=${p.id}">자세히 보기 →</a><br>
+      <small>작성자: ${p.author ?? "익명"} | ${new Date(p.time).toLocaleString()}</small>
+    `;
+    list.appendChild(div);
+  });
+}
+
+// 글 작성 버튼
+document.getElementById("postBtn").addEventListener("click", async () => {
+  const title = document.getElementById("postTitle").value.trim();
+  const content = quill.root.innerHTML;
+  const files = document.getElementById("images").files;
+
+  if (!title || !content) return alert("제목과 내용을 입력하세요");
+  if (files.length > 3) return alert("사진은 최대 3장까지 첨부 가능합니다");
+
+  const imageUrls = [];
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    const fileName = `${Date.now()}_${file.name}`;
+    const { error } = await supabase.storage.from("image").upload(fileName, file);
+    if (!error) {
+      const { data: publicUrl } = supabase.storage.from("image").getPublicUrl(fileName);
+      imageUrls.push(publicUrl.publicUrl);
+    }
+  }
+
+  const { error: insertError } = await supabase
+    .from("wiki_posts")
+    .insert([{ title, content, author: "익명", time: new Date().toISOString(), images: imageUrls }]);
+
+  if (insertError) {
+    alert("글 등록 실패: " + insertError.message);
+  } else {
+    alert("글이 게시되었습니다!");
+    window.location.href = "index.html";
+  }
 });
 
-function initPosts() {
-  const postsRef = collection(db, "wiki_posts");
-
-  // 글 목록 실시간 표시
-  onSnapshot(postsRef, snap => {
-    const list = document.getElementById("postList");
-    list.innerHTML = "";
-    snap.forEach(d => {
-      const p = d.data();
-      const div = document.createElement("div");
-      div.className = "post-card";
-
-      let imgHtml = "";
-      if (p.images && Array.isArray(p.images)) {
-        imgHtml = p.images.map(url => `<img src="${url}" style="max-width:150px;margin:5px;">`).join("");
-      }
-
-      // 내용 요약 (100자까지만 표시)
-      const plainText = p.content.replace(/<[^>]+>/g, "");
-      const shortText = plainText.length > 100 ? plainText.substring(0, 100) + "..." : plainText;
-
-      div.innerHTML = `
-        <h3><a href="post.html?id=${d.id}">${p.title}</a></h3>
-        <p>${shortText}</p>
-        ${imgHtml}
-        <a href="post.html?id=${d.id}">자세히 보기 →</a><br>
-        <small>작성자: ${p.author ?? "익명"} | ${p.time?.toDate?.().toLocaleString()}</small>
-      `;
-      list.appendChild(div);
-    });
+// 글쓰기 취소 버튼
+const cancelBtn = document.getElementById("cancelBtn");
+if (cancelBtn) {
+  cancelBtn.addEventListener("click", () => {
+    if (confirm("작성 중인 글을 취소하고 메인으로 돌아가시겠습니까?")) {
+      window.location.href = "index.html";
+    }
   });
+}
 
-  // 글 작성 버튼
-  document.getElementById("postBtn").addEventListener("click", async () => {
+// 미리보기 버튼
+const previewBtn = document.getElementById("previewBtn");
+if (previewBtn) {
+  previewBtn.addEventListener("click", () => {
     const title = document.getElementById("postTitle").value.trim();
     const content = quill.root.innerHTML;
     const files = document.getElementById("images").files;
 
-    if (!title || !content) return alert("제목과 내용을 입력하세요");
-    if (files.length > 3) return alert("사진은 최대 3장까지 첨부 가능합니다");
-
-    const imageUrls = [];
+    let imgHtml = "";
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      const storageRef = ref(storage, `posts/${Date.now()}_${file.name}`);
-      await uploadBytes(storageRef, file);
-      const url = await getDownloadURL(storageRef);
-      imageUrls.push(url);
+      const url = URL.createObjectURL(file);
+      imgHtml += `<img src="${url}" style="max-width:200px;margin:5px;">`;
     }
 
-    await addDoc(postsRef, {
-      uid: currentUser.uid,
-      author: userData.nickname,
-      title,
-      content,
-      images: imageUrls,
-      time: serverTimestamp()
-    });
-
-    alert("글이 게시되었습니다!");
-
-    // 입력값 초기화
-    document.getElementById("postTitle").value = "";
-    quill.root.innerHTML = "";
-    document.getElementById("images").value = "";
-
-    // ✅ 글 작성 후 index.html로 이동
-    window.location.href = "index.html";
+    const previewArea = document.getElementById("previewArea");
+    previewArea.style.display = "block";
+    previewArea.innerHTML = `
+      <h3>${title || "(제목 없음)"}</h3>
+      <div>${content || "(내용 없음)"}</div>
+      ${imgHtml}
+    `;
   });
-
-  // 글쓰기 취소 버튼
-  const cancelBtn = document.getElementById("cancelBtn");
-  if (cancelBtn) {
-    cancelBtn.addEventListener("click", () => {
-      if (confirm("작성 중인 글을 취소하고 메인으로 돌아가시겠습니까?")) {
-        window.location.href = "index.html";
-      }
-    });
-  }
-
-  // ✅ 미리보기 버튼
-  const previewBtn = document.getElementById("previewBtn");
-  if (previewBtn) {
-    previewBtn.addEventListener("click", () => {
-      const title = document.getElementById("postTitle").value.trim();
-      const content = quill.root.innerHTML;
-      const files = document.getElementById("images").files;
-
-      let imgHtml = "";
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const url = URL.createObjectURL(file);
-        imgHtml += `<img src="${url}" style="max-width:200px;margin:5px;">`;
-      }
-
-      const previewArea = document.getElementById("previewArea");
-      previewArea.style.display = "block";
-      previewArea.innerHTML = `
-        <h3>${title || "(제목 없음)"}</h3>
-        <div>${content || "(내용 없음)"}</div>
-        ${imgHtml}
-      `;
-    });
-  }
 }
+
+// 페이지 로드 시 글 목록 불러오기
+initPosts();
