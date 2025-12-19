@@ -1,4 +1,3 @@
-// js/wiki.js
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import {
   getFirestore,
@@ -10,7 +9,8 @@ import {
   addDoc,
   onSnapshot,
   serverTimestamp,
-  increment
+  increment,
+  deleteDoc
 } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
 
 /* =========================
@@ -29,96 +29,127 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 /* =========================
-   메인 초기화 함수
+   필터 & 설정
+========================= */
+const BAD_WORDS = ["씨발","시발","병신","ㅅㅂ","ㅂㅅ","좆","지랄"];
+const AD_WORDS = ["http","www",".com",".kr","카톡","텔레그램","광고","구매","판매"];
+const MIN_LEN = 5;
+const MAX_LEN = 200;
+const REPORT_LIMIT = 3;
+const ADMIN_CODE = "1234"; // 🔐 관리자 코드
+
+/* =========================
+   메인 초기화
 ========================= */
 export function initWiki(pageId) {
-  /* ---------- ❤️ 좋아요 ---------- */
+
+  /* ❤️ 좋아요 */
   const likeRef = doc(db, "wiki", pageId);
 
-  getDoc(likeRef).then((snap) => {
-    if (!snap.exists()) {
-      setDoc(likeRef, { likes: 0 });
-    }
+  getDoc(likeRef).then(snap => {
+    if (!snap.exists()) setDoc(likeRef, { likes: 0 });
   });
 
-  onSnapshot(likeRef, (snap) => {
+  onSnapshot(likeRef, snap => {
     if (!snap.exists()) return;
-    const data = snap.data();
-    const likeEl = document.getElementById("likeCount");
-    if (likeEl) likeEl.textContent = data.likes ?? 0;
+    document.getElementById("likeCount").textContent = snap.data().likes ?? 0;
   });
 
-  window.like = async function () {
-    const user = document.getElementById("username")?.value.trim();
-    if (!user) {
-      alert("닉네임을 입력하세요");
-      return;
-    }
+  window.like = async () => {
+    const user = document.getElementById("username").value.trim();
+    if (!user) return alert("닉네임 입력");
     await updateDoc(likeRef, { likes: increment(1) });
   };
 
-  /* ---------- 📝 기여 ---------- */
+  /* 📝 기여 */
   const contribRef = collection(db, "wiki", pageId, "contributions");
 
-  onSnapshot(contribRef, (snapshot) => {
-    const list = document.getElementById("contributions");
-    if (!list) return;
-    list.innerHTML = "";
-    snapshot.forEach((doc) => {
+  onSnapshot(contribRef, snapshot => {
+    const ul = document.getElementById("contributions");
+    ul.innerHTML = "";
+
+    snapshot.forEach(d => {
+      const data = d.data();
       const li = document.createElement("li");
-      li.textContent = `${doc.data().user}: ${doc.data().text}`;
-      list.appendChild(li);
+
+      const reports = data.reports ?? 0;
+      const hidden = reports >= REPORT_LIMIT;
+
+      li.innerHTML = `
+        <b>${data.user}</b> :
+        ${hidden ? "<i>[신고로 숨김 처리됨]</i>" : data.text}
+        <br>
+        <button onclick="reportPost('${pageId}','${d.id}')">🚨 신고 (${reports})</button>
+        <button onclick="adminDelete('${pageId}','${d.id}')">❌</button>
+      `;
+
+      ul.appendChild(li);
     });
   });
 
-  window.addContribution = async function () {
-    const user = document.getElementById("contributor")?.value.trim();
-    const text = document.getElementById("content")?.value.trim();
-    if (!user || !text) {
-      alert("닉네임과 내용을 입력하세요");
-      return;
-    }
+  window.addContribution = async () => {
+    const user = document.getElementById("contributor").value.trim();
+    const text = document.getElementById("content").value.trim();
+
+    if (!user || !text) return alert("닉네임/내용 입력");
+
+    const err = filterText(text);
+    if (err) return alert(err);
 
     await addDoc(contribRef, {
       user,
       text,
+      reports: 0,
       time: serverTimestamp()
     });
 
     document.getElementById("content").value = "";
   };
-
-  /* ---------- 🔍 검색 ---------- */
-  setupSearch();
 }
 
 /* =========================
-   검색 기능
+   필터
 ========================= */
-function setupSearch() {
-  const input = document.getElementById("searchInput");
-  const resultBox = document.getElementById("searchResults");
-  if (!input || !resultBox) return;
+function filterText(text) {
+  const t = text.toLowerCase();
 
-  const pages = [
-  { title: "크레스티드 게코", url: "/species/crested_gecko.html" },
-  { title: "데이게코", url: "/species/day_gecko.html" },
-  { title: "레오파드 게코", url: "/species/leopard_gecko.html" }
-];
+  if (BAD_WORDS.some(w => t.includes(w)))
+    return "욕설이 포함되어 있습니다.";
 
-  input.addEventListener("input", () => {
-    const q = input.value.trim().toLowerCase();
-    resultBox.innerHTML = "";
-    if (!q) return;
+  if (AD_WORDS.some(w => t.includes(w)))
+    return "광고/홍보 글은 금지입니다.";
 
-    pages
-      .filter(p => p.title.toLowerCase().includes(q))
-      .forEach(p => {
-        const a = document.createElement("a");
-        a.href = p.url;
-        a.textContent = p.title;
-        a.style.display = "block";
-        resultBox.appendChild(a);
-      });
-  });
+  if (text.length < MIN_LEN)
+    return `최소 ${MIN_LEN}자 이상 입력하세요.`;
+
+  if (text.length > MAX_LEN)
+    return `최대 ${MAX_LEN}자까지만 가능합니다.`;
+
+  if (/(.)\1{4,}/.test(text))
+    return "의미없는 반복 문자입니다.";
+
+  return null;
 }
+
+/* =========================
+   🚨 신고
+========================= */
+window.reportPost = async (pageId, postId) => {
+  const ref = doc(db, "wiki", pageId, "contributions", postId);
+  await updateDoc(ref, { reports: increment(1) });
+  alert("신고되었습니다.");
+};
+
+/* =========================
+   🔐 관리자 삭제
+========================= */
+window.adminDelete = async (pageId, postId) => {
+  const code = prompt("관리자 코드 입력");
+  if (code !== ADMIN_CODE) {
+    alert("코드 틀림");
+    return;
+  }
+
+  await deleteDoc(doc(db, "wiki", pageId, "contributions", postId));
+  alert("삭제 완료");
+};
