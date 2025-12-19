@@ -68,4 +68,38 @@
 </script>
 
 </body>
+</html>  <h2>📌 기본 정보</h2>
+  <ul>
+    <li>학명: Phelsuma spp.</li>
+    <li>서식지: 마다가스카르</li>
+    <li>수명: 약 10~15년</li>
+    <li>활동성: 주행성</li>
+  </ul>
+
+  <hr>
+
+  <h2>❤️ 좋아요</h2>
+  <input id="username" placeholder="닉네임">
+  <button onclick="like()">❤️</button>
+  <p>하트 수: <span id="likeCount">0</span></p>
+
+  <hr>
+
+  <h2>📝 사용자 기여</h2>
+  <input id="contributor" placeholder="닉네임"><br><br>
+  <textarea id="content"></textarea><br>
+  <button onclick="addContribution()">기여하기</button>
+
+  <ul id="contributions"></ul>
+
+  <!-- ✅ 공통 JS 불러오기 -->
+<script type="module" src="../js/wiki.js"></script>
+<script>
+  // 페이지 ID를 day_gecko로 맞추기
+  window.addEventListener("DOMContentLoaded", () => {
+    initWiki("day_gecko");
+  });
+</script>
+
+</body>
 </html>
