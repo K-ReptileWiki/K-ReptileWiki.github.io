@@ -4,6 +4,7 @@ body {
   background:#f9f9f9; 
 }
 
+/* 글쓰기 에디터 영역 */
 .editor-container { 
   background:#fff; 
   padding:20px; 
@@ -27,6 +28,7 @@ body {
   border-radius:6px; 
 }
 
+/* 버튼 공통 스타일 */
 button { 
   padding:8px 16px; 
   border:none; 
@@ -46,7 +48,7 @@ button:hover { background:#1e40af; }
   .ql-toolbar button { padding: 4px; }
 }
 
-/* 글 카드 스타일 */
+/* 글 카드 스타일 (목록) */
 .post-card { 
   background:#fff; 
   padding:15px; 
@@ -56,3 +58,26 @@ button:hover { background:#1e40af; }
 }
 .post-card h3 a { color:#2563eb; text-decoration:none; }
 .post-card h3 a:hover { text-decoration:underline; }
+
+/* 상세 글 보기 이미지 */
+.post-image {
+  max-width: 300px;
+  margin: 10px;
+  border-radius: 8px;
+  box-shadow:0 1px 4px rgba(0,0,0,0.1);
+}
+
+/* 댓글 카드 */
+.comment-card {
+  background:#fff;
+  padding:10px;
+  margin:8px 0;
+  border-radius:6px;
+  border:1px solid #ddd;
+}
+.comment-card p {
+  margin:0 0 5px 0;
+}
+.comment-card small {
+  color:#555;
+}
