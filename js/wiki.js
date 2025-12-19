@@ -1,5 +1,40 @@
+import {
+  getFirestore, doc, getDoc, setDoc, updateDoc,
+  onSnapshot, collection, addDoc, serverTimestamp, increment
+} from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
+import {
+  getAuth, onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+
+// Firebase 초기화는 posts.js와 동일하게 되어 있다고 가정
+const db = getFirestore();
+const auth = getAuth();
+
+// 전역 사용자 상태
+let currentUser = null;
+let userData = { nickname: "익명", role: "user", lastPostAt: 0 };
+
+// 로그인 상태 감지
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    currentUser = user;
+    // Firestore에서 사용자 정보 가져오기 (없으면 기본값)
+    const userRef = doc(db, "users", user.uid);
+    const snap = await getDoc(userRef);
+    if (snap.exists()) {
+      userData = { ...userData, ...snap.data() };
+    } else {
+      await setDoc(userRef, userData);
+    }
+  }
+});
+
+// 🚀 위키 초기화 함수
 export function initWiki(pageId) {
-  if (!currentUser || !userData) return;
+  if (!currentUser || !userData) {
+    console.warn("사용자 정보가 아직 준비되지 않았습니다.");
+    return;
+  }
 
   /* ❤️ 좋아요 */
   const likeRef = doc(db, "wiki", pageId);
@@ -14,7 +49,6 @@ export function initWiki(pageId) {
       document.getElementById("likeCount").textContent = snap.data().likes ?? 0;
   });
 
-  // 버튼 활성화 및 이벤트 연결
   const likeBtn = document.getElementById("likeBtn");
   likeBtn.disabled = false;
   likeBtn.addEventListener("click", async () => {
