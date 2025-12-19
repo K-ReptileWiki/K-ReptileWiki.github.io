@@ -98,4 +98,4 @@ function initPosts() {
     // ✅ 글 작성 후 index.html로 이동
     window.location.href = "index.html";
   });
-
+}
