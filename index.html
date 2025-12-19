@@ -8,6 +8,7 @@
     body { font-family: Arial, sans-serif; margin: 20px; }
     #searchResults div, #postList div {
       border:1px solid #ddd; padding:10px; margin:5px 0; border-radius:6px;
+      background:#fff;
     }
     button { padding:6px 12px; border:none; border-radius:6px; cursor:pointer; background:#2563eb; color:white; }
     button:hover { background:#1e40af; }
@@ -27,9 +28,9 @@
   <hr>
 
   <!-- 📚 종 링크 -->
-  <a href="/species/crested_gecko.html">크레스티드 게코</a><br>
-  <a href="/species/day_gecko.html">데이게코</a><br>
-  <a href="/species/leopard_gecko.html">레오파드 게코</a>
+  <a href="species/crested_gecko.html">크레스티드 게코</a><br>
+  <a href="species/day_gecko.html">데이게코</a><br>
+  <a href="species/leopard_gecko.html">레오파드 게코</a>
   <hr>
 
   <!-- 📝 글쓰기 버튼 -->
@@ -63,13 +64,16 @@
 
         let imgHtml = "";
         if (data.images && Array.isArray(data.images)) {
-          imgHtml = data.images.map(url => `<img src="${url}" style="max-width:200px;margin:5px;">`).join("");
+          imgHtml = data.images.map(url => `<img src="${url}" style="max-width:150px;margin:5px;">`).join("");
         }
 
-        // 글 제목에 링크 추가 (post.html?id=문서ID)
+        // 내용 요약 (100자까지만 표시)
+        const plainText = data.content.replace(/<[^>]+>/g, "");
+        const shortText = plainText.length > 100 ? plainText.substring(0, 100) + "..." : plainText;
+
         div.innerHTML = `
-          <h3><a href="/post.html?id=${docSnap.id}">${data.title}</a></h3>
-          <p>${data.content}</p>
+          <h3><a href="post.html?id=${docSnap.id}">${data.title}</a></h3>
+          <p>${shortText}</p>
           ${imgHtml}
           <small>작성자: ${data.author ?? "익명"} | ${data.time?.toDate?.().toLocaleString()}</small>
         `;
@@ -77,7 +81,7 @@
       });
     });
 
-    // 🔍 검색 기능
+    // 🔍 검색 기능 (제목 + 내용)
     document.getElementById("searchBtn").addEventListener("click", async () => {
       const keyword = document.getElementById("searchInput").value.trim().toLowerCase();
       const resultsDiv = document.getElementById("searchResults");
@@ -89,12 +93,16 @@
       snap.forEach(docSnap => {
         const data = docSnap.data();
         const title = data.title?.toLowerCase() ?? "";
+        const content = data.content?.toLowerCase() ?? "";
 
-        if (title.includes(keyword)) {
+        if (title.includes(keyword) || content.includes(keyword)) {
+          const plainText = data.content.replace(/<[^>]+>/g, "");
+          const shortText = plainText.length > 100 ? plainText.substring(0, 100) + "..." : plainText;
+
           const div = document.createElement("div");
           div.innerHTML = `
-            <h3><a href="/post.html?id=${docSnap.id}">${data.title}</a></h3>
-            <p>${data.content}</p>
+            <h3><a href="post.html?id=${docSnap.id}">${data.title}</a></h3>
+            <p>${shortText}</p>
             <small>작성자: ${data.author ?? "익명"} | ${data.time?.toDate?.().toLocaleString()}</small>
           `;
           resultsDiv.appendChild(div);
@@ -108,9 +116,7 @@
 
     // 📝 글쓰기 버튼
     document.getElementById("writeBtn").addEventListener("click", () => {
-      if (confirm("글쓰기 페이지로 이동할까요?")) {
-        location.href = "/posts.html";
-      }
+      location.href = "posts.html";
     });
   </script>
 </body>
