@@ -2,45 +2,122 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>글 상세보기 | K-ReptileWiki</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>글 상세 보기</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h1 id="postTitle"></h1>
-  <div id="postContent"></div>
-  <div id="postImages"></div>
-  <small id="postMeta"></small>
+  <div id="postArea">로딩 중...</div>
 
-  <p><a href="index.html">← 메인으로 돌아가기</a></p>
+  <hr>
+
+  <!-- 댓글 입력 -->
+  <h3>댓글</h3>
+  <textarea id="commentInput" placeholder="댓글을 입력하세요"></textarea><br>
+  <button id="commentBtn">댓글 작성</button>
+
+  <!-- 댓글 목록 -->
+  <div id="commentList">댓글 로딩 중...</div>
 
   <script type="module">
-    import { db } from "./js/firebase.js";
-    import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
-    const params = new URLSearchParams(window.location.search);
+    const supabase = createClient(
+      "https://cpaikpjzlzzujwfgnanb.supabase.co",
+      "sb_publishable_-dZ6xDssPQs29A_hHa2Irw_WxZ24NxB"
+    );
+
+    // URL에서 글 ID 추출
+    const params = new URLSearchParams(location.search);
     const postId = params.get("id");
 
-    if (postId) {
-      const postRef = doc(db, "wiki_posts", postId);
-      const snap = await getDoc(postRef);
-      if (snap.exists()) {
-        const data = snap.data();
-        document.getElementById("postTitle").textContent = data.title;
-        document.getElementById("postContent").innerHTML = data.content;
-        document.getElementById("postMeta").textContent =
-          `작성자: ${data.author ?? "익명"} | ${data.time?.toDate?.().toLocaleString()}`;
+    // 글 불러오기
+    async function loadPost() {
+      const { data, error } = await supabase
+        .from("wiki_posts")
+        .select("*")
+        .eq("id", postId)
+        .single();
 
-        if (data.images && Array.isArray(data.images)) {
-          document.getElementById("postImages").innerHTML =
-            data.images.map(url => `<img src="${url}" style="max-width:200px;margin:5px;">`).join("");
-        }
-      } else {
-        document.body.innerHTML = "<p>❌ 해당 글을 찾을 수 없습니다.</p>";
+      const postArea = document.getElementById("postArea");
+
+      if (error || !data) {
+        postArea.innerHTML = `<p>글을 불러올 수 없습니다.</p>`;
+        console.error("불러오기 실패:", error?.message);
+        return;
       }
-    } else {
-      document.body.innerHTML = "<p>❌ 글 ID가 없습니다.</p>";
+
+      let imgHtml = "";
+      if (data.images && Array.isArray(data.images)) {
+        imgHtml = data.images.map(url => `<img src="${url}" style="max-width:300px;margin:10px;">`).join("");
+      }
+
+      postArea.innerHTML = `
+        <h2>${data.title}</h2>
+        <div>${data.content}</div>
+        ${imgHtml}
+        <p><small>작성자: ${data.author ?? "익명"} | ${new Date(data.time).toLocaleString()}</small></p>
+        <a href="index.html">← 목록으로 돌아가기</a>
+      `;
     }
+
+    // 댓글 불러오기
+    async function loadComments() {
+      const { data, error } = await supabase
+        .from("wiki_comments")
+        .select("*")
+        .eq("post_id", postId)
+        .order("time", { ascending: true });
+
+      const list = document.getElementById("commentList");
+      list.innerHTML = "";
+
+      if (error) {
+        list.innerHTML = "<p>댓글을 불러올 수 없습니다.</p>";
+        console.error(error.message);
+        return;
+      }
+
+      if (data.length === 0) {
+        list.innerHTML = "<p>아직 댓글이 없습니다.</p>";
+        return;
+      }
+
+      data.forEach(c => {
+        const div = document.createElement("div");
+        div.className = "comment-card";
+        div.innerHTML = `
+          <p>${c.content}</p>
+          <small>${c.author ?? "익명"} | ${new Date(c.time).toLocaleString()}</small>
+        `;
+        list.appendChild(div);
+      });
+    }
+
+    // 댓글 작성
+    document.getElementById("commentBtn").addEventListener("click", async () => {
+      const content = document.getElementById("commentInput").value.trim();
+      if (!content) return alert("댓글을 입력하세요");
+
+      const { error } = await supabase
+        .from("wiki_comments")
+        .insert([{ 
+          post_id: postId, 
+          content, 
+          author: "익명", 
+          time: new Date().toISOString() 
+        }]);
+
+      if (error) {
+        alert("댓글 등록 실패: " + error.message);
+      } else {
+        document.getElementById("commentInput").value = "";
+        loadComments(); // 새로고침
+      }
+    });
+
+    // 페이지 로드 시 실행
+    loadPost();
+    loadComments();
   </script>
 </body>
 </html>
-
