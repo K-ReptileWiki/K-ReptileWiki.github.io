@@ -7,50 +7,8 @@
   <!-- Quill 에디터 -->
   <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
   <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 20px; background:#f9f9f9; }
-    .editor-container { background:#fff; padding:20px; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.1); }
-    #editor { height: 300px; }
-    .preview { margin-top:20px; padding:15px; background:#fff; border:1px solid #ddd; border-radius:8px; }
-    .images-preview img { max-width:150px; margin:5px; border-radius:6px; }
-    button { padding:8px 16px; border:none; border-radius:6px; cursor:pointer; background:#2563eb; color:white; }
-    button:hover { background:#1e40af; }
-
-    /* ✅ 반응형 Quill 툴바 */
-    .ql-toolbar {
-      padding-bottom: 6px;
-    }
-    .ql-toolbar button,
-    .ql-toolbar .ql-picker {
-      margin-right: 4px;
-    }
-    @media (max-width: 600px) {
-      .ql-toolbar {
-        overflow-x: auto;       /* 모바일에서 가로 스크롤 허용 */
-        white-space: nowrap;    /* 줄바꿈 방지 */
-        font-size: 14px;
-      }
-      .ql-toolbar button {
-        padding: 4px;
-      }
-    }
-
-    /* 글 카드 스타일 */
-    .post-card {
-      background:#fff;
-      padding:15px;
-      margin-bottom:15px;
-      border-radius:8px;
-      box-shadow:0 1px 4px rgba(0,0,0,0.1);
-    }
-    .post-card h3 a {
-      color:#2563eb;
-      text-decoration:none;
-    }
-    .post-card h3 a:hover {
-      text-decoration:underline;
-    }
-  </style>
+  <!-- ✅ 외부 CSS -->
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <h1>🦎 K-ReptileWiki 글쓰기</h1>
