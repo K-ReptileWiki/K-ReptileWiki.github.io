@@ -1,155 +1,125 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import {
-  getFirestore,
-  doc,
-  getDoc,
-  setDoc,
-  updateDoc,
-  collection,
-  addDoc,
-  onSnapshot,
-  serverTimestamp,
-  increment,
-  deleteDoc
+  getFirestore, doc, getDoc, setDoc, updateDoc,
+  collection, addDoc, onSnapshot, serverTimestamp,
+  increment, deleteDoc, getDocs
 } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
 
-/* =========================
-   Firebase 설정
-========================= */
-const firebaseConfig = {
+import {
+  getAuth, signInAnonymously, onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+
+/* Firebase */
+const app = initializeApp({
   apiKey: "AIzaSyDfrvgcAed9VvS5MFXVZFIxch8aCAfMp1w",
   authDomain: "k-reptilewiki-1f09f.firebaseapp.com",
-  projectId: "k-reptilewiki-1f09f",
-  storageBucket: "k-reptilewiki-1f09f.appspot.com",
-  messagingSenderId: "557869324836",
-  appId: "1:557869324836:web:3eda21e6ba0333422856b1"
-};
+  projectId: "k-reptilewiki-1f09f"
+});
 
-const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const auth = getAuth(app);
 
-/* =========================
-   필터 & 설정
-========================= */
+/* 필터 */
 const BAD_WORDS = ["씨발","시발","병신","ㅅㅂ","ㅂㅅ","좆","지랄"];
-const AD_WORDS = ["http","www",".com",".kr","카톡","텔레그램","광고","구매","판매"];
-const MIN_LEN = 5;
-const MAX_LEN = 200;
-const REPORT_LIMIT = 3;
-const ADMIN_CODE = "1234"; // 🔐 관리자 코드
+const POST_COOLDOWN = 30 * 1000;
 
-/* =========================
-   메인 초기화
-========================= */
-export function initWiki(pageId) {
+/* 로그인 */
+signInAnonymously(auth);
+
+let currentUser = null;
+let userData = null;
+
+onAuthStateChanged(auth, async user => {
+  if (!user) return;
+  currentUser = user;
+
+  const ref = doc(db, "users", user.uid);
+  const snap = await getDoc(ref);
+
+  if (!snap.exists()) {
+    const nick = prompt("닉네임을 정하세요 (변경 불가)");
+    await setDoc(ref, {
+      nickname: nick,
+      role: "user",
+      bannedUntil: null,
+      lastPostAt: 0
+    });
+  }
+
+  userData = (await getDoc(ref)).data();
+});
+
+/* 초기화 */
+export async function initWiki(pageId) {
 
   /* ❤️ 좋아요 */
   const likeRef = doc(db, "wiki", pageId);
-
-  getDoc(likeRef).then(snap => {
-    if (!snap.exists()) setDoc(likeRef, { likes: 0 });
-  });
+  const likeUserRef = doc(db, "wiki", pageId, "likesBy", currentUser.uid);
 
   onSnapshot(likeRef, snap => {
-    if (!snap.exists()) return;
-    document.getElementById("likeCount").textContent = snap.data().likes ?? 0;
+    if (snap.exists())
+      document.getElementById("likeCount").textContent = snap.data().likes ?? 0;
   });
 
   window.like = async () => {
-    const user = document.getElementById("username").value.trim();
-    if (!user) return alert("닉네임 입력");
+    if ((await getDoc(likeUserRef)).exists()) {
+      alert("이미 좋아요를 눌렀습니다");
+      return;
+    }
+    await setDoc(likeUserRef, { time: serverTimestamp() });
     await updateDoc(likeRef, { likes: increment(1) });
   };
 
-  /* 📝 기여 */
+  /* 📝 글 작성 */
   const contribRef = collection(db, "wiki", pageId, "contributions");
 
-  onSnapshot(contribRef, snapshot => {
+  onSnapshot(contribRef, snap => {
     const ul = document.getElementById("contributions");
     ul.innerHTML = "";
-
-    snapshot.forEach(d => {
-      const data = d.data();
-      const li = document.createElement("li");
-
-      const reports = data.reports ?? 0;
-      const hidden = reports >= REPORT_LIMIT;
-
-      li.innerHTML = `
-        <b>${data.user}</b> :
-        ${hidden ? "<i>[신고로 숨김 처리됨]</i>" : data.text}
-        <br>
-        <button onclick="reportPost('${pageId}','${d.id}')">🚨 신고 (${reports})</button>
-        <button onclick="adminDelete('${pageId}','${d.id}')">❌</button>
-      `;
-
-      ul.appendChild(li);
+    snap.forEach(d => {
+      const p = d.data();
+      ul.innerHTML += `
+        <li>
+          <b>${p.user}</b>: ${p.text}
+          <button onclick="report('${pageId}','${d.id}')">🚨</button>
+          ${userData.role === "admin"
+            ? `<button onclick="del('${pageId}','${d.id}')">❌</button>` : ""}
+        </li>`;
     });
   });
 
   window.addContribution = async () => {
-    const user = document.getElementById("contributor").value.trim();
-    const text = document.getElementById("content").value.trim();
+    const text = content.value.trim();
+    if (BAD_WORDS.some(w => text.includes(w))) return alert("욕설 금지");
 
-    if (!user || !text) return alert("닉네임/내용 입력");
-
-    const err = filterText(text);
-    if (err) return alert(err);
+    const now = Date.now();
+    if (now - userData.lastPostAt < POST_COOLDOWN)
+      return alert("도배 방지: 잠시 후 다시");
 
     await addDoc(contribRef, {
-      user,
+      uid: currentUser.uid,
+      user: userData.nickname,
       text,
       reports: 0,
       time: serverTimestamp()
     });
 
-    document.getElementById("content").value = "";
+    await updateDoc(doc(db, "users", currentUser.uid), {
+      lastPostAt: now
+    });
+
+    content.value = "";
   };
 }
 
-/* =========================
-   필터
-========================= */
-function filterText(text) {
-  const t = text.toLowerCase();
-
-  if (BAD_WORDS.some(w => t.includes(w)))
-    return "욕설이 포함되어 있습니다.";
-
-  if (AD_WORDS.some(w => t.includes(w)))
-    return "광고/홍보 글은 금지입니다.";
-
-  if (text.length < MIN_LEN)
-    return `최소 ${MIN_LEN}자 이상 입력하세요.`;
-
-  if (text.length > MAX_LEN)
-    return `최대 ${MAX_LEN}자까지만 가능합니다.`;
-
-  if (/(.)\1{4,}/.test(text))
-    return "의미없는 반복 문자입니다.";
-
-  return null;
-}
-
-/* =========================
-   🚨 신고
-========================= */
-window.reportPost = async (pageId, postId) => {
-  const ref = doc(db, "wiki", pageId, "contributions", postId);
-  await updateDoc(ref, { reports: increment(1) });
-  alert("신고되었습니다.");
+/* 🚨 신고 */
+window.report = async (pageId, postId) => {
+  await updateDoc(doc(db, "wiki", pageId, "contributions", postId),
+    { reports: increment(1) });
 };
 
-/* =========================
-   🔐 관리자 삭제
-========================= */
-window.adminDelete = async (pageId, postId) => {
-  const code = prompt("관리자 코드 입력");
-  if (code !== ADMIN_CODE) {
-    alert("코드 틀림");
-    return;
-  }
-
+/* ❌ 관리자 삭제 */
+window.del = async (pageId, postId) => {
+  if (userData.role !== "admin") return;
   await deleteDoc(doc(db, "wiki", pageId, "contributions", postId));
-  alert("삭제 완료");
 };
