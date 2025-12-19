@@ -8,6 +8,10 @@ import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/fi
 let currentUser = null;
 let userData = { nickname: "익명", role: "user", lastPostAt: 0 };
 
+// ✅ 욕설 필터와 도배 방지 시간 정의
+const BAD_WORDS = ["시발", "병신", "ㅅㅂ", "ㅂㅅ", "애미", 애미 뒤짐"]; 
+const POST_COOLDOWN = 30000; // 30초
+
 onAuthStateChanged(auth, async (user) => {
   if (user) {
     currentUser = user;
@@ -43,15 +47,17 @@ export async function initWiki(pageId) {
   });
 
   const likeBtn = document.getElementById("likeBtn");
-  likeBtn.disabled = false;
-  likeBtn.addEventListener("click", async () => {
-    if ((await getDoc(likeUserRef)).exists()) {
-      alert("이미 좋아요를 눌렀습니다");
-      return;
-    }
-    await setDoc(likeUserRef, { time: serverTimestamp() });
-    await updateDoc(likeRef, { likes: increment(1) });
-  });
+  if (likeBtn) {
+    likeBtn.disabled = false;
+    likeBtn.addEventListener("click", async () => {
+      if ((await getDoc(likeUserRef)).exists()) {
+        alert("이미 좋아요를 눌렀습니다");
+        return;
+      }
+      await setDoc(likeUserRef, { time: serverTimestamp() });
+      await updateDoc(likeRef, { likes: increment(1) });
+    });
+  }
 
   /* 📝 글 */
   const contribRef = collection(db, "wiki", pageId, "contributions");
@@ -80,11 +86,11 @@ export async function initWiki(pageId) {
     if (!text) return;
 
     if (BAD_WORDS.some(w => text.includes(w)))
-      return alert("욕설은 금지입니다");
+      return alert("욕설/비속어는 금지입니다");
 
     const now = Date.now();
     if (now - userData.lastPostAt < POST_COOLDOWN)
-      return alert("도배 방지: 잠시 후 다시");
+      return alert("도배 방지: 잠시 후 다시시도 해 주세요.");
 
     await addDoc(contribRef, {
       uid: currentUser.uid,
@@ -99,5 +105,18 @@ export async function initWiki(pageId) {
     });
 
     document.getElementById("content").value = "";
+  };
+
+  // ✅ report / del 함수 기본 정의
+  window.report = async (pageId, contribId) => {
+    const contribDoc = doc(db, "wiki", pageId, "contributions", contribId);
+    await updateDoc(contribDoc, { reports: increment(1) });
+    alert("신고가 접수되었습니다");
+  };
+
+  window.del = async (pageId, contribId) => {
+    const contribDoc = doc(db, "wiki", pageId, "contributions", contribId);
+    await updateDoc(contribDoc, { deleted: true });
+    alert("삭제되었습니다");
   };
 }
