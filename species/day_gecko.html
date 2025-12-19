@@ -86,11 +86,10 @@
   <a href="../index.html">← 메인으로</a>
 </main>
 
-<!-- ✅ 반드시 이 형식으로 -->
-<script type="module">
-  import { initWiki } from "../js/wiki.js";
-  initWiki("day_gecko");
+<script>
+  window.__PAGE_ID__ = "day_gecko"; // 페이지마다 다르게
 </script>
+<script type="module" src="../js/wiki.js"></script>
 
 </body>
 </html>
