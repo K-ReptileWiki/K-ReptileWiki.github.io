@@ -100,12 +100,10 @@
 </main>
 
 <!-- ✅ 공통 JS 불러오기 + 초기화 -->
-<script type="module">
-  import { initWiki } from "../js/wiki.js";
-
-  window.addEventListener("DOMContentLoaded", () => {
-    initWiki("crested_gecko");
-  });
+<script>
+  window.__PAGE_ID__ = "crested_gecko"; // 페이지마다 다르게
+</script>
+<script type="module" src="../js/wiki.js"></script>
 </script>
 </body>
 </html>
