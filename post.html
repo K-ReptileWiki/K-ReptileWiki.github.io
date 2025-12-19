@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>글 상세보기 | K-ReptileWiki</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+  <h1 id="postTitle"></h1>
+  <div id="postContent"></div>
+  <div id="postImages"></div>
+  <small id="postMeta"></small>
+
+  <p><a href="index.html">← 메인으로 돌아가기</a></p>
+
+  <script type="module">
+    import { db } from "./js/firebase.js";
+    import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
+
+    const params = new URLSearchParams(window.location.search);
+    const postId = params.get("id");
+
+    if (postId) {
+      const postRef = doc(db, "wiki_posts", postId);
+      const snap = await getDoc(postRef);
+      if (snap.exists()) {
+        const data = snap.data();
+        document.getElementById("postTitle").textContent = data.title;
+        document.getElementById("postContent").innerHTML = data.content;
+        document.getElementById("postMeta").textContent =
+          `작성자: ${data.author ?? "익명"} | ${data.time?.toDate?.().toLocaleString()}`;
+
+        if (data.images && Array.isArray(data.images)) {
+          document.getElementById("postImages").innerHTML =
+            data.images.map(url => `<img src="${url}" style="max-width:200px;margin:5px;">`).join("");
+        }
+      } else {
+        document.body.innerHTML = "<p>❌ 해당 글을 찾을 수 없습니다.</p>";
+      }
+    } else {
+      document.body.innerHTML = "<p>❌ 글 ID가 없습니다.</p>";
+    }
+  </script>
+</body>
+</html>
+
