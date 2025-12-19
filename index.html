@@ -1,38 +1,28 @@
 <!DOCTYPE html>
 <html lang="ko">
-<head>
-  <meta charset="UTF-8">
-  <title>K-ReptileWiki</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <style>
-    body { font-family: sans-serif; margin: 20px; }
-    #searchResults a { text-decoration: none; color: #333; }
-    #searchResults a:hover { background: #f0f0f0; }
-  </style>
-</head>
 <body>
-  <h1>🦎 K-ReptileWiki</h1>
-  <input id="searchInput" type="text" placeholder="검색어를 입력하세요" />
-  <div id="searchResults"></div>
+<h1>🦎 K-ReptileWiki</h1>
 
-  <h2>❤️ 좋아요</h2>
-  <input id="username" type="text" placeholder="닉네임 입력" />
-  <button onclick="like()">좋아요</button>
-  <p>좋아요 수: <span id="likeCount">0</span></p>
+<a href="pages/crested.html">크레스티드 게코</a><br>
+<a href="pages/day.html">데이게코</a><br>
+<a href="pages/leopard.html">레오파드 게코</a>
 
-  <h2>📝 기여</h2>
-  <input id="contributor" type="text" placeholder="닉네임 입력" />
-  <textarea id="content" placeholder="내용 입력"></textarea>
-  <button onclick="addContribution()">추가</button>
-  <ul id="contributions"></ul>
+<hr>
 
-  <!-- ✅ 공통 JS 불러오기 -->
-  <script type="module" src="js/wiki.js"></script>
-  <script>
-    // 메인 페이지 ID 연결
-    window.addEventListener("DOMContentLoaded", () => {
-      initWiki("mainPage");
-    });
-  </script>
+<input id="username" placeholder="닉네임">
+<button onclick="like()">❤️</button>
+<span id="likeCount">0</span>
+
+<hr>
+
+<input id="contributor" placeholder="닉네임"><br>
+<textarea id="content"></textarea><br>
+<button onclick="addContribution()">기여</button>
+<ul id="contributions"></ul>
+
+<script type="module">
+  import { initWiki } from "./js/wiki.js";
+  initWiki("main");
+</script>
 </body>
 </html>
