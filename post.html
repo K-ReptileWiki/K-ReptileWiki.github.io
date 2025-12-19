@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>K-ReptileWiki 글 작성</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- Quill 에디터 불러오기 -->
+  <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+  <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    #editor { height: 200px; background: #fff; }
+    .post-card { border:1px solid #ddd; padding:10px; margin-bottom:10px; border-radius:6px; background:#fafafa; }
+  </style>
+</head>
+<body>
+  <h1>🦎 K-ReptileWiki 글 작성</h1>
+
+  <input id="postTitle" placeholder="제목 입력" style="width:100%;padding:8px;"><br><br>
+  <div id="editor"></div><br>
+  <button id="postBtn" disabled>게시</button>
+
+  <hr>
+  <h2>📚 글 목록</h2>
+  <div id="postList"></div>
+
+  <script type="module" src="./js/posts.js"></script>
+</body>
+</html>
