@@ -1,15 +1,15 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import {
   getFirestore, doc, getDoc, setDoc, updateDoc,
-  collection, addDoc, onSnapshot, serverTimestamp,
-  increment, deleteDoc, getDocs
+  collection, addDoc, onSnapshot,
+  serverTimestamp, increment, deleteDoc
 } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
 
 import {
   getAuth, signInAnonymously, onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
 
-/* Firebase */
+/* ================= Firebase ================= */
 const app = initializeApp({
   apiKey: "AIzaSyDfrvgcAed9VvS5MFXVZFIxch8aCAfMp1w",
   authDomain: "k-reptilewiki-1f09f.firebaseapp.com",
@@ -19,42 +19,55 @@ const app = initializeApp({
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-/* 필터 */
+/* ================= 설정 ================= */
 const BAD_WORDS = ["씨발","시발","병신","ㅅㅂ","ㅂㅅ","좆","지랄"];
 const POST_COOLDOWN = 30 * 1000;
 
-/* 로그인 */
-signInAnonymously(auth);
-
+/* ================= 전역 상태 ================= */
 let currentUser = null;
 let userData = null;
+let wikiStarted = false;
 
-onAuthStateChanged(auth, async user => {
+/* ================= 로그인 ================= */
+signInAnonymously(auth);
+
+onAuthStateChanged(auth, async (user) => {
   if (!user) return;
-  currentUser = user;
 
-  const ref = doc(db, "users", user.uid);
-  const snap = await getDoc(ref);
+  currentUser = user;
+  const userRef = doc(db, "users", user.uid);
+  const snap = await getDoc(userRef);
 
   if (!snap.exists()) {
     const nick = prompt("닉네임을 정하세요 (변경 불가)");
-    await setDoc(ref, {
-      nickname: nick,
+    await setDoc(userRef, {
+      nickname: nick || "익명",
       role: "user",
       bannedUntil: null,
       lastPostAt: 0
     });
   }
 
-  userData = (await getDoc(ref)).data();
+  userData = (await getDoc(userRef)).data();
+
+  /* 🔥 로그인 완료 후 wiki 초기화 */
+  if (window.__PAGE_ID__ && !wikiStarted) {
+    wikiStarted = true;
+    initWiki(window.__PAGE_ID__);
+  }
 });
 
-/* 초기화 */
-export async function initWiki(pageId) {
+/* ================= 메인 ================= */
+export function initWiki(pageId) {
+  if (!currentUser || !userData) return;
 
   /* ❤️ 좋아요 */
   const likeRef = doc(db, "wiki", pageId);
   const likeUserRef = doc(db, "wiki", pageId, "likesBy", currentUser.uid);
+
+  getDoc(likeRef).then(snap => {
+    if (!snap.exists()) setDoc(likeRef, { likes: 0 });
+  });
 
   onSnapshot(likeRef, snap => {
     if (snap.exists())
@@ -70,27 +83,34 @@ export async function initWiki(pageId) {
     await updateDoc(likeRef, { likes: increment(1) });
   };
 
-  /* 📝 글 작성 */
+  /* 📝 글 */
   const contribRef = collection(db, "wiki", pageId, "contributions");
 
   onSnapshot(contribRef, snap => {
     const ul = document.getElementById("contributions");
     ul.innerHTML = "";
+
     snap.forEach(d => {
       const p = d.data();
-      ul.innerHTML += `
-        <li>
-          <b>${p.user}</b>: ${p.text}
-          <button onclick="report('${pageId}','${d.id}')">🚨</button>
-          ${userData.role === "admin"
-            ? `<button onclick="del('${pageId}','${d.id}')">❌</button>` : ""}
-        </li>`;
+      const li = document.createElement("li");
+
+      li.innerHTML = `
+        <b>${p.user}</b>: ${p.text}
+        <button onclick="report('${pageId}','${d.id}')">🚨</button>
+        ${userData.role === "admin"
+          ? `<button onclick="del('${pageId}','${d.id}')">❌</button>` : ""}
+      `;
+
+      ul.appendChild(li);
     });
   });
 
   window.addContribution = async () => {
     const text = content.value.trim();
-    if (BAD_WORDS.some(w => text.includes(w))) return alert("욕설 금지");
+    if (!text) return;
+
+    if (BAD_WORDS.some(w => text.includes(w)))
+      return alert("욕설은 금지입니다");
 
     const now = Date.now();
     if (now - userData.lastPostAt < POST_COOLDOWN)
@@ -112,13 +132,16 @@ export async function initWiki(pageId) {
   };
 }
 
-/* 🚨 신고 */
+/* ================= 신고 ================= */
 window.report = async (pageId, postId) => {
-  await updateDoc(doc(db, "wiki", pageId, "contributions", postId),
-    { reports: increment(1) });
+  await updateDoc(
+    doc(db, "wiki", pageId, "contributions", postId),
+    { reports: increment(1) }
+  );
+  alert("신고 완료");
 };
 
-/* ❌ 관리자 삭제 */
+/* ================= 관리자 삭제 ================= */
 window.del = async (pageId, postId) => {
   if (userData.role !== "admin") return;
   await deleteDoc(doc(db, "wiki", pageId, "contributions", postId));
