@@ -28,8 +28,8 @@
   <a href="/species/leopard_gecko.html">레오파드 게코</a>
   <hr>
 
-  <!-- 📝 글쓰기 버튼 -->
-  <button onclick="location.href='/posts.html'">📝 글쓰기</button>
+  <!-- 📝 글쓰기 버튼 (확인 메시지 추가) -->
+  <button id="writeBtn">📝 글쓰기</button>
 
   <!-- ✅ wiki.js 전체 로드 -->
   <script type="module">
@@ -49,6 +49,7 @@
     });
     const db = getFirestore(app);
 
+    // 검색 기능
     document.getElementById("searchBtn").addEventListener("click", async () => {
       const keyword = document.getElementById("searchInput").value.trim().toLowerCase();
       const resultsDiv = document.getElementById("searchResults");
@@ -74,6 +75,13 @@
 
       if (!resultsDiv.innerHTML) {
         resultsDiv.textContent = "검색 결과가 없습니다.";
+      }
+    });
+
+    // 글쓰기 버튼 확인 메시지
+    document.getElementById("writeBtn").addEventListener("click", () => {
+      if (confirm("글쓰기 페이지로 이동할까요?")) {
+        location.href = "/posts.html";
       }
     });
   </script>
