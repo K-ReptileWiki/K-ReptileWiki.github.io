@@ -46,13 +46,21 @@ export function initWiki(pageId) {
 
   // 좋아요 버튼 기능
   window.like = async function () {
-    const user = document.getElementById("username")?.value.trim();
-    if (!user) {
-      alert("닉네임 입력하세요");
-      return;
-    }
-    await updateDoc(likeRef, { likes: increment(1) });
-  };
+  const user = document.getElementById("username")?.value.trim();
+  if (!user) {
+    alert("닉네임 입력하세요");
+    return;
+  }
+
+  // 문서가 없으면 먼저 생성
+  const snap = await getDoc(likeRef);
+  if (!snap.exists()) {
+    await setDoc(likeRef, { likes: 0 });
+  }
+
+  // 그 다음 증가
+  await updateDoc(likeRef, { likes: increment(1) });
+};
 
   // 📝 사용자 기여
   const contribRef = collection(db, "wiki", pageId, "contributions");
