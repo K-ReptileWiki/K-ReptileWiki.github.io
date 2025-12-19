@@ -4,25 +4,78 @@
   <meta charset="UTF-8">
   <title>K-ReptileWiki</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    #searchResults div { border:1px solid #ddd; padding:10px; margin:5px 0; border-radius:6px; }
+    button { padding:6px 12px; border:none; border-radius:6px; cursor:pointer; background:#2563eb; color:white; }
+    button:hover { background:#1e40af; }
+  </style>
 </head>
 
 <body>
-<h1>🦎 K-ReptileWiki</h1>
+  <h1>🦎 K-ReptileWiki</h1>
 
-<hr>
-<input id="searchInput" placeholder="검색어 입력">
-<div id="searchResults"></div>
-<hr>
-<a href="/species/crested_gecko.html">크레스티드 게코</a><br>
-<a href="/species/day_gecko.html">데이게코</a><br>
-<a href="/species/leopard_gecko.html">레오파드 게코</a>
-<hr>
+  <hr>
+  <!-- 🔍 검색 -->
+  <input id="searchInput" placeholder="검색어 입력">
+  <button id="searchBtn">검색</button>
+  <div id="searchResults"></div>
+  <hr>
 
-<!-- ✅ wiki.js 전체 로드 -->
-<script type="module">
-  import { initWiki } from "./js/wiki.js";
-  initWiki("main");
-</script>
+  <!-- 📚 종 링크 -->
+  <a href="/species/crested_gecko.html">크레스티드 게코</a><br>
+  <a href="/species/day_gecko.html">데이게코</a><br>
+  <a href="/species/leopard_gecko.html">레오파드 게코</a>
+  <hr>
 
+  <!-- 📝 글쓰기 버튼 -->
+  <button onclick="location.href='/posts.html'">📝 글쓰기</button>
+
+  <!-- ✅ wiki.js 전체 로드 -->
+  <script type="module">
+    import { initWiki } from "./js/wiki.js";
+    initWiki("main");
+  </script>
+
+  <!-- 🔧 검색 기능 JS -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+    import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
+
+    const app = initializeApp({
+      apiKey: "AIzaSyDfrvgcAed9VvS5MFXVZFIxch8aCAfMp1w",
+      authDomain: "k-reptilewiki-1f09f.firebaseapp.com",
+      projectId: "k-reptilewiki-1f09f"
+    });
+    const db = getFirestore(app);
+
+    document.getElementById("searchBtn").addEventListener("click", async () => {
+      const keyword = document.getElementById("searchInput").value.trim().toLowerCase();
+      const resultsDiv = document.getElementById("searchResults");
+      resultsDiv.innerHTML = "";
+
+      if (!keyword) return;
+
+      const snap = await getDocs(collection(db, "wiki_posts"));
+      snap.forEach(docSnap => {
+        const data = docSnap.data();
+        const title = data.title?.toLowerCase() ?? "";
+
+        if (title.includes(keyword)) {
+          const div = document.createElement("div");
+          div.innerHTML = `
+            <h3>${data.title}</h3>
+            <p>${data.content}</p>
+            <small>작성자: ${data.author ?? "익명"} | ${data.time?.toDate?.().toLocaleString()}</small>
+          `;
+          resultsDiv.appendChild(div);
+        }
+      });
+
+      if (!resultsDiv.innerHTML) {
+        resultsDiv.textContent = "검색 결과가 없습니다.";
+      }
+    });
+  </script>
 </body>
 </html>
