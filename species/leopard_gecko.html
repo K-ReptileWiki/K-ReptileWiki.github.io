@@ -34,10 +34,10 @@
       margin-right: 5px;
       color: white;
     }
-    .easy { background: #16a34a; }
-    .safe { background: #2563eb; }
-    .ground { background: #92400e; }
-    h2 { margin-top: 30px; }
+    .easy { background:#22c55e; }
+    .safe { background:#2563eb; }
+    .ground { background:#92400e; }
+    .popular { background:#f59e0b; }
   </style>
 </head>
 
@@ -55,60 +55,44 @@
     <span class="badge easy">초보자용</span>
     <span class="badge safe">독 없음</span>
     <span class="badge ground">지상성</span>
+    <span class="badge popular">인기 종</span>
   </p>
 
   <h2>📌 기본 정보</h2>
   <ul>
     <li>학명: Eublepharis macularius</li>
-    <li>서식지: 파키스탄, 인도</li>
+    <li>서식지: 파키스탄, 인도, 아프가니스탄</li>
     <li>수명: 약 15~20년</li>
     <li>활동성: 야행성</li>
   </ul>
 
-  <h2>🌡️ 사육 환경</h2>
-  <ul>
-    <li>온도: 26~32℃</li>
-    <li>습도: 30~40%</li>
-    <li>은신처 필수</li>
-  </ul>
-
-  <h2>🪱 먹이</h2>
-  <ul>
-    <li>귀뚜라미</li>
-    <li>밀웜</li>
-    <li>슈퍼밀웜 (성체)</li>
-  </ul>
-
-  <h2>⚠️ 주의사항</h2>
-  <p>
-    바닥재로 모래 사용 ❌ (장폐색 위험)
-  </p>
-
-  <!-- ❤️ 좋아요 -->
   <hr>
+
   <h2>❤️ 좋아요</h2>
-  <input id="username" placeholder="닉네임 입력">
+  <input id="username" placeholder="닉네임">
   <button onclick="like()">❤️</button>
   <p>하트 수: <span id="likeCount">0</span></p>
-  <p id="likeMsg"></p>
 
-  <!-- 📝 사용자 기여 -->
   <hr>
+
   <h2>📝 사용자 기여</h2>
   <input id="contributor" placeholder="닉네임"><br><br>
-  <textarea id="content" placeholder="추가할 내용을 적어주세요"></textarea><br>
+  <textarea id="content"></textarea><br>
   <button onclick="addContribution()">기여하기</button>
 
   <ul id="contributions"></ul>
 
   <hr>
-  <p><a href="../index.html">← 메인으로 돌아가기</a></p>
+  <p><a href="../index.html">← 메인으로</a></p>
 </main>
 
-<!-- ✅ 공통 JS -->
+<!-- ✅ 공통 JS 불러오기 -->
 <script type="module" src="../js/wiki.js"></script>
 <script>
-  initWiki("leopard");
+  // 페이지 ID를 leopard_gecko로 맞추기
+  window.addEventListener("DOMContentLoaded", () => {
+    initWiki("leopard_gecko");
+  });
 </script>
 
 </body>
