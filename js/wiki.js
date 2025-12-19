@@ -13,11 +13,11 @@ import {
   increment
 } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
 
-// ✅ Firebase 설정
 const firebaseConfig = {
   apiKey: "AIzaSyDfrvgcAed9VvS5MFXVZFIxch8aCAfMp1w",
   authDomain: "k-reptilewiki-1f09f.firebaseapp.com",
   projectId: "k-reptilewiki-1f09f",
+  storageBucket: "k-reptilewiki-1f09f.appspot.com",   // ✅ 추가된 부분
   messagingSenderId: "557869324836",
   appId: "1:557869324836:web:3eda21e6ba0333422856b1"
 };
