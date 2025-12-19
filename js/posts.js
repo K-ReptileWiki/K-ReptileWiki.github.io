@@ -89,8 +89,13 @@ function initPosts() {
     });
 
     alert("글이 게시되었습니다!");
+
+    // 입력값 초기화
     document.getElementById("postTitle").value = "";
     quill.root.innerHTML = "";
     document.getElementById("images").value = "";
+
+    // ✅ 글 작성 후 index.html로 이동
+    window.location.href = "index.html";
   });
-}
+
