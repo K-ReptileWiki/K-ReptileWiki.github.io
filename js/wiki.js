@@ -101,10 +101,10 @@ function setupSearch() {
   if (!input || !resultBox) return;
 
   const pages = [
-    { title: "크레스티드 게코", url: "./species/crested.html" },
-    { title: "데이게코", url: "./species/day.html" },
-    { title: "레오파드 게코", url: "./species/leopard.html" }
-  ];
+  { title: "크레스티드 게코", url: "/species/crested_gecko.html" },
+  { title: "데이게코", url: "/species/day_gecko.html" },
+  { title: "레오파드 게코", url: "/species/leopard_gecko.html" }
+];
 
   input.addEventListener("input", () => {
     const q = input.value.trim().toLowerCase();
