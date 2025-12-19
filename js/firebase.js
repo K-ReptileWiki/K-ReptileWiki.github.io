@@ -7,7 +7,8 @@ import { getStorage } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-s
 const firebaseConfig = {
   apiKey: "AIzaSyDfrvgcAed9VvS5MFXVZFIxch8aCAfMp1w",
   authDomain: "k-reptilewiki-1f09f.firebaseapp.com",
-  projectId: "k-reptilewiki-1f09f"
+  projectId: "k-reptilewiki-1f09f",
+  storageBucket: "k-reptilewiki-1f09f.appspot.com" // ✅ Storage 버킷 추가
 };
 
 // ✅ 앱 초기화
