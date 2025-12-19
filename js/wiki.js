@@ -9,7 +9,7 @@ let currentUser = null;
 let userData = { nickname: "익명", role: "user", lastPostAt: 0 };
 
 // ✅ 욕설 필터와 도배 방지 시간 정의
-const BAD_WORDS = ["시발", "병신", "ㅅㅂ", "ㅂㅅ", "애미", 애미 뒤짐"]; 
+const BAD_WORDS = ["시발", "병신", "ㅅㅂ", "ㅂㅅ", "애미", "애미 뒤짐"]; 
 const POST_COOLDOWN = 30000; // 30초
 
 onAuthStateChanged(auth, async (user) => {
