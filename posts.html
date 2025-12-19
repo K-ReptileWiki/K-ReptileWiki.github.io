@@ -34,6 +34,22 @@
         padding: 4px;
       }
     }
+
+    /* 글 카드 스타일 */
+    .post-card {
+      background:#fff;
+      padding:15px;
+      margin-bottom:15px;
+      border-radius:8px;
+      box-shadow:0 1px 4px rgba(0,0,0,0.1);
+    }
+    .post-card h3 a {
+      color:#2563eb;
+      text-decoration:none;
+    }
+    .post-card h3 a:hover {
+      text-decoration:underline;
+    }
   </style>
 </head>
 <body>
@@ -50,7 +66,7 @@
     <!-- 버튼 영역 -->
     <button id="previewBtn">미리보기</button>
     <button id="postBtn" disabled>게시</button>
-    <button id="cancelBtn">취소</button> <!-- 취소 버튼 추가 -->
+    <button id="cancelBtn">취소</button>
   </div>
 
   <!-- ✨ 미리보기 영역 -->
