@@ -58,13 +58,13 @@
 
   <ul id="contributions"></ul>
 
-  <hr>
-  <a href="../index.html">← 메인</a>
-</main>
-
-<script src="../js/wiki.js"></script>
+  <!-- ✅ 공통 JS 불러오기 -->
+<script type="module" src="../js/wiki.js"></script>
 <script>
-  initWiki("daygecko");
+  // 페이지 ID를 day_gecko로 맞추기
+  window.addEventListener("DOMContentLoaded", () => {
+    initWiki("day_gecko");
+  });
 </script>
 
 </body>
