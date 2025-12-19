@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>K-ReptileWiki 관리자</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #f3f4f6;
+  margin: 0;
+}
+header {
+  background: #111827;
+  color: white;
+  padding: 15px;
+}
+main {
+  max-width: 900px;
+  margin: auto;
+  padding: 20px;
+}
+.card {
+  background: white;
+  padding: 15px;
+  border-radius: 10px;
+  margin-bottom: 15px;
+  box-shadow: 0 2px 6px rgba(0,0,0,.1);
+}
+button {
+  margin: 2px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+}
+.ban { background:#dc2626;color:white; }
+.short { background:#f97316;color:white; }
+.long { background:#7c3aed;color:white; }
+.perma { background:#000;color:white; }
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1>🔐 관리자 페이지</h1>
+</header>
+
+<main>
+  <div class="card">
+    <h2>👤 전체 사용자 목록</h2>
+    <ul id="userList"></ul>
+  </div>
+</main>
+
+<script type="module" src="/js/admin.js"></script>
+</body>
+</html>
