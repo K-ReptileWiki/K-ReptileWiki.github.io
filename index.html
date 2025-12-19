@@ -1,27 +1,39 @@
 <!DOCTYPE html>
 <html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>K-ReptileWiki</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+
 <body>
 <h1>🦎 K-ReptileWiki</h1>
-  
+
+<hr>
+<input id="searchInput" placeholder="검색어 입력">
+<div id="searchResults"></div>
+
+<hr>
 <a href="./species/crested.html">크레스티드 게코</a><br>
 <a href="./species/day.html">데이게코</a><br>
 <a href="./species/leopard.html">레오파드 게코</a>
-<hr>
 
+<hr>
 <input id="username" placeholder="닉네임">
 <button onclick="like()">❤️</button>
 <span id="likeCount">0</span>
 
 <hr>
-
 <input id="contributor" placeholder="닉네임"><br>
 <textarea id="content"></textarea><br>
 <button onclick="addContribution()">기여</button>
 <ul id="contributions"></ul>
 
+<!-- ✅ wiki.js 전체 로드 -->
 <script type="module">
   import { initWiki } from "./js/wiki.js";
   initWiki("main");
 </script>
+
 </body>
 </html>
