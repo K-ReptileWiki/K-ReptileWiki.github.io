@@ -14,6 +14,7 @@
     button:hover { background:#1e40af; }
     a { text-decoration:none; color:#2563eb; }
     a:hover { text-decoration:underline; }
+    img { max-width:150px; margin:5px; }
   </style>
 </head>
 
@@ -41,47 +42,51 @@
   <h2>최신 글</h2>
   <div id="postList"></div>
 
-  <!-- ✅ Firestore 연결 -->
+  <!-- ✅ Supabase 연결 -->
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-    import { getFirestore, collection, getDocs, onSnapshot } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
-    const app = initializeApp({
-      apiKey: "AIzaSyDfrvgcAed9VvS5MFXVZFIxch8aCAfMp1w",
-      authDomain: "k-reptilewiki-1f09f.firebaseapp.com",
-      projectId: "k-reptilewiki-1f09f"
-    });
-    const db = getFirestore(app);
+    // 🔑 Supabase 초기화
+    const supabaseUrl = "https://cpaikpjzlzzujwfgnanb.supabase.co";
+    const supabaseKey = "sb_publishable_-dZ6xDssPQs29A_hHa2Irw_WxZ24NxB";
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // ✅ 글 목록 실시간 표시
-    const postsRef = collection(db, "wiki_posts");
-    onSnapshot(postsRef, snap => {
+    // ✅ 글 목록 불러오기
+    async function loadPosts() {
+      const { data, error } = await supabase
+        .from("wiki_posts") // Supabase 테이블 이름
+        .select("*")
+        .order("time", { ascending: false });
+
       const list = document.getElementById("postList");
       list.innerHTML = "";
-      snap.forEach(docSnap => {
-        const data = docSnap.data();
-        const div = document.createElement("div");
 
+      if (error) {
+        console.error("글 불러오기 실패:", error.message);
+        return;
+      }
+
+      data.forEach(post => {
         let imgHtml = "";
-        if (data.images && Array.isArray(data.images)) {
-          imgHtml = data.images.map(url => `<img src="${url}" style="max-width:150px;margin:5px;">`).join("");
+        if (post.images && Array.isArray(post.images)) {
+          imgHtml = post.images.map(url => `<img src="${url}">`).join("");
         }
 
-        // 내용 요약 (100자까지만 표시)
-        const plainText = data.content.replace(/<[^>]+>/g, "");
+        const plainText = post.content.replace(/<[^>]+>/g, "");
         const shortText = plainText.length > 100 ? plainText.substring(0, 100) + "..." : plainText;
 
+        const div = document.createElement("div");
         div.innerHTML = `
-          <h3><a href="post.html?id=${docSnap.id}">${data.title}</a></h3>
+          <h3><a href="post.html?id=${post.id}">${post.title}</a></h3>
           <p>${shortText}</p>
           ${imgHtml}
-          <small>작성자: ${data.author ?? "익명"} | ${data.time?.toDate?.().toLocaleString()}</small>
+          <small>작성자: ${post.author ?? "익명"} | ${new Date(post.time).toLocaleString()}</small>
         `;
         list.appendChild(div);
       });
-    });
+    }
 
-    // 🔍 검색 기능 (제목 + 내용)
+    // 🔍 검색 기능
     document.getElementById("searchBtn").addEventListener("click", async () => {
       const keyword = document.getElementById("searchInput").value.trim().toLowerCase();
       const resultsDiv = document.getElementById("searchResults");
@@ -89,21 +94,28 @@
 
       if (!keyword) return;
 
-      const snap = await getDocs(postsRef);
-      snap.forEach(docSnap => {
-        const data = docSnap.data();
-        const title = data.title?.toLowerCase() ?? "";
-        const content = data.content?.toLowerCase() ?? "";
+      const { data, error } = await supabase
+        .from("wiki_posts")
+        .select("*");
+
+      if (error) {
+        console.error("검색 실패:", error.message);
+        return;
+      }
+
+      data.forEach(post => {
+        const title = post.title?.toLowerCase() ?? "";
+        const content = post.content?.toLowerCase() ?? "";
 
         if (title.includes(keyword) || content.includes(keyword)) {
-          const plainText = data.content.replace(/<[^>]+>/g, "");
+          const plainText = post.content.replace(/<[^>]+>/g, "");
           const shortText = plainText.length > 100 ? plainText.substring(0, 100) + "..." : plainText;
 
           const div = document.createElement("div");
           div.innerHTML = `
-            <h3><a href="post.html?id=${docSnap.id}">${data.title}</a></h3>
+            <h3><a href="post.html?id=${post.id}">${post.title}</a></h3>
             <p>${shortText}</p>
-            <small>작성자: ${data.author ?? "익명"} | ${data.time?.toDate?.().toLocaleString()}</small>
+            <small>작성자: ${post.author ?? "익명"} | ${new Date(post.time).toLocaleString()}</small>
           `;
           resultsDiv.appendChild(div);
         }
@@ -118,6 +130,9 @@
     document.getElementById("writeBtn").addEventListener("click", () => {
       location.href = "posts.html";
     });
+
+    // 페이지 로드 시 글 목록 불러오기
+    loadPosts();
   </script>
 </body>
 </html>
