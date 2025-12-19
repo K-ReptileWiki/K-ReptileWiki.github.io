@@ -86,13 +86,10 @@
   <p><a href="../index.html">← 메인으로</a></p>
 </main>
 
-<!-- ✅ 공통 JS 불러오기 -->
-<script type="module" src="../js/wiki.js"></script>
-<script>
-  // 페이지 ID를 leopard_gecko로 맞추기
-  window.addEventListener("DOMContentLoaded", () => {
-    initWiki("leopard_gecko");
-  });
+<!-- ✅ 이게 핵심 (하나만!) -->
+<script type="module">
+  import { initWiki } from "../js/wiki.js";
+  initWiki("leopard_gecko");
 </script>
 
 </body>
