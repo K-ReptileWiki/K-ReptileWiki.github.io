@@ -86,11 +86,10 @@
   <p><a href="../index.html">← 메인으로</a></p>
 </main>
 
-<!-- ✅ 이게 핵심 (하나만!) -->
-<script type="module">
-  import { initWiki } from "../js/wiki.js";
-  initWiki("leopard_gecko");
+<script>
+  window.__PAGE_ID__ = "leopard_gecko"; // 페이지마다 다르게
 </script>
+<script type="module" src="../js/wiki.js"></script>
 
 </body>
 </html>
