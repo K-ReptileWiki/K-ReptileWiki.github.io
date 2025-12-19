@@ -15,6 +15,25 @@
     .images-preview img { max-width:150px; margin:5px; border-radius:6px; }
     button { padding:8px 16px; border:none; border-radius:6px; cursor:pointer; background:#2563eb; color:white; }
     button:hover { background:#1e40af; }
+
+    /* ✅ 반응형 Quill 툴바 */
+    .ql-toolbar {
+      padding-bottom: 6px;
+    }
+    .ql-toolbar button,
+    .ql-toolbar .ql-picker {
+      margin-right: 4px;
+    }
+    @media (max-width: 600px) {
+      .ql-toolbar {
+        overflow-x: auto;       /* 모바일에서 가로 스크롤 허용 */
+        white-space: nowrap;    /* 줄바꿈 방지 */
+        font-size: 14px;
+      }
+      .ql-toolbar button {
+        padding: 4px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -39,6 +58,7 @@
   <h2>📚 글 목록</h2>
   <div id="postList"></div>
 
+  <!-- ✅ 글쓰기 로직 -->
   <script type="module" src="./js/posts.js"></script>
-  </body>
+</body>
 </html>
