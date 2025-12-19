@@ -18,7 +18,6 @@ let userData = { nickname: "익명", role: "user", lastPostAt: 0 };
 onAuthStateChanged(auth, async (user) => {
   if (user) {
     currentUser = user;
-    // Firestore에서 사용자 정보 가져오기 (없으면 기본값)
     const userRef = doc(db, "users", user.uid);
     const snap = await getDoc(userRef);
     if (snap.exists()) {
@@ -26,11 +25,15 @@ onAuthStateChanged(auth, async (user) => {
     } else {
       await setDoc(userRef, userData);
     }
+  } else {
+    currentUser = null;
+    userData = null;
   }
 });
 
 // 🚀 위키 초기화 함수
-export function initWiki(pageId) {
+export async function initWiki(pageId) {
+  // 사용자 준비가 안 됐으면 대기
   if (!currentUser || !userData) {
     console.warn("사용자 정보가 아직 준비되지 않았습니다.");
     return;
@@ -40,9 +43,8 @@ export function initWiki(pageId) {
   const likeRef = doc(db, "wiki", pageId);
   const likeUserRef = doc(db, "wiki", pageId, "likesBy", currentUser.uid);
 
-  getDoc(likeRef).then(snap => {
-    if (!snap.exists()) setDoc(likeRef, { likes: 0 });
-  });
+  const snap = await getDoc(likeRef);
+  if (!snap.exists()) await setDoc(likeRef, { likes: 0 });
 
   onSnapshot(likeRef, snap => {
     if (snap.exists())
