@@ -6,44 +6,43 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
 </head>
 <body>
-  <header>
-    <h1>🦎 데이게코</h1>
-    <p>K-ReptileWiki</p>
-  </header>
+<header>
+  <h1>🦎 데이게코</h1>
+  <p>K-ReptileWiki</p>
+</header>
 
-  <main>
-    <img src="../images/day/main.jpg" alt="데이게코">
+<main>
+  <img src="../images/day/main.jpg" alt="데이게코">
 
-    <h2>📌 기본 정보</h2>
-    <ul>
-      <li>학명: Phelsuma madagascariensis</li>
-      <li>서식지: 마다가스카르</li>
-      <li>수명: 약 10~15년</li>
-      <li>크기: 약 20~25cm</li>
-    </ul>
+  <h2>📌 기본 정보</h2>
+  <ul>
+    <li>학명: Phelsuma madagascariensis</li>
+    <li>서식지: 마다가스카르</li>
+    <li>수명: 약 10~15년</li>
+    <li>크기: 약 20~25cm</li>
+  </ul>
 
-    <!-- ❤️ 좋아요 -->
-    <hr>
-    <h2>❤️ 좋아요</h2>
-    <button id="likeBtn">❤️</button>
-    <p>하트 수: <span id="likeCount">0</span></p>
-    <p id="likeMsg"></p>
+  <!-- ❤️ 좋아요 -->
+  <hr>
+  <h2>❤️ 좋아요</h2>
+  <button onclick="like()">❤️</button>
+  <p>하트 수: <span id="likeCount">0</span></p>
+  <p id="likeMsg"></p>
 
-    <!-- 📝 사용자 기여 -->
-    <hr>
-    <h2>📝 사용자 기여</h2>
-    <textarea id="content" placeholder="추가할 내용을 적어주세요"></textarea><br>
-    <button onclick="addContribution()">기여하기</button>
+  <!-- 📝 사용자 기여 -->
+  <hr>
+  <h2>📝 사용자 기여</h2>
+  <textarea id="content" placeholder="추가할 내용을 적어주세요"></textarea><br>
+  <button onclick="addContribution()">기여하기</button>
+  <ul id="contributions"></ul>
 
-    <ul id="contributions"></ul>
+  <hr>
+  <p><a href="../index.html">← 메인으로 돌아가기</a></p>
+</main>
 
-    <hr>
-    <p><a href="../index.html">← 메인으로 돌아가기</a></p>
-  </main>
-
-  <script>
-    window.__PAGE_ID__ = "day_gecko";
-  </script>
-  <script type="module" src="../js/wiki.js"></script>
+<script>
+  window.__PAGE_ID__ = "day_gecko";
+</script>
+<script type="module" src="../js/wiki.js"></script>
 </body>
 </html>
