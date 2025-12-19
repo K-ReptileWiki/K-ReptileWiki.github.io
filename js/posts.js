@@ -48,14 +48,18 @@ function initPosts() {
 
       let imgHtml = "";
       if (p.images && Array.isArray(p.images)) {
-        imgHtml = p.images.map(url => `<img src="${url}" style="max-width:200px;margin:5px;">`).join("");
+        imgHtml = p.images.map(url => `<img src="${url}" style="max-width:150px;margin:5px;">`).join("");
       }
 
-      // ✅ 제목에 상세 페이지 링크 추가
+      // 내용 요약 (100자까지만 표시)
+      const plainText = p.content.replace(/<[^>]+>/g, "");
+      const shortText = plainText.length > 100 ? plainText.substring(0, 100) + "..." : plainText;
+
       div.innerHTML = `
         <h3><a href="post.html?id=${d.id}">${p.title}</a></h3>
-        <div>${p.content}</div>
+        <p>${shortText}</p>
         ${imgHtml}
+        <a href="post.html?id=${d.id}">자세히 보기 →</a><br>
         <small>작성자: ${p.author ?? "익명"} | ${p.time?.toDate?.().toLocaleString()}</small>
       `;
       list.appendChild(div);
