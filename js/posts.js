@@ -21,7 +21,7 @@ const quill = new Quill('#editor', {
   }
 });
 
-// 로그인
+// 로그인 (익명)
 signInAnonymously(auth);
 
 let currentUser = null;
@@ -98,4 +98,14 @@ function initPosts() {
     // ✅ 글 작성 후 index.html로 이동
     window.location.href = "index.html";
   });
+
+  // 글쓰기 취소 버튼
+  const cancelBtn = document.getElementById("cancelBtn");
+  if (cancelBtn) {
+    cancelBtn.addEventListener("click", () => {
+      if (confirm("작성 중인 글을 취소하고 메인으로 돌아가시겠습니까?")) {
+        window.location.href = "index.html";
+      }
+    });
+  }
 }
