@@ -1,3 +1,4 @@
+/* 기본 레이아웃 */
 body { 
   font-family: Arial, sans-serif; 
   margin: 20px; 
@@ -14,6 +15,7 @@ body {
 
 #editor { height: 300px; }
 
+/* 미리보기 영역 */
 .preview { 
   margin-top:20px; 
   padding:15px; 
@@ -22,6 +24,7 @@ body {
   border-radius:8px; 
 }
 
+/* 업로드 이미지 미리보기 */
 .images-preview img { 
   max-width:150px; 
   margin:5px; 
@@ -59,9 +62,11 @@ button:hover { background:#1e40af; }
 .post-card h3 a { color:#2563eb; text-decoration:none; }
 .post-card h3 a:hover { text-decoration:underline; }
 
-/* 상세 글 보기 이미지 */
-.post-image {
-  max-width: 300px;
+/* 상세 글 보기 이미지 (중간 크기) */
+.post-image,
+.species-image {
+  max-width: 300px;   /* ✅ 중간 크기 */
+  height: auto;
   margin: 10px;
   border-radius: 8px;
   box-shadow:0 1px 4px rgba(0,0,0,0.1);
@@ -80,4 +85,14 @@ button:hover { background:#1e40af; }
 }
 .comment-card small {
   color:#555;
+}
+
+/* 댓글 입력창 */
+#commentInput {
+  width: 100%;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+  margin-bottom: 10px;
+  resize: vertical;
 }
