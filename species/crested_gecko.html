@@ -99,14 +99,13 @@
   <p><a href="../index.html">← 메인으로 돌아가기</a></p>
 </main>
 
-<!-- ✅ 공통 JS 불러오기 -->
-<script type="module" src="../js/wiki.js"></script>
-<script>
-  // 페이지 ID를 crested_gecko로 맞추기
+<!-- ✅ 공통 JS 불러오기 + 초기화 -->
+<script type="module">
+  import { initWiki } from "../js/wiki.js";
+
   window.addEventListener("DOMContentLoaded", () => {
     initWiki("crested_gecko");
   });
 </script>
-
 </body>
 </html>
