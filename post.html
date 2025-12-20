@@ -13,6 +13,9 @@
   <!-- 글 상세 영역 -->
   <div id="postDetail" class="editor-container"></div>
 
+  <!-- 메인으로 돌아가기 버튼 -->
+  <button id="goHomeBtn">🏠 메인으로</button>
+
   <hr>
   <h2>💬 댓글</h2>
   <ul id="commentList"></ul>
@@ -160,6 +163,11 @@
       alert("댓글 삭제 완료");
       loadComments();
     }
+
+    // ✅ 메인으로 버튼 이벤트
+    document.getElementById("goHomeBtn").addEventListener("click", () => {
+      window.location.href = "index.html";
+    });
   </script>
 </body>
 </html>
