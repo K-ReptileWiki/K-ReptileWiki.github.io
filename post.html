@@ -33,11 +33,22 @@
     );
 
     document.addEventListener("DOMContentLoaded", async () => {
-      const { data: userRes } = await supabase.auth.getUser();
-      const currentUser = userRes?.user ?? null;
+      console.log("✅ DOMContentLoaded 실행됨");
 
+      // 로그인 사용자 확인
+      const { data: userRes, error: userError } = await supabase.auth.getUser();
+      console.log("🔎 getUser 결과:", userRes, userError);
+
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      console.log("🔎 getSession 결과:", session, sessionError);
+
+      const currentUser = userRes?.user ?? null;
+      console.log("👤 currentUser:", currentUser);
+
+      // URL에서 글 id 가져오기
       const params = new URLSearchParams(location.search);
       const postId = params.get("id");
+      console.log("📌 postId:", postId);
 
       const postDetail = document.getElementById("postDetail");
       const commentList = document.getElementById("commentList");
@@ -55,6 +66,7 @@
 
       // 댓글 작성 이벤트
       addCommentBtn.onclick = async () => {
+        console.log("📝 댓글 작성 시도, currentUser:", currentUser);
         const content = commentInput.value.trim();
         if (!content) return alert("댓글을 입력하세요");
         if (!currentUser) return alert("로그인이 필요합니다");
@@ -68,25 +80,31 @@
         }]);
 
         if (error) {
+          console.error("❌ 댓글 작성 실패:", error);
           alert("댓글 작성 실패: " + error.message);
         } else {
+          console.log("✅ 댓글 작성 성공");
           commentInput.value = "";
           loadComments(postId);
         }
       };
 
       goHomeBtn.onclick = () => {
+        console.log("🏠 메인으로 이동");
         window.location.href = "index.html";
       };
     });
 
     // 글 불러오기
     async function loadPost(postId, currentUser) {
+      console.log("📖 글 불러오기 시도:", postId);
       const { data, error } = await supabase
         .from("wiki_posts")
         .select("*")
         .eq("id", postId)
         .single();
+
+      console.log("🔎 글 데이터:", data, "에러:", error);
 
       const div = document.getElementById("postDetail");
       if (error || !data) {
@@ -112,17 +130,20 @@
       await updateLikeCount(postId, likeBtn);
 
       likeBtn.onclick = async () => {
+        console.log("❤️ 좋아요 클릭, currentUser:", currentUser);
         if (!currentUser) return alert("로그인이 필요합니다");
         const { error } = await supabase
           .from("post_likes")
           .insert([{ post_id: postId, user_id: currentUser.id }]);
         if (error) {
+          console.error("❌ 좋아요 실패:", error);
           if (error.code === "23505") {
             alert("이미 좋아요를 누르셨습니다!");
           } else {
             alert("좋아요 실패: " + error.message);
           }
         } else {
+          console.log("✅ 좋아요 성공");
           await updateLikeCount(postId, likeBtn);
         }
       };
@@ -139,10 +160,13 @@
 
     // 좋아요 수 업데이트
     async function updateLikeCount(postId, btn) {
+      console.log("🔄 좋아요 수 업데이트:", postId);
       const { count, error } = await supabase
         .from("post_likes")
         .select("*", { count: "exact", head: true })
         .eq("post_id", postId);
+
+      console.log("❤️ 좋아요 수:", count, "에러:", error);
 
       if (!error) {
         btn.textContent = `❤️ ${count}`;
@@ -151,11 +175,14 @@
 
     // 댓글 불러오기
     async function loadComments(postId) {
+      console.log("💬 댓글 불러오기:", postId);
       const { data, error } = await supabase
         .from("wiki_comments")
         .select("*")
         .eq("post_id", postId)
         .order("time", { ascending: false });
+
+      console.log("🔎 댓글 데이터:", data, "에러:", error);
 
       const ul = document.getElementById("commentList");
       ul.innerHTML = "";
@@ -182,9 +209,13 @@
 
     // 글 삭제
     async function deletePost(id) {
+      console.log("🗑️ 글 삭제 시도:", id);
       if (!confirm("정말 글을 삭제하시겠습니까?")) return;
       const { error } = await supabase.from("wiki_posts").delete().eq("id", id);
-      if (error) return alert("글 삭제 실패: " + error.message);
+      if (error) {
+        console.error("❌ 글 삭제 실패:", error);
+        return alert("글 삭제 실패: " + error.message);
+      }
       alert("글 삭제 완료");
       location.href = "index.html";
     }
