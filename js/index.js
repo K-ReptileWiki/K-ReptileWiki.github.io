@@ -3,7 +3,7 @@ import {
   getAuth, onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
 import {
-  getFirestore, doc, setDoc, updateDoc, arrayUnion
+  getFirestore, doc, setDoc, arrayUnion
 } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
 
 /* Firebase 초기화 */
@@ -34,3 +34,11 @@ onAuthStateChanged(auth, async user => {
     console.error("❌ 방문 기록 저장 실패:", e);
   }
 });
+
+/* 📝 글쓰기 버튼 이벤트 연결 */
+const writeBtn = document.getElementById("writeBtn");
+if (writeBtn) {
+  writeBtn.addEventListener("click", () => {
+    window.location.href = "write.html"; // 글쓰기 페이지로 이동
+  });
+}
