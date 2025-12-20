@@ -10,6 +10,7 @@ const POST_COOLDOWN = 30000;
 supabase.auth.onAuthStateChange(async (event, session) => {
   if (session?.user) {
     currentUser = session.user;
+
     // users 테이블에서 유저 데이터 가져오기
     const { data: snap } = await supabase
       .from("users")
@@ -47,6 +48,7 @@ export async function initWiki(pageId) {
   }
   loadLikes();
 
+  // 좋아요 버튼
   const likeBtn = document.getElementById("likeBtn");
   if (likeBtn) {
     likeBtn.disabled = false;
@@ -65,15 +67,11 @@ export async function initWiki(pageId) {
         { post_id: pageId, user_id: currentUser.id }
       ]);
 
-      // 좋아요 수 증가
-      const { data } = await supabase
-        .from("wiki_posts")
-        .update({ likes: supabase.rpc("increment_likes", { post_id: pageId }) })
-        .eq("id", pageId)
-        .select();
+      // ✅ RPC 호출로 좋아요 증가
+      await supabase.rpc("increment_likes", { post_id: pageId });
 
-      document.getElementById("likeCount").textContent = data[0].likes;
       document.getElementById("likeMsg").textContent = "좋아요가 반영되었습니다!";
+      loadLikes();
     };
   }
 
@@ -127,14 +125,11 @@ export async function initWiki(pageId) {
     loadContributions();
   };
 
-  // 신고
+  // 신고 (RPC)
   window.report = async (pageId, contribId) => {
-    await supabase
-      .from("wiki_contributions")
-      .update({ reports: supabase.rpc("increment_reports", { contrib_id: contribId }) })
-      .eq("id", contribId);
-
+    await supabase.rpc("increment_reports", { contrib_id: contribId });
     alert("신고가 접수되었습니다");
+    loadContributions();
   };
 
   // 삭제
