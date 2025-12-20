@@ -24,7 +24,8 @@ window.login = async () => {
   try {
     await signInWithEmailAndPassword(auth, email, password);
     alert("로그인 성공!");
-    location.href = "admin.html";
+    // 로그인 성공 후 index.html로 이동
+    location.href = "index.html";
   } catch (e) {
     alert("로그인 실패: " + e.message);
   }
@@ -49,6 +50,7 @@ window.register = async () => {
     const adminSnap = await getDoc(doc(db, "admin_emails", email));
     const role = (adminSnap.exists() && adminSnap.data().active) ? "admin" : "user";
 
+    // UID 기반으로 users 문서 생성
     await setDoc(doc(db, "users", cred.user.uid), {
       email,
       nickname,
@@ -68,7 +70,7 @@ window.logout = async () => {
   try {
     await signOut(auth);
     alert("로그아웃 완료");
-    location.href = "login.html";
+    location.href = "login.html"; // 로그아웃 후 로그인 페이지로 이동
   } catch (e) {
     alert("로그아웃 실패: " + e.message);
   }
