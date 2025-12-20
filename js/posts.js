@@ -13,10 +13,60 @@ const quill = new Quill('#editor', {
       ['bold', 'italic', 'underline'],
       [{ 'header': [1,2,3,4,5,6,false] }],
       [{ 'color': [] }, { 'background': [] }],
-      ['link']
+      ['link', 'image']   // 이미지 아이콘 유지
     ]
   },
   placeholder: "내용을 입력하세요..."
+});
+
+// ✅ 이미지 클릭 시 크기 선택 메뉴
+quill.root.addEventListener("click", (e) => {
+  if (e.target.tagName === "IMG") {
+    const img = e.target;
+
+    // 기존 메뉴 제거
+    const oldMenu = document.getElementById("img-size-menu");
+    if (oldMenu) oldMenu.remove();
+
+    // 메뉴 생성
+    const sizes = [200, 250, 300, 400, 450, 500];
+    const menu = document.createElement("div");
+    menu.id = "img-size-menu";
+    menu.style.position = "absolute";
+    menu.style.background = "#fff";
+    menu.style.border = "1px solid #ccc";
+    menu.style.padding = "5px";
+    menu.style.zIndex = "1000";
+
+    sizes.forEach(size => {
+      const btn = document.createElement("button");
+      btn.textContent = size + "px";
+      btn.style.margin = "2px";
+      btn.onclick = () => {
+        img.style.width = size + "px";
+        img.style.height = "auto";
+        menu.remove();
+      };
+      menu.appendChild(btn);
+    });
+
+    // 이미지 위치 기준으로 메뉴 띄우기
+    const rect = img.getBoundingClientRect();
+    menu.style.left = rect.left + "px";
+    menu.style.top = rect.bottom + "px";
+
+    document.body.appendChild(menu);
+
+    // 다른 곳 클릭하면 메뉴 닫기
+    document.addEventListener("click", function closeMenu(ev) {
+      if (!menu.contains(ev.target) && ev.target !== img) {
+        if (document.body.contains(menu)) {
+          menu.remove();
+        }
+        document.removeEventListener("click", closeMenu);
+      }
+    });
+  }
 });
 
 // 글 목록 불러오기
@@ -63,6 +113,15 @@ async function initPosts() {
   });
 }
 
+// 글 등록 버튼
+document.getElementById("postBtn").addEventListener("click", async () => {
+  const title = document.getElementById("postTitle").value.trim();
+  const content = quill.root.innerHTML;
+
+  if (!title || !content) {
+    alert("제목과 내용을 입력하세요");
+    return;
+  }
 
   // 현재 로그인 사용자 가져오기
   const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -75,12 +134,12 @@ async function initPosts() {
   const { data, error: insertError } = await supabase
     .from("wiki_posts")
     .insert([{
-      id: crypto.randomUUID(), // 글 고유 ID (uuid 타입)
+      id: crypto.randomUUID(),
       title,
       content,
       author: user.email ?? "익명",
       time: new Date().toISOString(),
-      images: imageUrls
+      images: [] // 파일 업로드 버튼 제거 → 빈 배열 저장
     }])
     .select();
 
@@ -107,21 +166,12 @@ document.getElementById("cancelBtn").addEventListener("click", () => {
 document.getElementById("previewBtn").addEventListener("click", () => {
   const title = document.getElementById("postTitle").value.trim();
   const content = quill.root.innerHTML;
-  const files = document.getElementById("images").files;
-
-  let imgHtml = "";
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i];
-    const url = URL.createObjectURL(file);
-    imgHtml += `<img src="${url}" style="width:300px;height:auto;margin:5px;">`;
-  }
 
   const previewArea = document.getElementById("previewArea");
   previewArea.style.display = "block";
   previewArea.innerHTML = `
     <h3>${title || "(제목 없음)"}</h3>
     <div>${content || "(내용 없음)"}</div>
-    ${imgHtml}
   `;
 });
 
