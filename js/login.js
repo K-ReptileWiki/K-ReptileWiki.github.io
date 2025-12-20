@@ -1,34 +1,26 @@
-// 방문 기록 저장 함수 (누적 + 로그 강화)
 async function trackVisit(user) {
   console.log("▶ trackVisit 실행 시작:", user);
 
-  // 기존 방문 기록 조회
   const { data: existing, error: selectError } = await supabase
     .from("visits")
-    .select("id, email, times")
+    .select("times")
     .eq("id", user.id)
     .maybeSingle();
 
   console.log("🔎 조회 결과 existing:", existing);
-  if (selectError) {
-    console.error("❌ 기존 방문 기록 조회 실패:", selectError);
-  }
+  console.log("🔎 조회 에러:", selectError);
 
-  // 새 방문 시간 배열 생성
   let newTimes = [];
   if (Array.isArray(existing?.times)) {
-    // jsonb가 배열로 들어온 경우
     newTimes = [...existing.times, new Date().toISOString()];
   } else if (existing?.times && typeof existing.times === "object") {
-    // jsonb가 객체로 들어온 경우 (예: {0: "...", 1: "..."})
     newTimes = [...Object.values(existing.times), new Date().toISOString()];
   } else {
-    // row가 없거나 times가 null인 경우
+    // row가 없거나 빈 배열일 때
     newTimes = [new Date().toISOString()];
   }
   console.log("🆕 저장할 times:", newTimes);
 
-  // upsert로 저장
   const { data: upsertData, error: upsertError } = await supabase
     .from("visits")
     .upsert({
@@ -39,12 +31,8 @@ async function trackVisit(user) {
     }, { onConflict: "id" })
     .select();
 
-  if (upsertError) {
-    console.error("❌ 방문 기록 저장 실패:", upsertError);
-  } else {
-    console.log("📌 방문 기록 저장 완료:", user.email);
-    console.log("📌 DB에 반영된 row:", upsertData);
-  }
+  console.log("📌 upsert 결과:", upsertData);
+  console.log("📌 upsert 에러:", upsertError);
 
   console.log("▶ trackVisit 실행 종료");
 }
