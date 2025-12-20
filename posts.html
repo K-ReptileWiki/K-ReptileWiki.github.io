@@ -12,6 +12,7 @@
     .comment-card { background:#fff; padding:15px; margin-bottom:10px; border-radius:6px; box-shadow:0 1px 4px rgba(0,0,0,0.1); }
     button { margin:5px; padding:6px 12px; border:none; border-radius:6px; cursor:pointer; }
     .delete-btn { background:#f87171; color:white; }
+    .like-btn { background:#2563eb; color:white; }
   </style>
 </head>
 <body>
@@ -31,7 +32,7 @@
   <!-- 글 상세 로직 -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-    import { getFirestore, doc, getDoc, collection, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
+    import { getFirestore, doc, getDoc, collection, getDocs, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
     import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
 
     // Firebase 초기화
@@ -89,6 +90,18 @@
         ${imgHtml}
         <small>작성자: ${data.author ?? "익명"} | ${new Date(data.time.toDate()).toLocaleString()}</small><br>
       `;
+
+      // ✅ 하트 버튼 추가
+      const likeBtn = document.createElement("button");
+      likeBtn.className = "like-btn";
+      likeBtn.textContent = `❤️ ${data.likes ?? 0}`;
+      likeBtn.onclick = async () => {
+        const newLikes = (data.likes ?? 0) + 1;
+        await updateDoc(doc(db, "wiki_posts", postId), { likes: newLikes });
+        likeBtn.textContent = `❤️ ${newLikes}`;
+        data.likes = newLikes;
+      };
+      div.appendChild(likeBtn);
 
       // 본인 글이거나 관리자면 삭제 버튼 표시
       if (auth.currentUser && (auth.currentUser.uid === data.uid || currentUserRole === "admin")) {
