@@ -2,9 +2,8 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>글 상세 보기</title>
+  <title>글 상세 보기 | K-ReptileWiki</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <!-- 외부 스타일 -->
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -21,17 +20,15 @@
   <!-- 댓글 목록 -->
   <div id="commentList">댓글 로딩 중...</div>
 
-  <!-- ✅ Supabase 로직 -->
+  <!-- Supabase 로직 -->
   <script type="module">
     import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
-    // Supabase 초기화
     const supabase = createClient(
       "https://cpaikpjzlzzujwfgnanb.supabase.co",
       "sb_publishable_-dZ6xDssPQs29A_hHa2Irw_WxZ24NxB"
     );
 
-    // URL에서 글 ID 추출
     const params = new URLSearchParams(location.search);
     const postId = params.get("id");
 
@@ -51,7 +48,6 @@
         return;
       }
 
-      // 이미지 출력
       let imgHtml = "";
       if (data.images && Array.isArray(data.images)) {
         imgHtml = data.images.map(url => `<img src="${url}" class="post-image">`).join("");
@@ -117,11 +113,11 @@
         alert("댓글 등록 실패: " + error.message);
       } else {
         document.getElementById("commentInput").value = "";
-        loadComments(); // 새로고침
+        loadComments();
       }
     });
 
-    // 페이지 로드 시 실행
+    // 초기 실행
     loadPost();
     loadComments();
   </script>
