@@ -46,7 +46,7 @@ async function initPosts() {
 
     let imgHtml = "";
     if (p.images && Array.isArray(p.images)) {
-      imgHtml = p.images.map(url => `<img src="${url}" style="max-width:150px;margin:5px;">`).join("");
+      imgHtml = p.images.map(url => `<img src="${url}" style="width:300px;height:auto;margin:5px;">`).join("");
     }
 
     const plainText = p.content?.replace(/<[^>]+>/g, "") ?? "";
@@ -76,13 +76,13 @@ document.getElementById("postBtn").addEventListener("click", async () => {
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
     const fileName = `${Date.now()}_${file.name}`;
-    const { error: uploadError } = await supabase.storage.from("image").upload(fileName, file);
+    const { error: uploadError } = await supabase.storage.from("IMAGE").upload(fileName, file);
     if (uploadError) {
       console.error("이미지 업로드 실패:", uploadError);
       alert("이미지 업로드 실패: " + uploadError.message);
       return;
     }
-    const { data: publicUrl } = supabase.storage.from("image").getPublicUrl(fileName);
+    const { data: publicUrl } = supabase.storage.from("IMAGE").getPublicUrl(fileName);
     imageUrls.push(publicUrl.publicUrl);
   }
 
@@ -132,7 +132,7 @@ document.getElementById("previewBtn").addEventListener("click", () => {
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
     const url = URL.createObjectURL(file);
-    imgHtml += `<img src="${url}" style="max-width:200px;margin:5px;">`;
+    imgHtml += `<img src="${url}" style="width:300px;height:auto;margin:5px;">`;
   }
 
   const previewArea = document.getElementById("previewArea");
