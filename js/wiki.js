@@ -11,6 +11,7 @@ function initWiki(pageId) {
     likeBtn.onclick = async () => {
       console.log("❤️ 좋아요 버튼 클릭됨");
 
+      // 이미 좋아요 눌렀는지 확인
       const { data: existing } = await supabase
         .from("wiki_likes")
         .select("id")
@@ -23,6 +24,7 @@ function initWiki(pageId) {
         return alert("이미 좋아요를 눌렀습니다");
       }
 
+      // 좋아요 삽입
       const { error } = await supabase.from("wiki_likes").insert([
         { post_id: pageId, user_id: currentUser.id }
       ]);
@@ -32,6 +34,7 @@ function initWiki(pageId) {
         console.log("✅ 좋아요 삽입 성공");
       }
 
+      // 좋아요 수 증가
       await supabase.rpc("increment_likes", { post_id: pageId });
       console.log("✅ 좋아요 RPC 호출 완료");
 
@@ -64,6 +67,7 @@ function initWiki(pageId) {
         return alert("도배 방지: 잠시 후 다시 시도해 주세요.");
       }
 
+      // DB 삽입
       const { error } = await supabase.from("wiki_contributions").insert([{
         post_id: pageId,
         uid: currentUser.id,
@@ -139,5 +143,4 @@ supabase.auth.onAuthStateChange(async (event, session) => {
   }
 });
 
-// 외부 모듈에서 import 가능
 export { initWiki };
