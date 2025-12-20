@@ -63,28 +63,6 @@ async function initPosts() {
   });
 }
 
-// 글 작성 버튼
-document.getElementById("postBtn").addEventListener("click", async () => {
-  const title = document.getElementById("postTitle").value.trim();
-  const content = quill.root.innerHTML;
-  const files = document.getElementById("images").files;
-
-  if (!title || !content) return alert("제목과 내용을 입력하세요");
-  if (files.length > 3) return alert("사진은 최대 3장까지 첨부 가능합니다");
-
-  const imageUrls = [];
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i];
-    const fileName = `${Date.now()}_${file.name}`;
-    const { error: uploadError } = await supabase.storage.from("image").upload(fileName, file);
-    if (uploadError) {
-      console.error("이미지 업로드 실패:", uploadError);
-      alert("이미지 업로드 실패: " + uploadError.message);
-      return;
-    }
-    const { data: publicUrl } = supabase.storage.from("image").getPublicUrl(fileName);
-    imageUrls.push(publicUrl.publicUrl);
-  }
 
   // 현재 로그인 사용자 가져오기
   const { data: { user }, error: userError } = await supabase.auth.getUser();
