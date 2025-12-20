@@ -1,60 +1,76 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8">
-<title>K-ReptileWiki 관리자</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-
-<style>
-body {
-  font-family: Arial, sans-serif;
-  background: #f3f4f6;
-  margin: 0;
-}
-header {
-  background: #111827;
-  color: white;
-  padding: 15px;
-}
-main {
-  max-width: 900px;
-  margin: auto;
-  padding: 20px;
-}
-.card {
-  background: white;
-  padding: 15px;
-  border-radius: 10px;
-  margin-bottom: 15px;
-  box-shadow: 0 2px 6px rgba(0,0,0,.1);
-}
-button {
-  margin: 2px;
-  padding: 5px 10px;
-  border-radius: 6px;
-  border: none;
-  cursor: pointer;
-}
-.ban { background:#dc2626;color:white; }
-.short { background:#f97316;color:white; }
-.long { background:#7c3aed;color:white; }
-.perma { background:#000;color:white; }
-</style>
+  <meta charset="UTF-8">
+  <title>K-ReptileWiki 관리자 대시보드</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: Arial; background:#f3f4f6; margin:0; }
+    header { background:#2563eb; color:white; padding:15px; }
+    nav { display:flex; background:#e5e7eb; }
+    nav button {
+      flex:1; padding:10px; border:none; background:#e5e7eb;
+      cursor:pointer; font-size:16px;
+    }
+    nav button.active { background:white; border-bottom:3px solid #2563eb; }
+    section { padding:20px; display:none; }
+    section.active { display:block; }
+    ul { list-style:none; padding:0; }
+    li.card { background:white; margin:10px 0; padding:15px; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.1); }
+    button { margin:3px; padding:5px 10px; border:none; border-radius:4px; cursor:pointer; }
+    .short { background:#f87171; color:white; }
+    .long { background:#fbbf24; }
+    .perma { background:#000; color:white; }
+  </style>
 </head>
-
 <body>
+  <header>
+    <h1>🛠 K-ReptileWiki 관리자 대시보드</h1>
+  </header>
 
-<header>
-  <h1>🔐 관리자 페이지</h1>
-</header>
+  <!-- 탭 메뉴 -->
+  <nav>
+    <button id="tabUsers" class="active">사용자 관리</button>
+    <button id="tabPosts">글 관리</button>
+    <button id="tabComments">댓글 관리</button>
+  </nav>
 
-<main>
-  <div class="card">
-    <h2>👤 전체 사용자 목록</h2>
+  <!-- 사용자 관리 -->
+  <section id="users" class="active">
+    <h2>사용자 목록</h2>
     <ul id="userList"></ul>
-  </div>
-</main>
+  </section>
 
-<script type="module" src="/js/admin.js"></script>
+  <!-- 글 관리 -->
+  <section id="posts">
+    <h2>글 목록</h2>
+    <ul id="postList"></ul>
+  </section>
+
+  <!-- 댓글 관리 -->
+  <section id="comments">
+    <h2>댓글 목록</h2>
+    <ul id="commentList"></ul>
+  </section>
+
+  <script type="module" src="./js/admin.js"></script>
+  <script>
+    // 탭 전환 기능
+    const tabs = {
+      tabUsers: "users",
+      tabPosts: "posts",
+      tabComments: "comments"
+    };
+    Object.keys(tabs).forEach(id => {
+      document.getElementById(id).addEventListener("click", () => {
+        // 버튼 active 처리
+        Object.keys(tabs).forEach(btn => document.getElementById(btn).classList.remove("active"));
+        document.getElementById(id).classList.add("active");
+        // 섹션 active 처리
+        Object.values(tabs).forEach(sec => document.getElementById(sec).classList.remove("active"));
+        document.getElementById(tabs[id]).classList.add("active");
+      });
+    });
+  </script>
 </body>
 </html>
