@@ -60,9 +60,9 @@
         }
       }
 
-      // 글 등록 (uuid 컬럼 사용)
+      // 글 등록 (id 컬럼 사용)
       const { data, error } = await supabase.from("wiki_posts").insert([{
-        uuid: crypto.randomUUID(),
+        id: crypto.randomUUID(),   // ✅ PK 컬럼명은 id
         title,
         content,
         author: nickname,
@@ -75,7 +75,7 @@
         alert("글 등록 실패: " + error.message);
       } else {
         alert("글이 게시되었습니다!");
-        location.href = `post.html?id=${data[0].uuid}`;
+        location.href = `post.html?id=${data[0].id}`; // ✅ id 기준 이동
       }
     };
 
