@@ -1,50 +1,65 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8">
-<title>로그인 | K-ReptileWiki</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8">
+  <title>로그인 | K-ReptileWiki</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
 
-<style>
-body {
-  font-family: Arial;
-  background:#f3f4f6;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  height:100vh;
-}
-.box {
-  background:white;
-  padding:30px;
-  border-radius:12px;
-  width:300px;
-  box-shadow:0 4px 10px rgba(0,0,0,.15);
-}
-input,button {
-  width:100%;
-  padding:10px;
-  margin-top:10px;
-}
-button {
-  background:#2563eb;
-  color:white;
-  border:none;
-  border-radius:8px;
-}
-</style>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background:#f3f4f6;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      height:100vh;
+      margin:0;
+    }
+    .box {
+      background:white;
+      padding:30px;
+      border-radius:12px;
+      width:300px;
+      box-shadow:0 4px 10px rgba(0,0,0,.15);
+    }
+    h2 { margin-top:0; text-align:center; }
+    input,button {
+      width:100%;
+      padding:10px;
+      margin-top:10px;
+      font-size:14px;
+    }
+    button {
+      background:#2563eb;
+      color:white;
+      border:none;
+      border-radius:8px;
+      cursor:pointer;
+    }
+    button:hover { background:#1e40af; }
+    #userInfo {
+      margin-top:15px;
+      font-size:14px;
+      color:#333;
+      text-align:center;
+    }
+  </style>
 </head>
 
 <body>
+  <div class="box">
+    <h2>🔐 로그인</h2>
+    <input id="email" type="email" placeholder="이메일">
+    <input id="password" type="password" placeholder="비밀번호">
+    <input id="confirmPassword" type="password" placeholder="비밀번호 확인">
+    <input id="nickname" type="text" placeholder="닉네임 (회원가입 시)">
+    <button onclick="login()">로그인</button>
+    <button onclick="register()">회원가입</button>
+    <button onclick="logout()">로그아웃</button>
+    <div id="userInfo"></div>
+  </div>
 
-<div class="box">
-  <h2>🔐 로그인</h2>
-  <input id="email" placeholder="이메일">
-  <input id="password" type="password" placeholder="비밀번호">
-  <button onclick="login()">로그인</button>
-  <button onclick="register()">회원가입</button>
-</div>
-
-<script type="module" src="/js/auth.js"></script>
+  <!-- JS 연결 -->
+  <script type="module" src="./js/auth.js"></script>
 </body>
 </html>
