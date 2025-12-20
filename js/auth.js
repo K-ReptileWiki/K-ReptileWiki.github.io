@@ -20,9 +20,12 @@ const db = getFirestore(app);
 window.login = async () => {
   const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value.trim();
+
   try {
     await signInWithEmailAndPassword(auth, email, password);
     alert("로그인 성공!");
+    // 로그인 성공 후 관리자 페이지로 이동
+    location.href = "admin.html";
   } catch (e) {
     alert("로그인 실패: " + e.message);
   }
@@ -43,16 +46,16 @@ window.register = async () => {
   try {
     const cred = await createUserWithEmailAndPassword(auth, email, password);
 
-    // Firestore에 사용자 정보 저장
+    // Firestore에 사용자 정보 저장 (UID 기반 문서 생성)
     await setDoc(doc(db, "users", cred.user.uid), {
       email,
       nickname,
-      role: "user",
+      role: "user",       // 기본은 일반 사용자
       bannedUntil: null,
       createdAt: new Date()
     });
 
-    alert("회원가입 성공!");
+    alert("회원가입 성공! 이제 로그인하세요.");
   } catch (e) {
     alert("회원가입 실패: " + e.message);
   }
@@ -63,24 +66,25 @@ window.logout = async () => {
   try {
     await signOut(auth);
     alert("로그아웃 완료");
+    location.href = "login.html"; // 로그아웃 후 로그인 페이지로 이동
   } catch (e) {
     alert("로그아웃 실패: " + e.message);
   }
 };
 
-/* 로그인 상태 표시 (DOM 로드 후 안전하게 실행) */
+/* 로그인 상태 표시 */
 document.addEventListener("DOMContentLoaded", () => {
   onAuthStateChanged(auth, async user => {
     const info = document.getElementById("userInfo");
-    if (!info) return; // 안전장치
+    if (!info) return;
 
     if (user) {
       try {
         const snap = await getDoc(doc(db, "users", user.uid));
         const data = snap.exists() ? snap.data() : {};
-        info.textContent = `현재 로그인: ${data.nickname ?? user.email}`;
+        info.textContent = `현재 로그인: ${data.nickname ?? user.email} (UID: ${user.uid})`;
       } catch (e) {
-        info.textContent = `현재 로그인: ${user.email}`;
+        info.textContent = `현재 로그인: ${user.email} (UID: ${user.uid})`;
       }
     } else {
       info.textContent = "현재 로그인된 사용자 없음";
