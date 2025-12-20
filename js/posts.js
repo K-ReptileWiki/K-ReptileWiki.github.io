@@ -93,19 +93,30 @@ document.getElementById("postBtn").addEventListener("click", async () => {
     return;
   }
 
-// 글 등록
-const { data, error: insertError } = await supabase
-  .from("wiki_posts")
-  .insert([{
-    id: crypto.randomUUID(), // 글 고유 ID 생성 (uuid 타입에 맞게)
-    title,
-    content,
-    author: user.email ?? "익명",
-    time: new Date().toISOString(),
-    images: imageUrls
-  }])
-  .select(); // 새 글의 id 반환
+  // 글 등록
+  const { data, error: insertError } = await supabase
+    .from("wiki_posts")
+    .insert([{
+      id: crypto.randomUUID(), // 글 고유 ID (uuid 타입)
+      title,
+      content,
+      author: user.email ?? "익명",
+      time: new Date().toISOString(),
+      images: imageUrls
+    }])
+    .select();
 
+  if (insertError) {
+    console.error("글 등록 실패:", insertError.message);
+    alert("글 등록 실패: " + insertError.message);
+    return;
+  }
+
+  if (data?.length) {
+    alert("글이 게시되었습니다!");
+    window.location.href = `post.html?id=${data[0].id}`;
+  }
+});
 
 // 글쓰기 취소 버튼
 document.getElementById("cancelBtn").addEventListener("click", () => {
