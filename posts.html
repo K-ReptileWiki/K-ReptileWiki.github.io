@@ -7,13 +7,26 @@
   <!-- Quill 에디터 -->
   <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
   <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+  <!-- 외부 CSS -->
   <link rel="stylesheet" href="style.css">
+  <style>
+    body { font-family: Arial, sans-serif; background:#f9fafb; margin:0; padding:20px; }
+    h1 { color:#2563eb; }
+    .editor-container { background:#fff; padding:20px; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.1); }
+    #editor { height:300px; background:#fff; }
+    button { margin:5px; padding:8px 14px; border:none; border-radius:6px; cursor:pointer; }
+    #previewArea { background:#fff; padding:20px; margin-top:20px; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.1); }
+    .post-card { background:#fff; padding:15px; margin-bottom:15px; border-radius:8px; box-shadow:0 1px 4px rgba(0,0,0,0.1); }
+  </style>
 </head>
 <body>
   <h1>🦎 K-ReptileWiki 글쓰기</h1>
 
   <div class="editor-container">
+    <!-- 제목 입력 -->
     <input id="postTitle" placeholder="제목 입력" style="width:100%;padding:10px;font-size:16px;"><br><br>
+    
+    <!-- Quill 에디터 -->
     <div id="editor"></div><br>
 
     <!-- 사진 첨부 -->
@@ -35,5 +48,37 @@
 
   <!-- 글쓰기 로직 -->
   <script type="module" src="./js/posts.js"></script>
+  <script>
+    // Quill 초기화
+    const quill = new Quill('#editor', {
+      theme: 'snow',
+      placeholder: '내용을 입력하세요...',
+      modules: {
+        toolbar: [
+          ['bold', 'italic', 'underline'],
+          [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+          ['link', 'image']
+        ]
+      }
+    });
+
+    // 미리보기 버튼
+    document.getElementById("previewBtn").addEventListener("click", () => {
+      const title = document.getElementById("postTitle").value;
+      const content = quill.root.innerHTML;
+      const preview = document.getElementById("previewArea");
+      preview.style.display = "block";
+      preview.innerHTML = `<h3>${title}</h3><div>${content}</div>`;
+    });
+
+    // 취소 버튼
+    document.getElementById("cancelBtn").addEventListener("click", () => {
+      if (confirm("작성 중인 내용을 취소하시겠습니까?")) {
+        document.getElementById("postTitle").value = "";
+        quill.root.innerHTML = "";
+        document.getElementById("previewArea").style.display = "none";
+      }
+    });
+  </script>
 </body>
 </html>
