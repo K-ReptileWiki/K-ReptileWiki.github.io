@@ -17,22 +17,16 @@
   <button id="addCommentBtn">댓글 작성</button>
 
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-    import { getAuth } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-    import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, query, where, getDocs, addDoc, serverTimestamp } 
-      from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
-    // Firebase 초기화
-    const app = initializeApp({
-      apiKey: "AIzaSyDfrvgcAed9VvS5MFXVZFIxch8aCAfMp1w",
-      authDomain: "k-reptilewiki-1f09f.firebaseapp.com",
-      projectId: "k-reptilewiki-1f09f"
-    });
-    const auth = getAuth(app);
-    const db = getFirestore(app);
+    const supabaseUrl = "https://cpaikpjzlzzujwfgnanb.supabase.co";
+    const supabaseKey = "sb_publishable_-dZ6xDssPQs29A_hHa2Irw_WxZ24NxB";
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
     const params = new URLSearchParams(location.search);
     const postId = params.get("id");
+
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
 
     if (!postId) {
       document.getElementById("postDetail").textContent = "잘못된 접근입니다.";
@@ -43,18 +37,29 @@
 
     // 글 불러오기
     async function loadPost() {
-      const snap = await getDoc(doc(db, "wiki_posts", postId));
+      const { data, error } = await supabase
+        .from("wiki_posts")
+        .select("*")
+        .eq("id", postId)
+        .single();
+
       const div = document.getElementById("postDetail");
-      if (!snap.exists()) {
+      if (error || !data) {
         div.textContent = "글을 찾을 수 없습니다.";
         return;
       }
-      const data = snap.data();
+
+      // 이미지 출력
+      let imagesHtml = "";
+      if (data.images && data.images.length > 0) {
+        imagesHtml = data.images.map(url => `<img src="${url}" style="max-width:300px;">`).join("<br>");
+      }
 
       div.innerHTML = `
         <h2>${data.title}</h2>
         <div>${data.content}</div>
-        <small>작성자: ${data.author} | ${new Date(data.time.toDate()).toLocaleString()}</small><br>
+        ${imagesHtml}
+        <small>작성자: ${data.author} | ${new Date(data.time).toLocaleString()}</small><br>
       `;
 
       // 좋아요 버튼
@@ -63,85 +68,81 @@
       await updateLikeCount(postId, likeBtn);
 
       likeBtn.onclick = async () => {
-        const user = auth.currentUser;
-        if (!user) {
+        if (!currentUser) {
           alert("로그인을 먼저 하셔야 합니다");
           return;
         }
-        const likeId = `${postId}_${user.uid}`;
-        const likeRef = doc(db, "post_likes", likeId);
-        const likeSnap = await getDoc(likeRef);
-        if (likeSnap.exists()) {
-          alert("이미 좋아요를 누르셨습니다!");
+        const { error } = await supabase
+          .from("post_likes")
+          .insert([{ post_id: postId, user_id: currentUser.id }]);
+        if (error) {
+          if (error.code === "23505") {
+            alert("이미 좋아요를 누르셨습니다!");
+          } else {
+            alert("좋아요 실패: " + error.message);
+          }
         } else {
-          await setDoc(likeRef, {
-            postId,
-            userId: user.uid,
-            createdAt: serverTimestamp()
-          });
           await updateLikeCount(postId, likeBtn);
         }
       };
 
       // 삭제 버튼
-      const user = auth.currentUser;
-      if (user && user.uid === data.uid) {
+      if (currentUser && currentUser.id === data.uid) {
         const btn = document.createElement("button");
         btn.textContent = "글 삭제";
-        btn.onclick = () => deletePost(postId);
+        btn.onclick = () => deletePost(data.id);
         div.appendChild(btn);
       }
     }
 
     async function updateLikeCount(postId, btn) {
-      const q = query(collection(db, "post_likes"), where("postId", "==", postId));
-      const snap = await getDocs(q);
-      btn.textContent = `❤️ ${snap.size}`;
+      const { count } = await supabase
+        .from("post_likes")
+        .select("*", { count: "exact", head: true })
+        .eq("post_id", postId);
+      btn.textContent = `❤️ ${count}`;
     }
 
     // 댓글 불러오기
     async function loadComments() {
-      const q = query(collection(db, "wiki_comments"), where("postId", "==", postId));
-      const snap = await getDocs(q);
+      const { data, error } = await supabase
+        .from("wiki_comments")
+        .select("*")
+        .eq("post_id", postId)
+        .order("time", { ascending: false });
+
       const ul = document.getElementById("commentList");
       ul.innerHTML = "";
-      if (snap.empty) {
-        ul.textContent = "아직 댓글이 없습니다.";
-        return;
-      }
-      snap.forEach(c => {
-        const data = c.data();
+      if (error) { ul.textContent = "댓글 불러오기 실패"; return; }
+      if (!data.length) { ul.textContent = "아직 댓글이 없습니다."; return; }
+      data.forEach(c => {
         const li = document.createElement("li");
-        li.innerHTML = `<p>${data.content}</p><small>${data.author} | ${new Date(data.time.toDate()).toLocaleString()}</small>`;
+        li.innerHTML = `<p>${c.content}</p><small>${c.author} | ${new Date(c.time).toLocaleString()}</small>`;
         ul.appendChild(li);
       });
     }
 
-    // 댓글 작성
     document.getElementById("addCommentBtn").onclick = async () => {
-      const user = auth.currentUser;
-      if (!user) {
+      if (!currentUser) {
         alert("로그인을 먼저 하셔야 합니다");
         return;
       }
       const content = document.getElementById("commentInput").value.trim();
       if (!content) return alert("댓글을 입력하세요");
-
-      await addDoc(collection(db, "wiki_comments"), {
-        postId,
+      await supabase.from("wiki_comments").insert([{
+        post_id: postId,
         content,
-        author: user.email,
-        uid: user.uid,
-        time: serverTimestamp()
-      });
+        author: currentUser.email,
+        uid: currentUser.id,
+        time: new Date().toISOString()
+      }]);
       document.getElementById("commentInput").value = "";
       loadComments();
     };
 
-    // 글 삭제
     async function deletePost(id) {
       if (!confirm("정말 삭제하시겠습니까?")) return;
-      await deleteDoc(doc(db, "wiki_posts", id));
+      await supabase.from("wiki_posts").delete().eq("id", id);
       alert("삭제 완료");
       location.href = "index.html";
     }
