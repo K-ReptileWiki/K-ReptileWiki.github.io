@@ -76,13 +76,13 @@ document.getElementById("postBtn").addEventListener("click", async () => {
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
     const fileName = `${Date.now()}_${file.name}`;
-    const { error: uploadError } = await supabase.storage.from("image").upload(fileName, file);
+    const { error: uploadError } = await supabase.storage.from("IMAGE").upload(fileName, file);
     if (uploadError) {
       console.error("이미지 업로드 실패:", uploadError);
       alert("이미지 업로드 실패: " + uploadError.message);
       return;
     }
-    const { data: publicUrl } = supabase.storage.from("image").getPublicUrl(fileName);
+    const { data: publicUrl } = supabase.storage.from("IMAGE").getPublicUrl(fileName);
     imageUrls.push(publicUrl.publicUrl);
   }
 
