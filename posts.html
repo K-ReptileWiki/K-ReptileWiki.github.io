@@ -7,7 +7,6 @@
   <!-- Quill 에디터 -->
   <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
   <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
-  <!-- ✅ 외부 CSS -->
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -17,24 +16,24 @@
     <input id="postTitle" placeholder="제목 입력" style="width:100%;padding:10px;font-size:16px;"><br><br>
     <div id="editor"></div><br>
 
-    <!-- 📷 사진 첨부 -->
+    <!-- 사진 첨부 -->
     <input type="file" id="images" accept="image/*" multiple>
     <small>최대 3장까지 첨부 가능합니다</small><br><br>
 
-    <!-- 버튼 영역 -->
+    <!-- 버튼 -->
     <button id="previewBtn">미리보기</button>
     <button id="postBtn">게시</button>
     <button id="cancelBtn">취소</button>
   </div>
 
-  <!-- ✨ 미리보기 영역 -->
+  <!-- 미리보기 -->
   <div class="preview" id="previewArea" style="display:none;"></div>
 
   <hr>
   <h2>📚 글 목록</h2>
   <div id="postList"></div>
 
-  <!-- ✅ 글쓰기 로직 -->
+  <!-- 글쓰기 로직 -->
   <script type="module" src="./js/posts.js"></script>
 </body>
 </html>
