@@ -85,15 +85,20 @@ document.getElementById("postBtn").addEventListener("click", async () => {
     imageUrls.push(publicUrl.publicUrl);
   }
 
-  const { error: insertError } = await supabase
-    .from("wiki_posts")
-    .insert([{ 
-      title, 
-      content, 
-      author: "익명", 
-      time: new Date().toISOString(), 
-      images: imageUrls 
-    }]);
+// 현재 로그인 사용자 가져오기
+const { data: { user } } = await supabase.auth.getUser();
+
+const { error: insertError } = await supabase
+  .from("wiki_posts")
+  .insert([{ 
+    title, 
+    content, 
+    author: user?.email ?? "익명",   // 작성자 이메일 또는 익명
+    uid: user?.id ?? null,          // ✅ 작성자 UID 저장
+    time: new Date().toISOString(), 
+    images: imageUrls 
+  }]);
+
 
   if (insertError) {
     alert("글 등록 실패: " + insertError.message);
