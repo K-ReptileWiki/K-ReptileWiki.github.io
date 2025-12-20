@@ -32,13 +32,21 @@ window.login = async () => {
 window.register = async () => {
   const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value.trim();
+  const confirmPassword = document.getElementById("confirmPassword").value.trim();
+  const nickname = document.getElementById("nickname").value.trim() || email.split("@")[0];
+
+  if (password !== confirmPassword) {
+    alert("비밀번호가 일치하지 않습니다.");
+    return;
+  }
+
   try {
     const cred = await createUserWithEmailAndPassword(auth, email, password);
 
     // Firestore에 사용자 정보 저장
     await setDoc(doc(db, "users", cred.user.uid), {
       email,
-      nickname: email.split("@")[0],
+      nickname,
       role: "user",
       bannedUntil: null,
       createdAt: new Date()
@@ -60,14 +68,22 @@ window.logout = async () => {
   }
 };
 
-/* 로그인 상태 표시 */
-onAuthStateChanged(auth, async user => {
-  const info = document.getElementById("userInfo");
-  if (user) {
-    const snap = await getDoc(doc(db, "users", user.uid));
-    const data = snap.exists() ? snap.data() : {};
-    info.textContent = `현재 로그인: ${data.nickname ?? user.email}`;
-  } else {
-    info.textContent = "현재 로그인된 사용자 없음";
-  }
+/* 로그인 상태 표시 (DOM 로드 후 안전하게 실행) */
+document.addEventListener("DOMContentLoaded", () => {
+  onAuthStateChanged(auth, async user => {
+    const info = document.getElementById("userInfo");
+    if (!info) return; // 안전장치
+
+    if (user) {
+      try {
+        const snap = await getDoc(doc(db, "users", user.uid));
+        const data = snap.exists() ? snap.data() : {};
+        info.textContent = `현재 로그인: ${data.nickname ?? user.email}`;
+      } catch (e) {
+        info.textContent = `현재 로그인: ${user.email}`;
+      }
+    } else {
+      info.textContent = "현재 로그인된 사용자 없음";
+    }
+  });
 });
