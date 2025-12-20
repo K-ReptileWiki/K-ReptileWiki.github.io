@@ -53,8 +53,6 @@ export async function initWiki(pageId) {
   if (likeBtn) {
     likeBtn.disabled = false;
     likeBtn.onclick = async () => {
-      console.log("👍 좋아요 버튼 클릭됨");
-
       const { data: existing } = await supabase
         .from("wiki_likes")
         .select("id")
@@ -135,8 +133,6 @@ export async function initWiki(pageId) {
   const addBtn = document.getElementById("addBtn");
   if (addBtn) {
     addBtn.onclick = async () => {
-      console.log("✍️ 기여 추가 버튼 클릭됨");
-
       const text = document.getElementById("content").value.trim();
       if (!text) return;
       if (BAD_WORDS.some((w) => text.includes(w))) return alert("욕설/비속어는 금지입니다");
