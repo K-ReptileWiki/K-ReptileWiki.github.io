@@ -19,7 +19,7 @@
       background:white;
       padding:30px;
       border-radius:12px;
-      width:300px;
+      width:320px;
       box-shadow:0 4px 10px rgba(0,0,0,.15);
     }
     h2 { margin-top:0; text-align:center; }
@@ -49,14 +49,22 @@
 <body>
   <div class="box">
     <h2>🔐 로그인</h2>
+
+    <!-- 로그인 입력 -->
     <input id="email" type="email" placeholder="이메일">
     <input id="password" type="password" placeholder="비밀번호">
-    <input id="confirmPassword" type="password" placeholder="비밀번호 확인">
-    <input id="nickname" type="text" placeholder="닉네임 (회원가입 시)">
+
+    <!-- 회원가입 입력 -->
+    <input id="confirmPassword" type="password" placeholder="비밀번호 확인 (회원가입)">
+    <input id="nickname" type="text" placeholder="닉네임 (회원가입)">
+
+    <!-- 버튼 -->
     <button onclick="login()">로그인</button>
     <button onclick="register()">회원가입</button>
     <button onclick="logout()">로그아웃</button>
-    <div id="userInfo"></div>
+
+    <!-- 로그인 상태 표시 -->
+    <div id="userInfo">로그인 상태: 확인 중...</div>
   </div>
 
   <!-- JS 연결 -->
