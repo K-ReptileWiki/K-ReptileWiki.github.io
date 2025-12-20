@@ -7,7 +7,11 @@
   <!-- 외부 CSS -->
   <link rel="stylesheet" href="style.css">
   <style>
-    /* 글 카드 스타일 */
+    body { font-family: Arial, sans-serif; background:#f9fafb; margin:0; padding:0; }
+    header { background:#2563eb; color:white; padding:15px; text-align:center; }
+    nav { margin:15px; }
+    nav a { display:block; margin:5px 0; color:#2563eb; text-decoration:none; }
+    nav a:hover { text-decoration:underline; }
     .post-card {
       background:#fff;
       padding:15px;
@@ -27,11 +31,21 @@
     .post-card h3 a:hover {
       text-decoration:underline;
     }
+    #adminBtn {
+      margin:10px; padding:8px 14px;
+      background:#f87171; color:white;
+      border:none; border-radius:6px;
+      cursor:pointer; font-weight:bold;
+    }
   </style>
 </head>
 
 <body>
-  <h1>🦎 K-ReptileWiki</h1>
+  <header>
+    <h1>🦎 K-ReptileWiki</h1>
+    <div id="userInfo">로그인 상태 확인 중...</div>
+    <button id="adminBtn">관리자 페이지</button>
+  </header>
 
   <hr>
   <!-- 🔍 검색 -->
@@ -42,8 +56,8 @@
 
   <!-- 📚 종 링크 -->
   <nav>
-    <a href="species/crested_gecko.html">크레스티드 게코</a><br>
-    <a href="species/day_gecko.html">데이게코</a><br>
+    <a href="species/crested_gecko.html">크레스티드 게코</a>
+    <a href="species/day_gecko.html">데이게코</a>
     <a href="species/leopard_gecko.html">레오파드 게코</a>
   </nav>
   <hr>
@@ -154,8 +168,16 @@
       location.href = "posts.html";
     });
 
+    // 관리자 페이지 버튼
+    document.getElementById("adminBtn").addEventListener("click", () => {
+      location.href = "admin.html";
+    });
+
     // 페이지 로드 시 글 목록 불러오기
     loadPosts();
   </script>
+
+  <!-- 방문 기록 저장 스크립트 -->
+  <script type="module" src="./js/index.js"></script>
 </body>
 </html>
