@@ -24,7 +24,6 @@ window.login = async () => {
   try {
     await signInWithEmailAndPassword(auth, email, password);
     alert("로그인 성공!");
-    // 로그인 성공 후 관리자 페이지로 이동
     location.href = "admin.html";
   } catch (e) {
     alert("로그인 실패: " + e.message);
@@ -46,16 +45,19 @@ window.register = async () => {
   try {
     const cred = await createUserWithEmailAndPassword(auth, email, password);
 
-    // Firestore에 사용자 정보 저장 (UID 기반 문서 생성)
+    // Firestore에서 관리자 이메일 확인
+    const adminSnap = await getDoc(doc(db, "admin_emails", email));
+    const role = (adminSnap.exists() && adminSnap.data().active) ? "admin" : "user";
+
     await setDoc(doc(db, "users", cred.user.uid), {
       email,
       nickname,
-      role: "user",       // 기본은 일반 사용자
+      role,
       bannedUntil: null,
       createdAt: new Date()
     });
 
-    alert("회원가입 성공! 이제 로그인하세요.");
+    alert(`회원가입 성공! (${role} 권한 부여됨)`);
   } catch (e) {
     alert("회원가입 실패: " + e.message);
   }
@@ -66,7 +68,7 @@ window.logout = async () => {
   try {
     await signOut(auth);
     alert("로그아웃 완료");
-    location.href = "login.html"; // 로그아웃 후 로그인 페이지로 이동
+    location.href = "login.html";
   } catch (e) {
     alert("로그아웃 실패: " + e.message);
   }
@@ -82,9 +84,9 @@ document.addEventListener("DOMContentLoaded", () => {
       try {
         const snap = await getDoc(doc(db, "users", user.uid));
         const data = snap.exists() ? snap.data() : {};
-        info.textContent = `현재 로그인: ${data.nickname ?? user.email} (UID: ${user.uid})`;
+        info.textContent = `현재 로그인: ${data.nickname ?? user.email} (권한: ${data.role ?? "user"})`;
       } catch (e) {
-        info.textContent = `현재 로그인: ${user.email} (UID: ${user.uid})`;
+        info.textContent = `현재 로그인: ${user.email}`;
       }
     } else {
       info.textContent = "현재 로그인된 사용자 없음";
