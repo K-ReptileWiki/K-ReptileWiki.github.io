@@ -12,6 +12,7 @@ let userData = { nickname: "익명", role: "user", lastPostAt: 0 };
 const BAD_WORDS = ["시발", "병신", "ㅅㅂ", "ㅂㅅ", "애미", "애미 뒤짐"]; 
 const POST_COOLDOWN = 30000; // 30초
 
+// 로그인 상태 확인
 onAuthStateChanged(auth, async (user) => {
   if (user) {
     currentUser = user;
@@ -21,6 +22,11 @@ onAuthStateChanged(auth, async (user) => {
       userData = { ...userData, ...snap.data() };
     } else {
       await setDoc(userRef, userData);
+    }
+
+    // ✅ 로그인 후 페이지 ID 있으면 initWiki 실행
+    if (window.__PAGE_ID__) {
+      initWiki(window.__PAGE_ID__);
     }
   } else {
     currentUser = null;
@@ -56,10 +62,11 @@ export async function initWiki(pageId) {
       }
       await setDoc(likeUserRef, { time: serverTimestamp() });
       await updateDoc(likeRef, { likes: increment(1) });
+      document.getElementById("likeMsg").textContent = "좋아요가 반영되었습니다!";
     });
   }
 
-  /* 📝 글 */
+  /* 📝 사용자 기여 */
   const contribRef = collection(db, "wiki", pageId, "contributions");
 
   onSnapshot(contribRef, snap => {
@@ -90,7 +97,7 @@ export async function initWiki(pageId) {
 
     const now = Date.now();
     if (now - userData.lastPostAt < POST_COOLDOWN)
-      return alert("도배 방지: 잠시 후 다시시도 해 주세요.");
+      return alert("도배 방지: 잠시 후 다시 시도해 주세요.");
 
     await addDoc(contribRef, {
       uid: currentUser.uid,
@@ -107,7 +114,7 @@ export async function initWiki(pageId) {
     document.getElementById("content").value = "";
   };
 
-  // ✅ report / del 함수 기본 정의
+  // ✅ 신고 / 삭제 함수
   window.report = async (pageId, contribId) => {
     const contribDoc = doc(db, "wiki", pageId, "contributions", contribId);
     await updateDoc(contribDoc, { reports: increment(1) });
