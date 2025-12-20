@@ -33,11 +33,9 @@
     );
 
     document.addEventListener("DOMContentLoaded", async () => {
-      // 로그인 사용자 확인
       const { data: userRes } = await supabase.auth.getUser();
       const currentUser = userRes?.user ?? null;
 
-      // URL에서 글 id 가져오기
       const params = new URLSearchParams(location.search);
       const postId = params.get("id");
 
@@ -52,9 +50,7 @@
         return;
       }
 
-      // 글 불러오기
       await loadPost(postId, currentUser);
-      // 댓글 불러오기
       await loadComments(postId);
 
       // 댓글 작성 이벤트
@@ -79,13 +75,12 @@
         }
       };
 
-      // 메인으로 버튼 이벤트
       goHomeBtn.onclick = () => {
         window.location.href = "index.html";
       };
     });
 
-    // 글 불러오기 함수
+    // 글 불러오기
     async function loadPost(postId, currentUser) {
       const { data, error } = await supabase
         .from("wiki_posts")
@@ -111,25 +106,28 @@
         <small>작성자: ${data.author ?? "익명"} | ${new Date(data.time).toLocaleString()}</small><br>
       `;
 
-      // 좋아요 버튼
+      // 좋아요 버튼 (post_likes 테이블 기반)
       const likeBtn = document.createElement("button");
-      likeBtn.textContent = `❤️ ${data.likes ?? 0}`;
+      div.appendChild(likeBtn);
+      await updateLikeCount(postId, likeBtn);
+
       likeBtn.onclick = async () => {
-        const newLikes = (data.likes ?? 0) + 1;
+        if (!currentUser) return alert("로그인이 필요합니다");
         const { error } = await supabase
-          .from("wiki_posts")
-          .update({ likes: newLikes })
-          .eq("id", postId);
-        if (!error) {
-          data.likes = newLikes;
-          likeBtn.textContent = `❤️ ${newLikes}`;
+          .from("post_likes")
+          .insert([{ post_id: postId, user_id: currentUser.id }]);
+        if (error) {
+          if (error.code === "23505") {
+            alert("이미 좋아요를 누르셨습니다!");
+          } else {
+            alert("좋아요 실패: " + error.message);
+          }
         } else {
-          alert("좋아요 실패: " + error.message);
+          await updateLikeCount(postId, likeBtn);
         }
       };
-      div.appendChild(likeBtn);
 
-      // 삭제 버튼 (작성자만)
+      // 삭제 버튼
       if (currentUser && currentUser.id === data.uid) {
         const btn = document.createElement("button");
         btn.className = "delete-btn";
@@ -139,7 +137,19 @@
       }
     }
 
-    // 댓글 불러오기 함수
+    // 좋아요 수 업데이트
+    async function updateLikeCount(postId, btn) {
+      const { count, error } = await supabase
+        .from("post_likes")
+        .select("*", { count: "exact", head: true })
+        .eq("post_id", postId);
+
+      if (!error) {
+        btn.textContent = `❤️ ${count}`;
+      }
+    }
+
+    // 댓글 불러오기
     async function loadComments(postId) {
       const { data, error } = await supabase
         .from("wiki_comments")
@@ -170,7 +180,7 @@
       });
     }
 
-    // 글 삭제 함수
+    // 글 삭제
     async function deletePost(id) {
       if (!confirm("정말 글을 삭제하시겠습니까?")) return;
       const { error } = await supabase.from("wiki_posts").delete().eq("id", id);
