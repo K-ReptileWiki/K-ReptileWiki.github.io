@@ -9,7 +9,11 @@ let currentUserRole = "user";
 
 // 관리자 확인
 document.addEventListener("DOMContentLoaded", async () => {
-  const { data: { user } } = await supabase.auth.getUser();
+  console.log("✅ DOMContentLoaded 실행됨");
+
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  console.log("🔎 getUser 결과:", user, "에러:", userError);
+
   if (!user) {
     alert("로그인 필요");
     location.href = "login.html";
@@ -23,6 +27,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     .eq("id", user.id)
     .single();
 
+  console.log("🔎 profile 조회 결과:", profile, "에러:", error);
+
   if (error || !profile) {
     alert("프로필 없음");
     location.href = "index.html";
@@ -30,6 +36,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   currentUserRole = profile.role ?? "user";
+  console.log("👤 현재 사용자 권한:", currentUserRole);
 
   if (currentUserRole !== "admin") {
     alert("관리자만 접근 가능");
@@ -37,7 +44,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
-  // 관리자일 때만 실행
+  console.log("✅ 관리자 권한 확인됨, 데이터 로딩 시작");
   loadUsers();
   loadPosts();
   loadComments();
@@ -46,12 +53,15 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 /* 사용자 목록 */
 async function loadUsers() {
+  console.log("📥 사용자 목록 불러오기 시도");
   const ul = document.getElementById("userList");
   ul.innerHTML = "";
 
   const { data: users, error } = await supabase.from("profiles").select("*");
+  console.log("🔎 사용자 데이터:", users, "에러:", error);
+
   if (error) {
-    console.error("사용자 목록 불러오기 실패:", error);
+    console.error("❌ 사용자 목록 불러오기 실패:", error);
     ul.textContent = "사용자 목록을 불러올 수 없습니다.";
     return;
   }
@@ -73,12 +83,15 @@ async function loadUsers() {
 
 /* 글 목록 */
 async function loadPosts() {
+  console.log("📥 글 목록 불러오기 시도");
   const ul = document.getElementById("postList");
   ul.innerHTML = "";
 
   const { data: posts, error } = await supabase.from("wiki_posts").select("*");
+  console.log("🔎 글 데이터:", posts, "에러:", error);
+
   if (error) {
-    console.error("글 목록 불러오기 실패:", error);
+    console.error("❌ 글 목록 불러오기 실패:", error);
     ul.textContent = "글을 불러올 수 없습니다.";
     return;
   }
@@ -98,12 +111,15 @@ async function loadPosts() {
 
 /* 댓글 목록 */
 async function loadComments() {
+  console.log("📥 댓글 목록 불러오기 시도");
   const ul = document.getElementById("commentList");
   ul.innerHTML = "";
 
   const { data: comments, error } = await supabase.from("wiki_comments").select("*");
+  console.log("🔎 댓글 데이터:", comments, "에러:", error);
+
   if (error) {
-    console.error("댓글 목록 불러오기 실패:", error);
+    console.error("❌ 댓글 목록 불러오기 실패:", error);
     ul.textContent = "댓글을 불러올 수 없습니다.";
     return;
   }
@@ -124,12 +140,15 @@ async function loadComments() {
 
 /* 방문 기록 목록 */
 async function loadVisits() {
+  console.log("📥 방문 기록 불러오기 시도");
   const ul = document.getElementById("visitList");
   ul.innerHTML = "";
 
   const { data: visits, error } = await supabase.from("visits").select("*");
+  console.log("🔎 방문 기록 데이터:", visits, "에러:", error);
+
   if (error) {
-    console.error("방문 기록 불러오기 실패:", error);
+    console.error("❌ 방문 기록 불러오기 실패:", error);
     ul.textContent = "방문 기록을 불러올 수 없습니다.";
     return;
   }
@@ -152,18 +171,22 @@ async function loadVisits() {
 
 /* 관리자 기능 함수 */
 window.makeAdmin = async (uid) => {
+  console.log("⚡ makeAdmin 실행:", uid);
   await supabase.from("profiles").update({ role: "admin" }).eq("id", uid);
   loadUsers();
 };
 window.removeAdmin = async (uid) => {
+  console.log("⚡ removeAdmin 실행:", uid);
   await supabase.from("profiles").update({ role: "user" }).eq("id", uid);
   loadUsers();
 };
 window.deletePost = async (postId) => {
+  console.log("⚡ deletePost 실행:", postId);
   await supabase.from("wiki_posts").delete().eq("id", postId);
   loadPosts();
 };
 window.deleteComment = async (commentId) => {
+  console.log("⚡ deleteComment 실행:", commentId);
   await supabase.from("wiki_comments").delete().eq("id", commentId);
   loadComments();
 };
