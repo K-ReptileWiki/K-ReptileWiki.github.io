@@ -1,68 +1,57 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import {
-  getAuth,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged
-} from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import {
-  getFirestore, doc, setDoc, serverTimestamp
-} from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>로그인 | K-ReptileWiki</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 
-const app = initializeApp({
-  apiKey: "AIzaSyDfrvgcAed9VvS5MFXVZFIxch8aCAfMp1w",
-  authDomain: "k-reptilewiki-1f09f.firebaseapp.com",
-  projectId: "k-reptilewiki-1f09f"
-});
+<style>
+body {
+  font-family: Arial;
+  background:#f3f4f6;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  height:100vh;
+}
+.box {
+  background:white;
+  padding:30px;
+  border-radius:12px;
+  width:300px;
+  box-shadow:0 4px 10px rgba(0,0,0,.15);
+}
+input,button {
+  width:100%;
+  padding:10px;
+  margin-top:10px;
+}
+button {
+  background:#2563eb;
+  color:white;
+  border:none;
+  border-radius:8px;
+}
+#userInfo {
+  margin-top:15px;
+  font-size:14px;
+  color:#333;
+}
+</style>
+</head>
 
-export const auth = getAuth(app);
-export const db = getFirestore(app);
+<body>
 
-/* 로그인 */
-window.login = async () => {
-  const emailInput = document.getElementById("email");
-  const pwInput = document.getElementById("password");
-  try {
-    await signInWithEmailAndPassword(auth, emailInput.value, pwInput.value);
-    location.href = "/";
-  } catch (e) {
-    alert("로그인 실패: " + e.message);
-  }
-};
+<div class="box">
+  <h2>🔐 로그인</h2>
+  <input id="email" type="email" placeholder="이메일">
+  <input id="password" type="password" placeholder="비밀번호">
+  <button onclick="login()">로그인</button>
+  <button onclick="register()">회원가입</button>
+  <button onclick="logout()">로그아웃</button>
+  <div id="userInfo"></div>
+</div>
 
-/* 회원가입 */
-window.register = async () => {
-  const emailInput = document.getElementById("email");
-  const pwInput = document.getElementById("password");
-  try {
-    const cred = await createUserWithEmailAndPassword(auth, emailInput.value, pwInput.value);
-
-    // 유저 문서 생성
-    await setDoc(doc(db, "users", cred.user.uid), {
-      nickname: emailInput.value.split("@")[0],
-      role: "user",
-      bannedUntil: null,
-      createdAt: serverTimestamp()
-    });
-
-    location.href = "/";
-  } catch (e) {
-    alert("회원가입 실패: " + e.message);
-  }
-};
-
-/* 로그아웃 */
-window.logout = async () => {
-  await signOut(auth);
-  location.href = "/";
-};
-
-/* 로그인 상태 감지 */
-onAuthStateChanged(auth, (user) => {
-  if (user) {
-    console.log("로그인됨:", user.email);
-  } else {
-    console.log("로그아웃 상태");
-  }
-});
+<script type="module" src="./js/auth.js"></script>
+</body>
+</html>
