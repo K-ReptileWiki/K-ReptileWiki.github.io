@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <title>📝 글쓰기 - K-ReptileWiki</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Quill 에디터 CSS -->
   <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
@@ -11,17 +12,23 @@
   <h1>📝 글쓰기</h1>
 
   <div class="editor-container">
+    <!-- 제목 입력 -->
     <input id="postTitle" placeholder="제목" style="width:100%;padding:8px;margin-bottom:10px;">
+    <!-- Quill 에디터 -->
     <div id="editor"></div>
+    <!-- 이미지 업로드 -->
     <input type="file" id="imageUpload" multiple accept="image/*">
 
+    <!-- 버튼 -->
     <button id="postBtn">등록</button>
     <button id="previewBtn">미리보기</button>
     <button id="cancelBtn">취소</button>
   </div>
 
+  <!-- 미리보기 영역 -->
   <div id="previewArea" class="preview" style="display:none;"></div>
 
+  <!-- Quill 에디터 JS -->
   <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
   <script type="module">
     import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
@@ -31,21 +38,38 @@
       "sb_publishable_-dZ6xDssPQs29A_hHa2Irw_WxZ24NxB"
     );
 
+    // ✅ Quill 에디터 초기화
     const quill = new Quill('#editor', {
       theme: 'snow',
-      modules: { toolbar: [['bold','italic','underline'],[{header:[1,2,3,false]}],['link','image']] },
+      modules: {
+        toolbar: [
+          ['bold','italic','underline','strike'],
+          [{ 'header': [1,2,3,false] }],
+          [{ 'color': [] }, { 'background': [] }],
+          [{ 'align': [] }],
+          ['blockquote','code-block'],
+          ['link','image']
+        ]
+      },
       placeholder: "내용을 입력하세요..."
     });
 
+    // 글 등록 버튼
     document.getElementById("postBtn").onclick = async () => {
       const title = document.getElementById("postTitle").value.trim();
       const content = quill.root.innerHTML;
       if (!title || !content) return alert("제목과 내용을 입력하세요");
 
+      // 로그인 사용자 확인
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return alert("로그인을 먼저 하셔야 합니다");
 
-      const { data: userInfo } = await supabase.from("users").select("nickname").eq("id", user.id).single();
+      // 닉네임 가져오기
+      const { data: userInfo } = await supabase
+        .from("users")
+        .select("nickname")
+        .eq("id", user.id)
+        .single();
       const nickname = userInfo?.nickname ?? user.email.split("@")[0];
 
       // 이미지 업로드
@@ -60,7 +84,7 @@
         }
       }
 
-      // 글 등록 (id 컬럼 사용)
+      // 글 등록 (id PK 사용)
       const { data, error } = await supabase.from("wiki_posts").insert([{
         id: crypto.randomUUID(),   // ✅ PK 컬럼명은 id
         title,
@@ -79,13 +103,23 @@
       }
     };
 
-    document.getElementById("cancelBtn").onclick = () => location.href="index.html";
+    // 취소 버튼
+    document.getElementById("cancelBtn").onclick = () => {
+      if (confirm("작성 중인 글을 취소하고 메인으로 돌아가시겠습니까?")) {
+        location.href = "index.html";
+      }
+    };
+
+    // 미리보기 버튼
     document.getElementById("previewBtn").onclick = () => {
       const title = document.getElementById("postTitle").value.trim();
       const content = quill.root.innerHTML;
       const previewArea = document.getElementById("previewArea");
       previewArea.style.display = "block";
-      previewArea.innerHTML = `<h3>${title||"(제목 없음)"}</h3><div>${content||"(내용 없음)"}</div>`;
+      previewArea.innerHTML = `
+        <h3>${title || "(제목 없음)"}</h3>
+        <div>${content || "(내용 없음)"}</div>
+      `;
     };
   </script>
 </body>
