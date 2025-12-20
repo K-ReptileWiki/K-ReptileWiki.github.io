@@ -11,34 +11,45 @@ function initWiki(pageId) {
     likeBtn.onclick = async () => {
       console.log("❤️ 좋아요 버튼 클릭됨");
 
-      // 이미 좋아요 눌렀는지 확인
-      const { data: existing } = await supabase
-        .from("wiki_likes")
-        .select("id")
-        .eq("post_id", pageId)
-        .eq("user_id", currentUser.id)
-        .single();
+      try {
+        // 이미 좋아요 눌렀는지 확인
+        const { data: existing, error: checkError } = await supabase
+          .from("wiki_likes")
+          .select("id")
+          .eq("post_id", pageId)
+          .eq("user_id", currentUser.id)
+          .single();
 
-      if (existing) {
-        console.log("⚠️ 이미 좋아요 누름");
-        return alert("이미 좋아요를 눌렀습니다");
+        if (checkError) console.error("❌ 좋아요 확인 오류:", checkError);
+
+        if (existing) {
+          console.log("⚠️ 이미 좋아요 누름");
+          return alert("이미 좋아요를 눌렀습니다");
+        }
+
+        // 좋아요 삽입
+        const { data, error } = await supabase.from("wiki_likes").insert([
+          { post_id: pageId, user_id: currentUser.id }
+        ]);
+
+        if (error) {
+          console.error("❌ 좋아요 삽입 오류:", error);
+        } else {
+          console.log("✅ 좋아요 삽입 성공, data:", data);
+        }
+
+        // 좋아요 수 증가
+        const { error: rpcError } = await supabase.rpc("increment_likes", { post_id: pageId });
+        if (rpcError) {
+          console.error("❌ 좋아요 RPC 오류:", rpcError);
+        } else {
+          console.log("✅ 좋아요 RPC 호출 완료");
+        }
+
+        document.getElementById("likeMsg").textContent = "좋아요가 반영되었습니다!";
+      } catch (e) {
+        console.error("❌ 좋아요 처리 중 예외:", e);
       }
-
-      // 좋아요 삽입
-      const { error } = await supabase.from("wiki_likes").insert([
-        { post_id: pageId, user_id: currentUser.id }
-      ]);
-      if (error) {
-        console.error("❌ 좋아요 삽입 오류:", error.message);
-      } else {
-        console.log("✅ 좋아요 삽입 성공");
-      }
-
-      // 좋아요 수 증가
-      await supabase.rpc("increment_likes", { post_id: pageId });
-      console.log("✅ 좋아요 RPC 호출 완료");
-
-      document.getElementById("likeMsg").textContent = "좋아요가 반영되었습니다!";
     };
   } else {
     console.log("❌ likeBtn 요소 못 찾음");
@@ -67,24 +78,28 @@ function initWiki(pageId) {
         return alert("도배 방지: 잠시 후 다시 시도해 주세요.");
       }
 
-      // DB 삽입
-      const { error } = await supabase.from("wiki_contributions").insert([{
-        post_id: pageId,
-        uid: currentUser.id,
-        user: userData.nickname,
-        text,
-        reports: 0,
-        time: new Date().toISOString()
-      }]);
+      try {
+        // DB 삽입
+        const { data, error } = await supabase.from("wiki_contributions").insert([{
+          post_id: pageId,
+          uid: currentUser.id,
+          user: userData.nickname,
+          text,
+          reports: 0,
+          time: new Date().toISOString()
+        }]);
 
-      if (error) {
-        console.error("❌ 기여 삽입 오류:", error.message);
-      } else {
-        console.log("✅ 기여 삽입 성공");
+        if (error) {
+          console.error("❌ 기여 삽입 오류:", error);
+        } else {
+          console.log("✅ 기여 삽입 성공, data:", data);
+        }
+
+        userData.lastPostAt = now;
+        document.getElementById("content").value = "";
+      } catch (e) {
+        console.error("❌ 기여 처리 중 예외:", e);
       }
-
-      userData.lastPostAt = now;
-      document.getElementById("content").value = "";
     };
   } else {
     console.log("❌ addBtn 요소 못 찾음");
@@ -120,7 +135,7 @@ supabase.auth.onAuthStateChange(async (event, session) => {
       .eq("id", currentUser.id)
       .single();
 
-    if (error) console.error("❌ users 조회 오류:", error.message);
+    if (error) console.error("❌ users 조회 오류:", error);
 
     if (snap) {
       userData = { nickname: "익명", role: "user", lastPostAt: 0, ...snap };
