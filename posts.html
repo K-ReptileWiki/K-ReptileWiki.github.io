@@ -2,83 +2,141 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>K-ReptileWiki 글쓰기</title>
+  <title>K-ReptileWiki 글 상세</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <!-- Quill 에디터 -->
-  <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
-  <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
-  <!-- 외부 CSS -->
   <link rel="stylesheet" href="style.css">
   <style>
     body { font-family: Arial, sans-serif; background:#f9fafb; margin:0; padding:20px; }
     h1 { color:#2563eb; }
-    .editor-container { background:#fff; padding:20px; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.1); }
-    #editor { height:300px; background:#fff; }
-    button { margin:5px; padding:8px 14px; border:none; border-radius:6px; cursor:pointer; }
-    #previewArea { background:#fff; padding:20px; margin-top:20px; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.1); }
-    .post-card { background:#fff; padding:15px; margin-bottom:15px; border-radius:8px; box-shadow:0 1px 4px rgba(0,0,0,0.1); }
+    .post-detail { background:#fff; padding:20px; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.1); }
+    .comment-card { background:#fff; padding:15px; margin-bottom:10px; border-radius:6px; box-shadow:0 1px 4px rgba(0,0,0,0.1); }
+    button { margin:5px; padding:6px 12px; border:none; border-radius:6px; cursor:pointer; }
+    .delete-btn { background:#f87171; color:white; }
   </style>
 </head>
 <body>
-  <h1>🦎 K-ReptileWiki 글쓰기</h1>
+  <h1>🦎 K-ReptileWiki 글 상세</h1>
 
-  <div class="editor-container">
-    <!-- 제목 입력 -->
-    <input id="postTitle" placeholder="제목 입력" style="width:100%;padding:10px;font-size:16px;"><br><br>
-    
-    <!-- Quill 에디터 -->
-    <div id="editor"></div><br>
-
-    <!-- 사진 첨부 -->
-    <input type="file" id="images" accept="image/*" multiple>
-    <small>최대 3장까지 첨부 가능합니다</small><br><br>
-
-    <!-- 버튼 -->
-    <button id="previewBtn">미리보기</button>
-    <button id="postBtn">게시</button>
-    <button id="cancelBtn">취소</button>
-  </div>
-
-  <!-- 미리보기 -->
-  <div class="preview" id="previewArea" style="display:none;"></div>
+  <!-- 글 상세 -->
+  <div id="postDetail" class="post-detail"></div>
 
   <hr>
-  <h2>📚 글 목록</h2>
-  <div id="postList"></div>
+  <h2>💬 댓글</h2>
+  <ul id="commentList"></ul>
 
-  <!-- 글쓰기 로직 -->
-  <script type="module" src="./js/posts.js"></script>
-  <script>
-    // Quill 초기화
-    const quill = new Quill('#editor', {
-      theme: 'snow',
-      placeholder: '내용을 입력하세요...',
-      modules: {
-        toolbar: [
-          ['bold', 'italic', 'underline'],
-          [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-          ['link', 'image']
-        ]
+  <!-- 댓글 작성 -->
+  <textarea id="commentInput" placeholder="댓글을 입력하세요" style="width:100%;height:80px;"></textarea><br>
+  <button id="addCommentBtn">댓글 작성</button>
+
+  <!-- 글 상세 로직 -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+    import { getFirestore, doc, getDoc, collection, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+
+    // Firebase 초기화
+    const app = initializeApp({
+      apiKey: "AIzaSyDfrvgcAed9VvS5MFXVZFIxch8aCAfMp1w",
+      authDomain: "k-reptilewiki-1f09f.firebaseapp.com",
+      projectId: "k-reptilewiki-1f09f"
+    });
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    let currentUserRole = "user"; // 기본값
+
+    // 로그인 상태 확인 및 role 가져오기
+    onAuthStateChanged(auth, async user => {
+      if (!user) {
+        alert("로그인 필요");
+        location.href = "login.html";
+        return;
+      }
+      try {
+        const snap = await getDoc(doc(db, "users", user.uid));
+        if (snap.exists()) {
+          currentUserRole = snap.data().role ?? "user";
+        }
+        // role 확인 후 글/댓글 불러오기
+        loadPost();
+        loadComments();
+      } catch (e) {
+        console.error("role 확인 실패:", e);
       }
     });
 
-    // 미리보기 버튼
-    document.getElementById("previewBtn").addEventListener("click", () => {
-      const title = document.getElementById("postTitle").value;
-      const content = quill.root.innerHTML;
-      const preview = document.getElementById("previewArea");
-      preview.style.display = "block";
-      preview.innerHTML = `<h3>${title}</h3><div>${content}</div>`;
-    });
+    // 글 상세 불러오기
+    async function loadPost() {
+      const params = new URLSearchParams(location.search);
+      const postId = params.get("id");
+      const snap = await getDoc(doc(db, "wiki_posts", postId));
 
-    // 취소 버튼
-    document.getElementById("cancelBtn").addEventListener("click", () => {
-      if (confirm("작성 중인 내용을 취소하시겠습니까?")) {
-        document.getElementById("postTitle").value = "";
-        quill.root.innerHTML = "";
-        document.getElementById("previewArea").style.display = "none";
+      const div = document.getElementById("postDetail");
+      if (!snap.exists()) {
+        div.textContent = "글을 찾을 수 없습니다.";
+        return;
       }
-    });
+
+      const data = snap.data();
+      let imgHtml = "";
+      if (data.images && Array.isArray(data.images)) {
+        imgHtml = data.images.map(url => `<img src="${url}" style="max-width:200px;margin:5px;">`).join("");
+      }
+
+      div.innerHTML = `
+        <h2>${data.title}</h2>
+        <div>${data.content}</div>
+        ${imgHtml}
+        <small>작성자: ${data.author ?? "익명"} | ${new Date(data.time.toDate()).toLocaleString()}</small><br>
+      `;
+
+      // 본인 글이거나 관리자면 삭제 버튼 표시
+      if (auth.currentUser && (auth.currentUser.uid === data.uid || currentUserRole === "admin")) {
+        div.innerHTML += `<button class="delete-btn" onclick="deletePost('${postId}')">글 삭제</button>`;
+      }
+    }
+
+    // 댓글 불러오기
+    async function loadComments() {
+      const ul = document.getElementById("commentList");
+      ul.innerHTML = "";
+
+      const commentsSnap = await getDocs(collection(db, "wiki_comments"));
+      commentsSnap.forEach(c => {
+        const data = c.data();
+        const li = document.createElement("li");
+        const time = data.time?.toDate?.() ?? new Date(data.time);
+
+        li.className = "comment-card";
+        li.innerHTML = `
+          <p>${data.content}</p>
+          <small>${data.author ?? "익명"} | ${time.toLocaleString()}</small><br>
+        `;
+
+        // 본인 댓글이거나 관리자면 삭제 버튼 표시
+        if (auth.currentUser && (auth.currentUser.uid === data.uid || currentUserRole === "admin")) {
+          li.innerHTML += `<button class="delete-btn" onclick="deleteComment('${c.id}')">댓글 삭제</button>`;
+        }
+
+        ul.appendChild(li);
+      });
+    }
+
+    // 글 삭제
+    window.deletePost = async (postId) => {
+      if (!confirm("정말 글을 삭제하시겠습니까?")) return;
+      await deleteDoc(doc(db, "wiki_posts", postId));
+      alert("글 삭제 완료");
+      location.href = "index.html";
+    };
+
+    // 댓글 삭제
+    window.deleteComment = async (commentId) => {
+      if (!confirm("정말 댓글을 삭제하시겠습니까?")) return;
+      await deleteDoc(doc(db, "wiki_comments", commentId));
+      alert("댓글 삭제 완료");
+      loadComments();
+    };
   </script>
 </body>
 </html>
