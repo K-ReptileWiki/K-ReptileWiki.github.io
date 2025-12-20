@@ -57,15 +57,20 @@
       const title = document.getElementById("postTitle").value.trim();
       const content = quill.root.innerHTML;
 
-      if (!title || !content) return alert("제목과 내용을 입력하세요");
+      if (!title || !content) {
+        alert("제목과 내용을 입력하세요");
+        return;
+      }
 
-      // 현재 로그인 사용자 가져오기
-      const { data: { user } } = await supabase.auth.getUser();
-
-      // ✅ 로그인 체크
+      // ✅ 로그인 체크 먼저
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError) {
+        alert("로그인 상태 확인 실패: " + authError.message);
+        return;
+      }
       if (!user) {
         alert("로그인을 먼저 하셔야 합니다");
-        return;
+        return; // 여기서 함수 종료 → 글 등록 안 됨
       }
 
       // users 테이블에서 닉네임 가져오기
