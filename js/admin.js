@@ -60,6 +60,10 @@ async function loadUsers() {
         <b>${data.nickname ?? "닉네임없음"}</b>
         <br>UID: ${u.id}
         <br>상태: ${banned ? "🚫 밴 중 (해제: " + bannedUntil.toLocaleDateString() + ")" : "정상"}
+        <br>권한: ${data.role ?? "user"}
+        <br><br>
+        <button onclick="makeAdmin('${u.id}')">관리자 승격</button>
+        <button onclick="removeAdmin('${u.id}')">관리자 해제</button>
         <br><br>
         <button onclick="ban('${u.id}',7)">1주 밴</button>
         <button onclick="ban('${u.id}',30)">1달 밴</button>
@@ -177,5 +181,31 @@ window.deleteComment = async (commentId) => {
   } catch (e) {
     console.error("댓글 삭제 실패:", e);
     alert("댓글 삭제 중 오류 발생");
+  }
+};
+
+/* 관리자 승격 */
+window.makeAdmin = async (uid) => {
+  if (!confirm("이 사용자를 관리자(admin)로 승격하시겠습니까?")) return;
+  try {
+    await updateDoc(doc(db, "users", uid), { role: "admin" });
+    alert("관리자 승격 완료!");
+    loadUsers();
+  } catch (e) {
+    console.error("관리자 승격 실패:", e);
+    alert("승격 중 오류 발생");
+  }
+};
+
+/* 관리자 해제 */
+window.removeAdmin = async (uid) => {
+  if (!confirm("이 사용자의 관리자 권한을 해제하시겠습니까?")) return;
+  try {
+    await updateDoc(doc(db, "users", uid), { role: "user" });
+    alert("관리자 권한 해제 완료!");
+    loadUsers();
+  } catch (e) {
+    console.error("관리자 해제 실패:", e);
+    alert("해제 중 오류 발생");
   }
 };
