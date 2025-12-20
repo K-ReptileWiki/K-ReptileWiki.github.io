@@ -62,7 +62,7 @@
         return;
       }
 
-      // ✅ 로그인 체크 먼저
+      // ✅ 로그인 체크
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError) {
         alert("로그인 상태 확인 실패: " + authError.message);
@@ -70,7 +70,7 @@
       }
       if (!user) {
         alert("로그인을 먼저 하셔야 합니다");
-        return; // 여기서 함수 종료 → 글 등록 안 됨
+        return; // 로그인 안 했으면 글 등록 중단
       }
 
       // users 테이블에서 닉네임 가져오기
