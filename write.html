@@ -36,7 +36,7 @@
     const supabaseKey = "sb_publishable_-dZ6xDssPQs29A_hHa2Irw_WxZ24NxB";
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // ✅ Quill 에디터 초기화 (이미지 아이콘 유지)
+    // ✅ Quill 에디터 초기화
     const quill = new Quill('#editor', {
       theme: 'snow',
       modules: {
@@ -46,60 +46,10 @@
           [{ 'color': [] }, { 'background': [] }],
           [{ 'align': [] }],
           ['blockquote', 'code-block'],
-          ['link', 'image']   // 이미지 아이콘은 그대로 둠
+          ['link', 'image']
         ]
       },
       placeholder: "내용을 입력하세요..."
-    });
-
-    // ✅ 이미지 클릭 시 크기 선택 메뉴
-    quill.root.addEventListener("click", (e) => {
-      if (e.target.tagName === "IMG") {
-        const img = e.target;
-
-        // 기존 메뉴 제거
-        const oldMenu = document.getElementById("img-size-menu");
-        if (oldMenu) oldMenu.remove();
-
-        // 메뉴 생성
-        const sizes = [200, 250, 300, 400, 450, 500];
-        const menu = document.createElement("div");
-        menu.id = "img-size-menu";
-        menu.style.position = "absolute";
-        menu.style.background = "#fff";
-        menu.style.border = "1px solid #ccc";
-        menu.style.padding = "5px";
-        menu.style.zIndex = "1000";
-
-        sizes.forEach(size => {
-          const btn = document.createElement("button");
-          btn.textContent = size + "px";
-          btn.style.margin = "2px";
-          btn.onclick = () => {
-            img.style.width = size + "px";
-            img.style.height = "auto";
-            menu.remove();
-          };
-          menu.appendChild(btn);
-        });
-
-        // 이미지 위치 기준으로 메뉴 띄우기
-        const rect = img.getBoundingClientRect();
-        menu.style.left = rect.left + "px";
-        menu.style.top = rect.bottom + "px";
-
-        document.body.appendChild(menu);
-
-        // 다른 곳 클릭하면 메뉴 닫기
-        document.addEventListener("click", function closeMenu(ev) {
-          if (!menu.contains(ev.target) && ev.target !== img) {
-            if (document.body.contains(menu)) {
-              menu.remove();
-            }
-            document.removeEventListener("click", closeMenu);
-          }
-        });
-      }
     });
 
     // 글 등록 버튼
@@ -111,21 +61,36 @@
 
       // 현재 로그인 사용자 가져오기
       const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        alert("로그인을 먼저 하셔야 합니다");
+        return;
+      }
 
-      const { data, error: insertError } = await supabase
+      // users 테이블에서 닉네임 가져오기
+      const { data: userInfo } = await supabase
+        .from("users")
+        .select("nickname")
+        .eq("id", user.id)
+        .single();
+
+      const nickname = userInfo?.nickname ?? user.email.split("@")[0];
+
+      // 글 등록
+      const { data, error } = await supabase
         .from("wiki_posts")
         .insert([{
           id: crypto.randomUUID(),
           title,
           content,
-          author: user?.email ?? "익명",
+          author: nickname,   // ✅ 닉네임 저장
+          uid: user.id,       // ✅ 작성자 UID 저장
           time: new Date().toISOString(),
-          images: [] // 이미지 업로드 버튼 제거 → 빈 배열 저장
+          images: []
         }])
         .select();
 
-      if (insertError) {
-        alert("글 등록 실패: " + insertError.message);
+      if (error) {
+        alert("글 등록 실패: " + error.message);
       } else {
         alert("글이 게시되었습니다!");
         if (data?.length) {
