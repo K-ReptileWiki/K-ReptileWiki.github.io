@@ -1,6 +1,6 @@
 import { db, auth } from "./firebase.js";
 import {
-  doc, getDoc, setDoc, updateDoc,
+  doc, getDoc, setDoc, updateDoc, deleteDoc,
   onSnapshot, collection, addDoc, serverTimestamp, increment
 } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
@@ -80,7 +80,7 @@ export async function initWiki(pageId) {
       li.innerHTML = `
         <b>${p.user}</b>: ${p.text}
         <button onclick="report('${pageId}','${d.id}')">🚨</button>
-        ${userData.role === "admin"
+        ${(userData.role === "admin" || currentUser.uid === p.uid)
           ? `<button onclick="del('${pageId}','${d.id}')">❌</button>` : ""}
       `;
 
@@ -122,8 +122,14 @@ export async function initWiki(pageId) {
   };
 
   window.del = async (pageId, contribId) => {
+    if (!confirm("정말 삭제하시겠습니까?")) return;
     const contribDoc = doc(db, "wiki", pageId, "contributions", contribId);
-    await updateDoc(contribDoc, { deleted: true });
-    alert("삭제되었습니다");
+    try {
+      await deleteDoc(contribDoc);
+      alert("삭제되었습니다");
+    } catch (e) {
+      console.error("삭제 실패:", e);
+      alert("삭제 권한이 없거나 오류가 발생했습니다");
+    }
   };
 }
