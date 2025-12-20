@@ -29,56 +29,41 @@
   <textarea id="commentInput" placeholder="댓글을 입력하세요" style="width:100%;height:80px;"></textarea><br>
   <button id="addCommentBtn">댓글 작성</button>
 
-  <!-- 글 상세 로직 -->
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-    import { getFirestore, doc, getDoc, collection, getDocs, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
-    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
-    // Firebase 초기화
-    const app = initializeApp({
-      apiKey: "AIzaSyDfrvgcAed9VvS5MFXVZFIxch8aCAfMp1w",
-      authDomain: "k-reptilewiki-1f09f.firebaseapp.com",
-      projectId: "k-reptilewiki-1f09f"
-    });
-    const db = getFirestore(app);
-    const auth = getAuth(app);
+    const supabaseUrl = "https://cpaikpjzlzzujwfgnanb.supabase.co";
+    const supabaseKey = "sb_publishable_-dZ6xDssPQs29A_hHa2Irw_WxZ24NxB";
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
-    let currentUserRole = "user"; // 기본값
+    const params = new URLSearchParams(location.search);
+    const postId = params.get("id");
 
-    // 로그인 상태 확인 및 role 가져오기
-    onAuthStateChanged(auth, async user => {
-      if (!user) {
-        alert("로그인 필요");
-        location.href = "login.html";
-        return;
-      }
-      try {
-        const snap = await getDoc(doc(db, "users", user.uid));
-        if (snap.exists()) {
-          currentUserRole = snap.data().role ?? "user";
-        }
-        // role 확인 후 글/댓글 불러오기
-        loadPost();
-        loadComments();
-      } catch (e) {
-        console.error("role 확인 실패:", e);
-      }
-    });
+    let currentUser = null;
+    const { data: { user } } = await supabase.auth.getUser();
+    currentUser = user;
+
+    if (!postId) {
+      document.getElementById("postDetail").textContent = "잘못된 접근입니다. 글 ID가 없습니다.";
+    } else {
+      loadPost();
+      loadComments();
+    }
 
     // 글 상세 불러오기
     async function loadPost() {
-      const params = new URLSearchParams(location.search);
-      const postId = params.get("id");
-      const snap = await getDoc(doc(db, "wiki_posts", postId));
+      const { data, error } = await supabase
+        .from("wiki_posts")
+        .select("*")
+        .eq("id", postId)
+        .single();
 
       const div = document.getElementById("postDetail");
-      if (!snap.exists()) {
+      if (error || !data) {
         div.textContent = "글을 찾을 수 없습니다.";
         return;
       }
 
-      const data = snap.data();
       let imgHtml = "";
       if (data.images && Array.isArray(data.images)) {
         imgHtml = data.images.map(url => `<img src="${url}" style="max-width:200px;margin:5px;">`).join("");
@@ -88,24 +73,50 @@
         <h2>${data.title}</h2>
         <div>${data.content}</div>
         ${imgHtml}
-        <small>작성자: ${data.author ?? "익명"} | ${new Date(data.time.toDate()).toLocaleString()}</small><br>
+        <small>작성자: ${data.author ?? "익명"} | ${new Date(data.time).toLocaleString()}</small><br>
       `;
 
-      // ✅ 하트 버튼 추가
+      // ✅ 좋아요 버튼
       const likeBtn = document.createElement("button");
       likeBtn.className = "like-btn";
-      likeBtn.textContent = `❤️ ${data.likes ?? 0}`;
-      likeBtn.onclick = async () => {
-        const newLikes = (data.likes ?? 0) + 1;
-        await updateDoc(doc(db, "wiki_posts", postId), { likes: newLikes });
-        likeBtn.textContent = `❤️ ${newLikes}`;
-        data.likes = newLikes;
-      };
+      likeBtn.textContent = "❤️ 0";
       div.appendChild(likeBtn);
 
+      // 좋아요 개수 불러오기
+      const { count } = await supabase
+        .from("post_likes")
+        .select("*", { count: "exact", head: true })
+        .eq("post_id", postId);
+      likeBtn.textContent = `❤️ ${count}`;
+
+      // 좋아요 클릭 이벤트
+      likeBtn.onclick = async () => {
+        if (!currentUser) {
+          alert("로그인이 필요합니다");
+          return;
+        }
+        const { error } = await supabase
+          .from("post_likes")
+          .insert([{ post_id: postId, user_id: currentUser.id }]);
+
+        if (error) {
+          if (error.code === "23505") {
+            alert("이미 좋아요를 누르셨습니다!");
+          } else {
+            alert("좋아요 실패: " + error.message);
+          }
+        } else {
+          likeBtn.textContent = `❤️ ${count + 1}`;
+        }
+      };
+
       // 본인 글이거나 관리자면 삭제 버튼 표시
-      if (auth.currentUser && (auth.currentUser.uid === data.uid || currentUserRole === "admin")) {
-        div.innerHTML += `<button class="delete-btn" onclick="deletePost('${postId}')">글 삭제</button>`;
+      if (currentUser && (currentUser.id === data.uid)) {
+        const btn = document.createElement("button");
+        btn.className = "delete-btn";
+        btn.textContent = "글 삭제";
+        btn.onclick = () => deletePost(data.id);
+        div.appendChild(btn);
       }
     }
 
@@ -114,42 +125,40 @@
       const ul = document.getElementById("commentList");
       ul.innerHTML = "";
 
-      const commentsSnap = await getDocs(collection(db, "wiki_comments"));
-      commentsSnap.forEach(c => {
-        const data = c.data();
-        const li = document.createElement("li");
-        const time = data.time?.toDate?.() ?? new Date(data.time);
+      const { data, error } = await supabase
+        .from("wiki_comments")
+        .select("*")
+        .eq("post_id", postId)
+        .order("time", { ascending: false });
 
+      if (error) {
+        ul.textContent = "댓글을 불러오는 중 오류 발생";
+        return;
+      }
+      if (!data || data.length === 0) {
+        ul.textContent = "아직 댓글이 없습니다.";
+        return;
+      }
+
+      data.forEach(c => {
+        const li = document.createElement("li");
         li.className = "comment-card";
         li.innerHTML = `
-          <p>${data.content}</p>
-          <small>${data.author ?? "익명"} | ${time.toLocaleString()}</small><br>
+          <p>${c.content}</p>
+          <small>${c.author ?? "익명"} | ${new Date(c.time).toLocaleString()}</small><br>
         `;
-
-        // 본인 댓글이거나 관리자면 삭제 버튼 표시
-        if (auth.currentUser && (auth.currentUser.uid === data.uid || currentUserRole === "admin")) {
-          li.innerHTML += `<button class="delete-btn" onclick="deleteComment('${c.id}')">댓글 삭제</button>`;
-        }
-
         ul.appendChild(li);
       });
     }
 
     // 글 삭제
-    window.deletePost = async (postId) => {
+    async function deletePost(id) {
       if (!confirm("정말 글을 삭제하시겠습니까?")) return;
-      await deleteDoc(doc(db, "wiki_posts", postId));
+      const { error } = await supabase.from("wiki_posts").delete().eq("id", id);
+      if (error) return alert("글 삭제 실패: " + error.message);
       alert("글 삭제 완료");
       location.href = "index.html";
-    };
-
-    // 댓글 삭제
-    window.deleteComment = async (commentId) => {
-      if (!confirm("정말 댓글을 삭제하시겠습니까?")) return;
-      await deleteDoc(doc(db, "wiki_comments", commentId));
-      alert("댓글 삭제 완료");
-      loadComments();
-    };
+    }
   </script>
 </body>
 </html>
