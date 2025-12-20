@@ -2,7 +2,7 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 
 // Supabase 초기화
 const supabaseUrl = "https://cpaikpjzlzzujwfgnanb.supabase.co";
-const supabaseKey = "sb_publishable_-dZ6xDssPQs29A_hHa2Irw_WxZ24NxB"; 
+const supabaseKey = "sb_publishable_-dZ6xDssPQs29A_hHa2Irw_WxZ24NxB";
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Quill 에디터 초기화
@@ -49,7 +49,7 @@ async function initPosts() {
       imgHtml = p.images.map(url => `<img src="${url}" style="max-width:150px;margin:5px;">`).join("");
     }
 
-    const plainText = p.content.replace(/<[^>]+>/g, "");
+    const plainText = p.content?.replace(/<[^>]+>/g, "") ?? "";
     const shortText = plainText.length > 100 ? plainText.substring(0, 100) + "..." : plainText;
 
     div.innerHTML = `
@@ -76,35 +76,42 @@ document.getElementById("postBtn").addEventListener("click", async () => {
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
     const fileName = `${Date.now()}_${file.name}`;
-    const { error } = await supabase.storage.from("image").upload(fileName, file);
-    if (error) {
-      alert("이미지 업로드 실패: " + error.message);
+    const { error: uploadError } = await supabase.storage.from("image").upload(fileName, file);
+    if (uploadError) {
+      console.error("이미지 업로드 실패:", uploadError);
+      alert("이미지 업로드 실패: " + uploadError.message);
       return;
     }
     const { data: publicUrl } = supabase.storage.from("image").getPublicUrl(fileName);
     imageUrls.push(publicUrl.publicUrl);
   }
 
-// 현재 로그인 사용자 가져오기
-const { data: { user } } = await supabase.auth.getUser();
+  // 현재 로그인 사용자 가져오기
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) {
+    alert("로그인이 필요합니다");
+    return;
+  }
 
-const { error: insertError } = await supabase
-  .from("wiki_posts")
-  .insert([{ 
-    title, 
-    content, 
-    author: user?.email ?? "익명",   // 작성자 이메일 또는 익명
-    uid: user?.id ?? null,          // ✅ 작성자 UID 저장
-    time: new Date().toISOString(), 
-    images: imageUrls 
-  }]);
-
+  // 글 등록
+  const { data, error: insertError } = await supabase
+    .from("wiki_posts")
+    .insert([{
+      title,
+      content,
+      author: user.email ?? "익명",
+      uid: user.id,
+      time: new Date().toISOString(),
+      images: imageUrls
+    }])
+    .select(); // ✅ 새 글의 id 반환
 
   if (insertError) {
+    console.error("글 등록 실패:", insertError);
     alert("글 등록 실패: " + insertError.message);
-  } else {
+  } else if (data?.length) {
     alert("글이 게시되었습니다!");
-    window.location.href = "index.html";
+    window.location.href = `post.html?id=${data[0].id}`;
   }
 });
 
