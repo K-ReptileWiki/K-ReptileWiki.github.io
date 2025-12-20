@@ -8,41 +8,58 @@ const POST_COOLDOWN = 30000;
 
 // 로그인 상태 확인
 supabase.auth.onAuthStateChange(async (event, session) => {
+  console.log("🔑 Auth state changed:", event, session);
+
   if (session?.user) {
     currentUser = session.user;
+    console.log("✅ 로그인된 유저:", currentUser.id);
 
     // users 테이블에서 유저 데이터 가져오기
-    const { data: snap } = await supabase
+    const { data: snap, error } = await supabase
       .from("users")
       .select("*")
       .eq("id", currentUser.id)
       .single();
 
+    if (error) console.error("❌ users 조회 오류:", error.message);
+
     if (snap) {
       userData = { nickname: "익명", role: "user", lastPostAt: 0, ...snap };
+      console.log("✅ 유저 데이터:", userData);
     } else {
+      console.log("ℹ️ 신규 유저, users 테이블에 삽입");
       await supabase.from("users").insert([{ id: currentUser.id, ...userData }]);
     }
 
-    if (window.__PAGE_ID__) initWiki(window.__PAGE_ID__);
+    if (window.__PAGE_ID__) {
+      console.log("📄 initWiki 실행, PAGE_ID:", window.__PAGE_ID__);
+      initWiki(window.__PAGE_ID__);
+    }
   } else {
+    console.log("🚫 로그인 안 됨");
     currentUser = null;
     userData = null;
   }
 });
 
 export async function initWiki(pageId) {
-  if (!currentUser || !userData) return;
+  if (!currentUser || !userData) {
+    console.log("⚠️ initWiki 실행 불가: 로그인 없음");
+    return;
+  }
 
   // 좋아요 불러오기
   async function loadLikes() {
-    const { data } = await supabase
+    console.log("📥 좋아요 불러오기:", pageId);
+    const { data, error } = await supabase
       .from("wiki_posts")
       .select("likes")
       .eq("id", pageId)
       .single();
 
+    if (error) console.error("❌ 좋아요 조회 오류:", error.message);
     if (data) {
+      console.log("👍 현재 좋아요 수:", data.likes);
       document.getElementById("likeCount").textContent = data.likes ?? 0;
     }
   }
@@ -53,6 +70,8 @@ export async function initWiki(pageId) {
   if (likeBtn) {
     likeBtn.disabled = false;
     likeBtn.onclick = async () => {
+      console.log("❤️ 좋아요 버튼 클릭됨");
+
       const { data: existing } = await supabase
         .from("wiki_likes")
         .select("id")
@@ -60,13 +79,18 @@ export async function initWiki(pageId) {
         .eq("user_id", currentUser.id)
         .single();
 
-      if (existing) return alert("이미 좋아요를 눌렀습니다");
+      if (existing) {
+        console.log("⚠️ 이미 좋아요 누름");
+        return alert("이미 좋아요를 눌렀습니다");
+      }
 
-      await supabase.from("wiki_likes").insert([
+      const { error } = await supabase.from("wiki_likes").insert([
         { post_id: pageId, user_id: currentUser.id }
       ]);
+      if (error) console.error("❌ 좋아요 삽입 오류:", error.message);
 
       await supabase.rpc("increment_likes", { post_id: pageId });
+      console.log("✅ 좋아요 RPC 호출 완료");
 
       document.getElementById("likeMsg").textContent = "좋아요가 반영되었습니다!";
       loadLikes();
@@ -75,16 +99,20 @@ export async function initWiki(pageId) {
 
   // 사용자 기여 불러오기
   async function loadContributions() {
-    const { data } = await supabase
+    console.log("📥 기여 불러오기:", pageId);
+    const { data, error } = await supabase
       .from("wiki_contributions")
       .select("*")
       .eq("post_id", pageId)
       .order("time", { ascending: false });
 
+    if (error) console.error("❌ 기여 조회 오류:", error.message);
+
     const ul = document.getElementById("contributions");
     ul.innerHTML = "";
 
     if (data) {
+      console.log("✅ 기여 불러오기 완료, 개수:", data.length);
       data.forEach((p) => {
         const li = document.createElement("li");
         li.innerHTML = `
@@ -99,8 +127,8 @@ export async function initWiki(pageId) {
       // 신고 버튼 이벤트
       document.querySelectorAll(".reportBtn").forEach(btn => {
         btn.onclick = async () => {
-          const contribId = btn.dataset.id;
-          await supabase.rpc("increment_reports", { contrib_id: contribId });
+          console.log("🚨 신고 버튼 클릭:", btn.dataset.id);
+          await supabase.rpc("increment_reports", { contrib_id: btn.dataset.id });
           alert("신고가 접수되었습니다");
           loadContributions();
         };
@@ -109,12 +137,12 @@ export async function initWiki(pageId) {
       // 삭제 버튼 이벤트
       document.querySelectorAll(".delBtn").forEach(btn => {
         btn.onclick = async () => {
-          const contribId = btn.dataset.id;
+          console.log("❌ 삭제 버튼 클릭:", btn.dataset.id);
           if (!confirm("정말 삭제하시겠습니까?")) return;
           const { error } = await supabase
             .from("wiki_contributions")
             .delete()
-            .eq("id", contribId);
+            .eq("id", btn.dataset.id);
 
           if (error) {
             console.error("삭제 실패:", error.message);
@@ -133,15 +161,25 @@ export async function initWiki(pageId) {
   const addBtn = document.getElementById("addBtn");
   if (addBtn) {
     addBtn.onclick = async () => {
+      console.log("✍️ 기여 버튼 클릭됨");
+
       const text = document.getElementById("content").value.trim();
-      if (!text) return;
-      if (BAD_WORDS.some((w) => text.includes(w))) return alert("욕설/비속어는 금지입니다");
+      if (!text) {
+        console.log("⚠️ 입력 없음");
+        return;
+      }
+      if (BAD_WORDS.some((w) => text.includes(w))) {
+        console.log("🚫 욕설 감지");
+        return alert("욕설/비속어는 금지입니다");
+      }
 
       const now = Date.now();
-      if (now - (userData.lastPostAt ?? 0) < POST_COOLDOWN)
+      if (now - (userData.lastPostAt ?? 0) < POST_COOLDOWN) {
+        console.log("⏳ 도배 방지 발동");
         return alert("도배 방지: 잠시 후 다시 시도해 주세요.");
+      }
 
-      await supabase.from("wiki_contributions").insert([{
+      const { error } = await supabase.from("wiki_contributions").insert([{
         post_id: pageId,
         uid: currentUser.id,
         user: userData.nickname,
@@ -149,6 +187,12 @@ export async function initWiki(pageId) {
         reports: 0,
         time: new Date().toISOString()
       }]);
+
+      if (error) {
+        console.error("❌ 기여 삽입 오류:", error.message);
+      } else {
+        console.log("✅ 기여 삽입 성공");
+      }
 
       userData.lastPostAt = now;
       document.getElementById("content").value = "";
