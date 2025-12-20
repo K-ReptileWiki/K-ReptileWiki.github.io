@@ -4,10 +4,31 @@
   <meta charset="UTF-8">
   <title>K-ReptileWiki</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <!-- ✅ 외부 CSS 파일 불러오기 -->
+  <!-- 외부 CSS -->
   <link rel="stylesheet" href="style.css">
+  <style>
+    /* 글 카드 스타일 */
+    .post-card {
+      background:#fff;
+      padding:15px;
+      margin-bottom:15px;
+      border-radius:8px;
+      box-shadow:0 1px 4px rgba(0,0,0,0.1);
+    }
+    .post-card img {
+      max-width:200px;
+      border-radius:6px;
+      margin-top:8px;
+    }
+    .post-card h3 a {
+      color:#2563eb;
+      text-decoration:none;
+    }
+    .post-card h3 a:hover {
+      text-decoration:underline;
+    }
+  </style>
 </head>
-
 
 <body>
   <h1>🦎 K-ReptileWiki</h1>
@@ -20,9 +41,11 @@
   <hr>
 
   <!-- 📚 종 링크 -->
-  <a href="species/crested_gecko.html">크레스티드 게코</a><br>
-  <a href="species/day_gecko.html">데이게코</a><br>
-  <a href="species/leopard_gecko.html">레오파드 게코</a>
+  <nav>
+    <a href="species/crested_gecko.html">크레스티드 게코</a><br>
+    <a href="species/day_gecko.html">데이게코</a><br>
+    <a href="species/leopard_gecko.html">레오파드 게코</a>
+  </nav>
   <hr>
 
   <!-- 📝 글쓰기 버튼 -->
@@ -37,15 +60,15 @@
   <script type="module">
     import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
-    // 🔑 Supabase 초기화
+    // Supabase 초기화
     const supabaseUrl = "https://cpaikpjzlzzujwfgnanb.supabase.co";
     const supabaseKey = "sb_publishable_-dZ6xDssPQs29A_hHa2Irw_WxZ24NxB";
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // ✅ 글 목록 불러오기
+    // 글 목록 불러오기
     async function loadPosts() {
       const { data, error } = await supabase
-        .from("wiki_posts") // Supabase 테이블 이름
+        .from("wiki_posts")
         .select("*")
         .order("time", { ascending: false });
 
@@ -53,20 +76,27 @@
       list.innerHTML = "";
 
       if (error) {
+        list.textContent = "글을 불러오는 중 오류가 발생했습니다.";
         console.error("글 불러오기 실패:", error.message);
         return;
       }
 
-      data.forEach(post => {
-        let imgHtml = "";
-        if (post.images && Array.isArray(post.images)) {
-          imgHtml = post.images.map(url => `<img src="${url}">`).join("");
-        }
+      if (!data || data.length === 0) {
+        list.textContent = "아직 작성된 글이 없습니다.";
+        return;
+      }
 
-        const plainText = post.content.replace(/<[^>]+>/g, "");
+      data.forEach(post => {
+        const plainText = post.content?.replace(/<[^>]+>/g, "") ?? "";
         const shortText = plainText.length > 100 ? plainText.substring(0, 100) + "..." : plainText;
 
+        let imgHtml = "";
+        if (post.images && Array.isArray(post.images)) {
+          imgHtml = post.images.map(url => `<img src="${url}" alt="첨부 이미지">`).join("");
+        }
+
         const div = document.createElement("div");
+        div.className = "post-card";
         div.innerHTML = `
           <h3><a href="post.html?id=${post.id}">${post.title}</a></h3>
           <p>${shortText}</p>
@@ -77,7 +107,7 @@
       });
     }
 
-    // 🔍 검색 기능
+    // 검색 기능
     document.getElementById("searchBtn").addEventListener("click", async () => {
       const keyword = document.getElementById("searchInput").value.trim().toLowerCase();
       const resultsDiv = document.getElementById("searchResults");
@@ -85,39 +115,41 @@
 
       if (!keyword) return;
 
-      const { data, error } = await supabase
-        .from("wiki_posts")
-        .select("*");
+      const { data, error } = await supabase.from("wiki_posts").select("*");
 
       if (error) {
+        resultsDiv.textContent = "검색 중 오류가 발생했습니다.";
         console.error("검색 실패:", error.message);
         return;
       }
 
-      data.forEach(post => {
+      const matched = data.filter(post => {
         const title = post.title?.toLowerCase() ?? "";
         const content = post.content?.toLowerCase() ?? "";
-
-        if (title.includes(keyword) || content.includes(keyword)) {
-          const plainText = post.content.replace(/<[^>]+>/g, "");
-          const shortText = plainText.length > 100 ? plainText.substring(0, 100) + "..." : plainText;
-
-          const div = document.createElement("div");
-          div.innerHTML = `
-            <h3><a href="post.html?id=${post.id}">${post.title}</a></h3>
-            <p>${shortText}</p>
-            <small>작성자: ${post.author ?? "익명"} | ${new Date(post.time).toLocaleString()}</small>
-          `;
-          resultsDiv.appendChild(div);
-        }
+        return title.includes(keyword) || content.includes(keyword);
       });
 
-      if (!resultsDiv.innerHTML) {
+      if (matched.length === 0) {
         resultsDiv.textContent = "검색 결과가 없습니다.";
+        return;
       }
+
+      matched.forEach(post => {
+        const plainText = post.content?.replace(/<[^>]+>/g, "") ?? "";
+        const shortText = plainText.length > 100 ? plainText.substring(0, 100) + "..." : plainText;
+
+        const div = document.createElement("div");
+        div.className = "post-card";
+        div.innerHTML = `
+          <h3><a href="post.html?id=${post.id}">${post.title}</a></h3>
+          <p>${shortText}</p>
+          <small>작성자: ${post.author ?? "익명"} | ${new Date(post.time).toLocaleString()}</small>
+        `;
+        resultsDiv.appendChild(div);
+      });
     });
 
-    // 📝 글쓰기 버튼
+    // 글쓰기 버튼
     document.getElementById("writeBtn").addEventListener("click", () => {
       location.href = "posts.html";
     });
