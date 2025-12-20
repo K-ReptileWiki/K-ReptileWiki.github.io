@@ -14,6 +14,8 @@ const app = initializeApp({
 const db = getFirestore(app);
 const auth = getAuth(app);
 
+let currentUserRole = "user"; // 로그인한 사용자의 권한 저장
+
 /* 관리자 확인 */
 onAuthStateChanged(auth, async user => {
   if (!user) {
@@ -24,9 +26,17 @@ onAuthStateChanged(auth, async user => {
 
   try {
     const snap = await getDoc(doc(db, "users", user.uid));
-    if (!snap.exists() || snap.data().role !== "admin") {
+    if (!snap.exists()) {
+      alert("사용자 문서 없음");
+      location.href = "index.html";
+      return;
+    }
+
+    currentUserRole = snap.data().role ?? "user";
+
+    if (currentUserRole !== "admin") {
       alert("관리자만 접근 가능");
-      location.href = "index.html"; // 일반 사용자는 메인 페이지로 이동
+      location.href = "index.html";
       return;
     }
 
@@ -89,11 +99,17 @@ async function loadPosts() {
     postsSnap.forEach(p => {
       const data = p.data();
       const li = document.createElement("li");
+
       li.innerHTML = `
         <b>${data.title}</b> (작성자: ${data.author ?? "익명"})
         <br>
-        <button onclick="deletePost('${p.id}')">삭제</button>
       `;
+
+      // 관리자만 삭제 버튼 표시
+      if (currentUserRole === "admin") {
+        li.innerHTML += `<button onclick="deletePost('${p.id}')">삭제</button>`;
+      }
+
       ul.appendChild(li);
     });
   } catch (e) {
@@ -118,8 +134,13 @@ async function loadComments() {
         <p>${data.content}</p>
         <small>${data.author ?? "익명"} | ${time.toLocaleString()}</small>
         <br>
-        <button onclick="deleteComment('${c.id}')">삭제</button>
       `;
+
+      // 관리자만 삭제 버튼 표시
+      if (currentUserRole === "admin") {
+        li.innerHTML += `<button onclick="deleteComment('${c.id}')">삭제</button>`;
+      }
+
       ul.appendChild(li);
     });
   } catch (e) {
