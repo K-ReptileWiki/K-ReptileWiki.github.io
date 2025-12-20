@@ -37,8 +37,38 @@
       border:none; border-radius:6px;
       cursor:pointer; font-weight:bold;
     }
+    #loginBtn {
+      margin:10px; padding:8px 14px;
+      background:#10b981; color:white;
+      border:none; border-radius:6px;
+      cursor:pointer; font-weight:bold;
+    }
   </style>
 </head>
+<body>
+  <header>
+    <h1>🦎 K-ReptileWiki</h1>
+    <!-- ✅ 로그인 버튼 추가 -->
+    <button id="loginBtn">로그인</button>
+  </header>
+
+  <nav>
+    <a href="write.html">✍ 글쓰기</a>
+    <a href="index.html">🏠 메인</a>
+  </nav>
+
+  <!-- 글 목록 영역 -->
+  <div id="postList"></div>
+
+  <script type="module">
+    // 로그인 버튼 이벤트
+    document.getElementById("loginBtn").addEventListener("click", () => {
+      window.location.href = "login.html";
+    });
+  </script>
+</body>
+</html>
+
 
 <body>
   <header>
