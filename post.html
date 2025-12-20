@@ -9,17 +9,13 @@
 <body>
   <h1>🦎 K-ReptileWiki 글 상세</h1>
 
-  <!-- 글 상세 영역 -->
   <div id="postDetail" class="editor-container"></div>
-
-  <!-- 메인으로 돌아가기 버튼 -->
   <button id="goHomeBtn">🏠 메인으로</button>
 
   <hr>
   <h2>💬 댓글</h2>
   <ul id="commentList"></ul>
 
-  <!-- 댓글 입력 -->
   <textarea id="commentInput" placeholder="댓글을 입력하세요"></textarea><br>
   <button id="addCommentBtn">댓글 작성</button>
 
@@ -44,7 +40,6 @@
       loadComments();
     }
 
-    // 글 불러오기
     async function loadPost() {
       const { data, error } = await supabase
         .from("wiki_posts").select("*").eq("id", postId).single();
@@ -67,7 +62,7 @@
         <small>작성자: ${data.author ?? "익명"} | ${new Date(data.time).toLocaleString()}</small><br>
       `;
 
-      // ✅ 하트 버튼 추가
+      // 좋아요 버튼
       const likeBtn = document.createElement("button");
       likeBtn.textContent = `❤️ ${data.likes ?? 0}`;
       likeBtn.onclick = async () => {
@@ -85,8 +80,8 @@
       };
       div.appendChild(likeBtn);
 
-      // 본인 또는 관리자면 삭제 버튼
-      if (currentUser && (currentUser.id === data.uid)) {
+      // ✅ 글 삭제 버튼 표시 조건
+      if (currentUser && (currentUser.id === data.uid || currentUser.role === "admin")) {
         const btn = document.createElement("button");
         btn.className = "delete-btn";
         btn.textContent = "글 삭제";
@@ -95,7 +90,6 @@
       }
     }
 
-    // 댓글 불러오기
     async function loadComments() {
       const { data, error } = await supabase
         .from("wiki_comments")
@@ -126,7 +120,6 @@
       });
     }
 
-    // 댓글 작성
     document.getElementById("addCommentBtn").onclick = async () => {
       const content = document.getElementById("commentInput").value.trim();
       if (!content) return alert("댓글을 입력하세요");
@@ -148,7 +141,6 @@
       }
     };
 
-    // 글 삭제
     async function deletePost(id) {
       if (!confirm("정말 글을 삭제하시겠습니까?")) return;
       const { error } = await supabase.from("wiki_posts").delete().eq("id", id);
@@ -157,7 +149,6 @@
       location.href = "index.html";
     }
 
-    // ✅ 메인으로 버튼 이벤트
     document.getElementById("goHomeBtn").addEventListener("click", () => {
       window.location.href = "index.html";
     });
