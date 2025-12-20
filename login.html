@@ -43,6 +43,13 @@
       color:#333;
       text-align:center;
     }
+    /* 취소 버튼 스타일 */
+    #cancelBtn {
+      background:#6b7280; /* 회색 */
+    }
+    #cancelBtn:hover {
+      background:#374151;
+    }
   </style>
 </head>
 
@@ -62,6 +69,8 @@
     <button onclick="login()">로그인</button>
     <button onclick="register()">회원가입</button>
     <button onclick="logout()">로그아웃</button>
+    <!-- ✅ 로그인 취소 버튼 추가 -->
+    <button id="cancelBtn">취소</button>
 
     <!-- 로그인 상태 표시 -->
     <div id="userInfo">로그인 상태: 확인 중...</div>
@@ -69,5 +78,11 @@
 
   <!-- JS 연결 -->
   <script type="module" src="./js/auth.js"></script>
+  <script>
+    // 취소 버튼 이벤트 → 메인 페이지로 이동
+    document.getElementById("cancelBtn").addEventListener("click", () => {
+      window.location.href = "index.html";
+    });
+  </script>
 </body>
 </html>
