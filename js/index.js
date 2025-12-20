@@ -42,3 +42,11 @@ if (writeBtn) {
     window.location.href = "write.html"; // 글쓰기 페이지로 이동
   });
 }
+
+/* 🔑 로그인 버튼 이벤트 연결 */
+const loginBtn = document.getElementById("loginBtn");
+if (loginBtn) {
+  loginBtn.addEventListener("click", () => {
+    window.location.href = "login.html"; // 로그인 페이지로 이동
+  });
+}
