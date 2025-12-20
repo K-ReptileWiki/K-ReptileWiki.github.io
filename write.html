@@ -61,6 +61,8 @@
 
       // 현재 로그인 사용자 가져오기
       const { data: { user } } = await supabase.auth.getUser();
+
+      // ✅ 로그인 체크
       if (!user) {
         alert("로그인을 먼저 하셔야 합니다");
         return;
