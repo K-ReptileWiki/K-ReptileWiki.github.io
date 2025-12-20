@@ -6,7 +6,7 @@
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   const params = new URLSearchParams(location.search);
-  const postId = params.get("id"); // URL에 붙은 uuid 값
+  const postId = params.get("id"); // URL에 붙은 id 값
   const { data: { user: currentUser } } = await supabase.auth.getUser();
 
   if (!postId) {
@@ -16,11 +16,12 @@
     loadComments();
   }
 
+  // 글 불러오기
   async function loadPost() {
     const { data, error } = await supabase
       .from("wiki_posts")
       .select("*")
-      .eq("uuid", postId)   // ✅ uuid 기준 조회
+      .eq("id", postId)   // ✅ id 기준 조회
       .single();
 
     const div = document.getElementById("postDetail");
@@ -50,7 +51,7 @@
       if (!currentUser) return alert("로그인을 먼저 하셔야 합니다");
       const { error } = await supabase
         .from("post_likes")
-        .insert([{ post_id: postId, user_id: currentUser.id }]); // ✅ post_id에 uuid 저장
+        .insert([{ post_id: postId, user_id: currentUser.id }]); // ✅ post_id에 id 저장
       if (error) {
         if (error.code === "23505") alert("이미 좋아요를 누르셨습니다!");
         else alert("좋아요 실패: " + error.message);
@@ -63,7 +64,7 @@
     if (currentUser && currentUser.id === data.uid) {
       const btn = document.createElement("button");
       btn.textContent = "글 삭제";
-      btn.onclick = () => deletePost(data.uuid); // ✅ uuid 기준 삭제
+      btn.onclick = () => deletePost(data.id); // ✅ id 기준 삭제
       div.appendChild(btn);
     }
   }
@@ -80,7 +81,7 @@
     const { data, error } = await supabase
       .from("wiki_comments")
       .select("*")
-      .eq("post_id", postId)   // ✅ uuid 기준 댓글 조회
+      .eq("post_id", postId)   // ✅ id 기준 댓글 조회
       .order("time", { ascending: false });
 
     const ul = document.getElementById("commentList");
@@ -99,7 +100,7 @@
     const content = document.getElementById("commentInput").value.trim();
     if (!content) return alert("댓글을 입력하세요");
     await supabase.from("wiki_comments").insert([{
-      post_id: postId,   // ✅ uuid 저장
+      post_id: postId,   // ✅ id 저장
       content,
       author: currentUser.email,
       uid: currentUser.id,
@@ -111,7 +112,7 @@
 
   async function deletePost(id) {
     if (!confirm("정말 삭제하시겠습니까?")) return;
-    await supabase.from("wiki_posts").delete().eq("uuid", id); // ✅ uuid 기준 삭제
+    await supabase.from("wiki_posts").delete().eq("id", id); // ✅ id 기준 삭제
     alert("삭제 완료");
     location.href = "index.html";
   }
