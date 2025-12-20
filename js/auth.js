@@ -22,11 +22,12 @@ window.login = async () => {
   const password = document.getElementById("password").value.trim();
 
   try {
-    await signInWithEmailAndPassword(auth, email, password);
+    const cred = await signInWithEmailAndPassword(auth, email, password);
+    console.log("✅ 로그인 성공, UID:", cred.user.uid); // 디버깅 로그
     alert("로그인 성공!");
-    // 로그인 성공 후 index.html로 이동
     location.href = "index.html";
   } catch (e) {
+    console.error("❌ 로그인 실패:", e); // 디버깅 로그
     alert("로그인 실패: " + e.message);
   }
 };
@@ -45,12 +46,13 @@ window.register = async () => {
 
   try {
     const cred = await createUserWithEmailAndPassword(auth, email, password);
+    console.log("✅ 회원가입 성공, UID:", cred.user.uid); // 디버깅 로그
 
     // Firestore에서 관리자 이메일 확인
     const adminSnap = await getDoc(doc(db, "admin_emails", email));
     const role = (adminSnap.exists() && adminSnap.data().active) ? "admin" : "user";
+    console.log("✅ 부여된 role:", role); // 디버깅 로그
 
-    // UID 기반으로 users 문서 생성
     await setDoc(doc(db, "users", cred.user.uid), {
       email,
       nickname,
@@ -61,6 +63,7 @@ window.register = async () => {
 
     alert(`회원가입 성공! (${role} 권한 부여됨)`);
   } catch (e) {
+    console.error("❌ 회원가입 실패:", e); // 디버깅 로그
     alert("회원가입 실패: " + e.message);
   }
 };
@@ -69,9 +72,11 @@ window.register = async () => {
 window.logout = async () => {
   try {
     await signOut(auth);
+    console.log("✅ 로그아웃 완료"); // 디버깅 로그
     alert("로그아웃 완료");
-    location.href = "login.html"; // 로그아웃 후 로그인 페이지로 이동
+    location.href = "login.html";
   } catch (e) {
+    console.error("❌ 로그아웃 실패:", e); // 디버깅 로그
     alert("로그아웃 실패: " + e.message);
   }
 };
@@ -83,14 +88,23 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!info) return;
 
     if (user) {
+      console.log("✅ 로그인된 UID:", user.uid); // 디버깅 로그
       try {
         const snap = await getDoc(doc(db, "users", user.uid));
-        const data = snap.exists() ? snap.data() : {};
-        info.textContent = `현재 로그인: ${data.nickname ?? user.email} (권한: ${data.role ?? "user"})`;
+        if (snap.exists()) {
+          const data = snap.data();
+          console.log("✅ Firestore role:", data.role); // 디버깅 로그
+          info.textContent = `현재 로그인: ${data.nickname ?? user.email} (권한: ${data.role ?? "user"})`;
+        } else {
+          console.warn("❌ Firestore에 사용자 문서 없음:", user.uid); // 디버깅 로그
+          info.textContent = `현재 로그인: ${user.email} (문서 없음)`;
+        }
       } catch (e) {
+        console.error("❌ Firestore 읽기 실패:", e); // 디버깅 로그
         info.textContent = `현재 로그인: ${user.email}`;
       }
     } else {
+      console.log("ℹ️ 현재 로그인된 사용자 없음"); // 디버깅 로그
       info.textContent = "현재 로그인된 사용자 없음";
     }
   });
