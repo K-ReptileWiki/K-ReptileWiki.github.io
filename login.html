@@ -2,86 +2,93 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>로그인 | K-ReptileWiki</title>
+  <title>K-ReptileWiki 로그인</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background:#f3f4f6;
-      display:flex;
-      justify-content:center;
-      align-items:center;
-      height:100vh;
-      margin:0;
-    }
-    .box {
-      background:white;
-      padding:30px;
-      border-radius:12px;
-      width:320px;
-      box-shadow:0 4px 10px rgba(0,0,0,.15);
-    }
-    h2 { margin-top:0; text-align:center; }
-    input,button {
-      width:100%;
-      padding:10px;
-      margin-top:10px;
-      font-size:14px;
-    }
-    button {
-      background:#2563eb;
-      color:white;
-      border:none;
-      border-radius:8px;
-      cursor:pointer;
-    }
-    button:hover { background:#1e40af; }
-    #userInfo {
-      margin-top:15px;
-      font-size:14px;
-      color:#333;
-      text-align:center;
-    }
-    /* 취소 버튼 스타일 */
-    #cancelBtn {
-      background:#6b7280; /* 회색 */
-    }
-    #cancelBtn:hover {
-      background:#374151;
-    }
-  </style>
+  <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
-  <div class="box">
-    <h2>🔐 로그인</h2>
+  <h1>🦎 K-ReptileWiki 로그인</h1>
 
-    <!-- 로그인 입력 -->
-    <input id="email" type="email" placeholder="이메일">
-    <input id="password" type="password" placeholder="비밀번호">
-
-    <!-- 회원가입 입력 -->
-    <input id="confirmPassword" type="password" placeholder="비밀번호 확인 (회원가입)">
-    <input id="nickname" type="text" placeholder="닉네임 (회원가입)">
-
-    <!-- 버튼 -->
-    <button onclick="login()">로그인</button>
-    <button onclick="register()">회원가입</button>
-    <button onclick="logout()">로그아웃</button>
-    <!-- ✅ 로그인 취소 버튼 추가 -->
+  <div>
+    <label>이메일: <input type="email" id="email"></label><br>
+    <label>비밀번호: <input type="password" id="password"></label><br>
+    <button id="loginBtn">로그인</button>
+    <button id="registerBtn">회원가입</button>
+    <button id="logoutBtn">로그아웃</button>
     <button id="cancelBtn">취소</button>
-
-    <!-- 로그인 상태 표시 -->
-    <div id="userInfo">로그인 상태: 확인 중...</div>
   </div>
 
-  <!-- JS 연결 -->
-  <script type="module" src="./js/auth.js"></script>
-  <script>
-    // 취소 버튼 이벤트 → 메인 페이지로 이동
-    document.getElementById("cancelBtn").addEventListener("click", () => {
+  <p id="userInfo">현재 로그인된 사용자 없음</p>
+
+  <script type="module">
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
+
+    const supabase = createClient(
+      "https://cpaikpjzlzzujwfgnanb.supabase.co",
+      "sb_publishable_-dZ6xDssPQs29A_hHa2Irw_WxZ24NxB"
+    );
+
+    const emailInput = document.getElementById("email");
+    const passwordInput = document.getElementById("password");
+    const userInfo = document.getElementById("userInfo");
+
+    // 로그인
+    document.getElementById("loginBtn").onclick = async () => {
+      const email = emailInput.value.trim();
+      const password = passwordInput.value.trim();
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        alert("로그인 실패: " + error.message);
+        console.error("❌ 로그인 실패:", error);
+      } else {
+        alert("로그인 성공!");
+        console.log("✅ 로그인 성공:", data);
+        window.location.href = "index.html";
+      }
+    };
+
+    // 회원가입
+    document.getElementById("registerBtn").onclick = async () => {
+      const email = emailInput.value.trim();
+      const password = passwordInput.value.trim();
+      const { data, error } = await supabase.auth.signUp({ email, password });
+      if (error) {
+        alert("회원가입 실패: " + error.message);
+        console.error("❌ 회원가입 실패:", error);
+      } else {
+        alert("회원가입 성공!");
+        console.log("✅ 회원가입 성공:", data);
+      }
+    };
+
+    // 로그아웃
+    document.getElementById("logoutBtn").onclick = async () => {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        alert("로그아웃 실패: " + error.message);
+        console.error("❌ 로그아웃 실패:", error);
+      } else {
+        alert("로그아웃 완료");
+        console.log("✅ 로그아웃 완료");
+        window.location.href = "login.html";
+      }
+    };
+
+    // 취소 → 메인 페이지 이동
+    document.getElementById("cancelBtn").onclick = () => {
       window.location.href = "index.html";
+    };
+
+    // 로그인 상태 표시
+    document.addEventListener("DOMContentLoaded", async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        userInfo.textContent = `현재 로그인: ${user.email}`;
+        console.log("✅ 로그인된 사용자:", user);
+      } else {
+        userInfo.textContent = "현재 로그인된 사용자 없음";
+        console.log("ℹ️ 로그인된 사용자 없음");
+      }
     });
   </script>
 </body>
