@@ -3,9 +3,7 @@ import {
   getFirestore, collection, getDocs,
   doc, getDoc, updateDoc, deleteDoc, Timestamp
 } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
-import {
-  getAuth, onAuthStateChanged
-} from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
 
 /* Firebase 초기화 */
 const app = initializeApp({
@@ -20,7 +18,7 @@ const auth = getAuth(app);
 onAuthStateChanged(auth, async user => {
   if (!user) {
     alert("로그인 필요");
-    location.href = "/";
+    location.href = "login.html";
     return;
   }
 
@@ -28,16 +26,18 @@ onAuthStateChanged(auth, async user => {
     const snap = await getDoc(doc(db, "users", user.uid));
     if (!snap.exists() || snap.data().role !== "admin") {
       alert("관리자만 접근 가능");
-      location.href = "/";
+      location.href = "index.html"; // 일반 사용자는 메인 페이지로 이동
       return;
     }
+
+    // 관리자일 때만 실행
     loadUsers();
     loadPosts();
     loadComments();
   } catch (e) {
     console.error("관리자 확인 실패:", e);
     alert("권한 확인 중 오류 발생");
-    location.href = "/";
+    location.href = "index.html";
   }
 });
 
