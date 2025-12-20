@@ -4,26 +4,24 @@
   <meta charset="UTF-8">
   <title>K-ReptileWiki 글 상세</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <style>
-    body { font-family: Arial, sans-serif; background:#f9fafb; margin:0; padding:20px; }
-    h1 { color:#2563eb; }
-    .post-detail { background:#fff; padding:20px; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.1); }
-    .comment-card { background:#fff; padding:15px; margin-bottom:10px; border-radius:6px; box-shadow:0 1px 4px rgba(0,0,0,0.1); }
-    button { margin:5px; padding:6px 12px; border:none; border-radius:6px; cursor:pointer; }
-    .delete-btn { background:#f87171; color:white; }
-  </style>
+  <!-- 외부 CSS -->
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <h1>🦎 K-ReptileWiki 글 상세</h1>
-  <div id="postDetail" class="post-detail"></div>
+
+  <!-- 글 상세 영역 -->
+  <div id="postDetail" class="editor-container"></div>
 
   <hr>
   <h2>💬 댓글</h2>
   <ul id="commentList"></ul>
 
-  <textarea id="commentInput" placeholder="댓글을 입력하세요" style="width:100%;height:80px;"></textarea><br>
+  <!-- 댓글 입력 -->
+  <textarea id="commentInput" placeholder="댓글을 입력하세요"></textarea><br>
   <button id="addCommentBtn">댓글 작성</button>
 
+  <!-- Supabase 연결 -->
   <script type="module">
     import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
@@ -32,8 +30,6 @@
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     let currentUser = null;
-
-    // 로그인 사용자 확인
     const { data: userRes } = await supabase.auth.getUser();
     currentUser = userRes?.user ?? null;
 
@@ -65,7 +61,7 @@
 
       let imgHtml = "";
       if (data.images && Array.isArray(data.images)) {
-        imgHtml = data.images.map(url => `<img src="${url}" style="max-width:200px;margin:5px;">`).join("");
+        imgHtml = data.images.map(url => `<img src="${url}" class="species-image">`).join("");
       }
 
       div.innerHTML = `
@@ -75,7 +71,7 @@
         <small>작성자: ${data.author ?? "익명"} | ${new Date(data.time).toLocaleString()}</small><br>
       `;
 
-      // 본인 또는 관리자면 삭제 버튼 표시
+      // 본인 또는 관리자면 삭제 버튼
       if (currentUser && (currentUser.id === data.uid || hasAdminRole(currentUser))) {
         const btn = document.createElement("button");
         btn.className = "delete-btn";
