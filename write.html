@@ -52,6 +52,56 @@
       placeholder: "내용을 입력하세요..."
     });
 
+    // ✅ 이미지 클릭 시 크기 선택 메뉴
+    quill.root.addEventListener("click", (e) => {
+      if (e.target.tagName === "IMG") {
+        const img = e.target;
+
+        // 기존 메뉴 제거
+        const oldMenu = document.getElementById("img-size-menu");
+        if (oldMenu) oldMenu.remove();
+
+        // 메뉴 생성
+        const sizes = [200, 250, 300, 400, 450, 500];
+        const menu = document.createElement("div");
+        menu.id = "img-size-menu";
+        menu.style.position = "absolute";
+        menu.style.background = "#fff";
+        menu.style.border = "1px solid #ccc";
+        menu.style.padding = "5px";
+        menu.style.zIndex = "1000";
+
+        sizes.forEach(size => {
+          const btn = document.createElement("button");
+          btn.textContent = size + "px";
+          btn.style.margin = "2px";
+          btn.onclick = () => {
+            img.style.width = size + "px";
+            img.style.height = "auto";
+            menu.remove();
+          };
+          menu.appendChild(btn);
+        });
+
+        // 이미지 위치 기준으로 메뉴 띄우기
+        const rect = img.getBoundingClientRect();
+        menu.style.left = rect.left + "px";
+        menu.style.top = rect.bottom + "px";
+
+        document.body.appendChild(menu);
+
+        // 다른 곳 클릭하면 메뉴 닫기
+        document.addEventListener("click", function closeMenu(ev) {
+          if (!menu.contains(ev.target) && ev.target !== img) {
+            if (document.body.contains(menu)) {
+              menu.remove();
+            }
+            document.removeEventListener("click", closeMenu);
+          }
+        });
+      }
+    });
+
     // 글 등록 버튼
     document.getElementById("postBtn").onclick = async () => {
       const title = document.getElementById("postTitle").value.trim();
