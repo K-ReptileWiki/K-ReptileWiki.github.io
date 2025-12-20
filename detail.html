@@ -1,0 +1,17 @@
+<body>
+  <button id="likeBtn">👍 좋아요</button>
+  <span id="likeCount">0</span>
+  <div id="likeMsg"></div>
+
+  <textarea id="content"></textarea>
+  <button onclick="addContribution()">기여 추가</button>
+  <ul id="contributions"></ul>
+
+  <!-- URL에서 UUID 읽어서 window.__PAGE_ID__에 넣기 -->
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    window.__PAGE_ID__ = params.get("id");
+  </script>
+
+  <script type="module" src="wiki.js"></script>
+</body>
