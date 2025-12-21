@@ -4,11 +4,10 @@
   <meta charset="UTF-8">
   <title>K-ReptileWiki</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <!-- 외부 CSS -->
   <link rel="stylesheet" href="style.css">
   <style>
     body { font-family: Arial, sans-serif; background:#f9fafb; margin:0; padding:0; }
-    header { background:#2563eb; color:white; padding:15px; text-align:center; }
+    header { background:#2563eb; color:white; padding:15px; text-align:center; position:relative; }
     nav { margin:15px; }
     nav a { display:block; margin:5px 0; color:#2563eb; text-decoration:none; }
     nav a:hover { text-decoration:underline; }
@@ -31,111 +30,132 @@
     .post-card h3 a:hover {
       text-decoration:underline;
     }
-    #adminBtn {
-      margin:10px; padding:8px 14px;
-      background:#f87171; color:white;
-      border:none; border-radius:6px;
-      cursor:pointer; font-weight:bold;
+    #userInfo {
+      position:absolute;
+      right:20px;
+      top:15px;
+      font-size:14px;
     }
-    #loginBtn {
-      margin:10px; padding:8px 14px;
-      background:#10b981; color:white;
-      border:none; border-radius:6px;
-      cursor:pointer; font-weight:bold;
+    .btn {
+      margin:10px;
+      padding:8px 14px;
+      border:none;
+      border-radius:6px;
+      cursor:pointer;
+      font-weight:bold;
+    }
+    .btn-primary { background:#10b981; color:white; }
+    .btn-danger { background:#f87171; color:white; }
+    .search-box {
+      margin:15px;
+      padding:15px;
+      background:white;
+      border-radius:8px;
+      box-shadow:0 1px 4px rgba(0,0,0,0.1);
+    }
+    .search-box input {
+      width:calc(100% - 100px);
+      padding:8px;
+      border:1px solid #ddd;
+      border-radius:4px;
+    }
+    .search-box button {
+      padding:8px 16px;
+      margin-left:5px;
     }
   </style>
 </head>
 <body>
   <header>
     <h1>🦎 K-ReptileWiki</h1>
-    <!-- ✅ 로그인 버튼 추가 -->
-    <button id="loginBtn">로그인</button>
+    <div id="userInfo">로딩 중...</div>
   </header>
 
   <nav>
-    <a href="write.html">✍ 글쓰기</a>
+    <a href="write.html">✏️ 글쓰기</a>
     <a href="index.html">🏠 메인</a>
-  </nav>
-
-  <!-- 글 목록 영역 -->
-  <div id="postList"></div>
-
-  <script type="module">
-    // 로그인 버튼 이벤트
-    document.getElementById("loginBtn").addEventListener("click", () => {
-      window.location.href = "login.html";
-    });
-  </script>
-</body>
-</html>
-
-
-<body>
-  <header>
-    <h1>🦎 K-ReptileWiki</h1>
-    <div id="userInfo">로그인 상태 확인 중...</div>
-    <button id="adminBtn">관리자 페이지</button>
-  </header>
-
-  <hr>
-  <!-- 🔍 검색 -->
-  <input id="searchInput" placeholder="검색어 입력">
-  <button id="searchBtn">검색</button>
-  <div id="searchResults"></div>
-  <hr>
-
-  <!-- 📚 종 링크 -->
-  <nav>
     <a href="species/crested_gecko.html">크레스티드 게코</a>
     <a href="species/leopard_gecko.html">레오파드 게코</a>
   </nav>
-  <hr>
 
-  <!-- 📝 글쓰기 버튼 -->
-  <button id="writeBtn">📝 글쓰기</button>
+  <!-- 검색 -->
+  <div class="search-box">
+    <input id="searchInput" placeholder="검색어 입력">
+    <button id="searchBtn" class="btn btn-primary">검색</button>
+  </div>
 
-  <hr>
-  <!-- 📑 글 목록 -->
-  <h2>최신 글</h2>
-  <div id="postList"></div>
+  <!-- 글 목록 -->
+  <div style="margin:15px;">
+    <h2>최신 글</h2>
+    <div id="postList">로딩 중...</div>
+  </div>
 
-  <!-- ✅ Supabase 연결 -->
+  <div id="searchResults" style="margin:15px;"></div>
+
   <script type="module">
-    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
+    import { supabaseService, supabase } from "./js/supabase.js";
 
-    // Supabase 초기화
-    const supabaseUrl = "https://cpaikpjzlzzujwfgnanb.supabase.co";
-    const supabaseKey = "sb_publishable_-dZ6xDssPQs29A_hHa2Irw_WxZ24NxB";
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    // 사용자 정보 표시
+    async function updateUserInfo() {
+      const userInfoDiv = document.getElementById("userInfo");
+      
+      if (supabaseService.isLoggedIn()) {
+        const { user, data } = supabaseService.getCurrentUser();
+        const nickname = data?.nickname || user.email.split("@")[0];
+        
+        userInfoDiv.innerHTML = `
+          ${nickname}님
+          <button id="logoutBtn" class="btn btn-danger" style="margin-left:10px;padding:4px 8px;">로그아웃</button>
+          ${data?.role === "admin" ? '<button id="adminBtn" class="btn btn-danger" style="padding:4px 8px;">관리자</button>' : ''}
+        `;
+        
+        document.getElementById("logoutBtn")?.addEventListener("click", async () => {
+          const result = await supabaseService.signOut();
+          if (result.success) {
+            alert("로그아웃되었습니다");
+            location.reload();
+          }
+        });
 
-    // 글 목록 불러오기
+        document.getElementById("adminBtn")?.addEventListener("click", () => {
+          location.href = "admin.html";
+        });
+      } else {
+        userInfoDiv.innerHTML = `
+          <button id="loginBtn" class="btn btn-primary">로그인</button>
+        `;
+        
+        document.getElementById("loginBtn")?.addEventListener("click", () => {
+          location.href = "login.html";
+        });
+      }
+    }
+
+    // 글 목록 로드
     async function loadPosts() {
-      const { data, error } = await supabase
-        .from("wiki_posts")
-        .select("*")
-        .order("time", { ascending: false });
+      const listDiv = document.getElementById("postList");
+      const result = await supabaseService.getPosts();
 
-      const list = document.getElementById("postList");
-      list.innerHTML = "";
-
-      if (error) {
-        list.textContent = "글을 불러오는 중 오류가 발생했습니다.";
-        console.error("글 불러오기 실패:", error.message);
+      if (!result.success) {
+        listDiv.textContent = "글을 불러오는 중 오류가 발생했습니다: " + result.error;
         return;
       }
 
-      if (!data || data.length === 0) {
-        list.textContent = "아직 작성된 글이 없습니다.";
+      if (!result.data || result.data.length === 0) {
+        listDiv.textContent = "아직 작성된 글이 없습니다.";
         return;
       }
 
-      data.forEach(post => {
+      listDiv.innerHTML = "";
+      result.data.forEach(post => {
         const plainText = post.content?.replace(/<[^>]+>/g, "") ?? "";
         const shortText = plainText.length > 100 ? plainText.substring(0, 100) + "..." : plainText;
 
         let imgHtml = "";
-        if (post.images && Array.isArray(post.images)) {
-          imgHtml = post.images.map(url => `<img src="${url}" alt="첨부 이미지">`).join("");
+        if (post.images && Array.isArray(post.images) && post.images.length > 0) {
+          imgHtml = post.images.slice(0, 3).map(url => 
+            `<img src="${url}" alt="첨부 이미지">`
+          ).join("");
         }
 
         const div = document.createElement("div");
@@ -146,7 +166,7 @@
           ${imgHtml}
           <small>작성자: ${post.author ?? "익명"} | ${new Date(post.time).toLocaleString()}</small>
         `;
-        list.appendChild(div);
+        listDiv.appendChild(div);
       });
     }
 
@@ -156,27 +176,30 @@
       const resultsDiv = document.getElementById("searchResults");
       resultsDiv.innerHTML = "";
 
-      if (!keyword) return;
-
-      const { data, error } = await supabase.from("wiki_posts").select("*");
-
-      if (error) {
-        resultsDiv.textContent = "검색 중 오류가 발생했습니다.";
-        console.error("검색 실패:", error.message);
+      if (!keyword) {
+        alert("검색어를 입력하세요");
         return;
       }
 
-      const matched = data.filter(post => {
+      const result = await supabaseService.getPosts();
+
+      if (!result.success) {
+        resultsDiv.textContent = "검색 중 오류가 발생했습니다: " + result.error;
+        return;
+      }
+
+      const matched = result.data.filter(post => {
         const title = post.title?.toLowerCase() ?? "";
         const content = post.content?.toLowerCase() ?? "";
         return title.includes(keyword) || content.includes(keyword);
       });
 
       if (matched.length === 0) {
-        resultsDiv.textContent = "검색 결과가 없습니다.";
+        resultsDiv.innerHTML = "<h3>검색 결과</h3><p>검색 결과가 없습니다.</p>";
         return;
       }
 
+      resultsDiv.innerHTML = `<h3>검색 결과 (${matched.length}개)</h3>`;
       matched.forEach(post => {
         const plainText = post.content?.replace(/<[^>]+>/g, "") ?? "";
         const shortText = plainText.length > 100 ? plainText.substring(0, 100) + "..." : plainText;
@@ -192,21 +215,13 @@
       });
     });
 
-    // 글쓰기 버튼 → posts.html 이동
-    document.getElementById("writeBtn").addEventListener("click", () => {
-      location.href = "posts.html";
+    // 초기화
+    supabase.auth.onAuthStateChange(() => {
+      updateUserInfo();
     });
 
-    // 관리자 페이지 버튼 → admin.html 이동
-    document.getElementById("adminBtn").addEventListener("click", () => {
-      location.href = "admin.html";
-    });
-
-    // 페이지 로드 시 글 목록 불러오기
+    updateUserInfo();
     loadPosts();
   </script>
-
-  <!-- 방문 기록 저장 스크립트 -->
-  <script type="module" src="./js/index.js"></script>
 </body>
 </html>
