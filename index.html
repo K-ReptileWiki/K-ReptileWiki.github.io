@@ -6,157 +6,221 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="style.css">
   <style>
-    body { font-family: 'Apple SD Gothic Neo','Malgun Gothic',sans-serif; background:#f9fafb; margin:0; }
+    body { font-family: Arial, sans-serif; background:#f9fafb; margin:0; padding:0; }
     header { background:#2563eb; color:white; padding:15px; text-align:center; position:relative; }
-    nav { margin:15px; display:flex; gap:15px; justify-content:center; flex-wrap:wrap; }
-    nav a { padding:8px 12px; background:white; border-radius:6px; color:#2563eb; text-decoration:none; font-weight:bold; }
-    nav a:hover { background:#f0f4ff; }
-    #userInfo { position:absolute; right:20px; top:15px; font-size:14px; }
-
+    nav { margin:15px; }
+    nav a { display:block; margin:5px 0; color:#2563eb; text-decoration:none; }
+    nav a:hover { text-decoration:underline; }
     .post-card {
       background:#fff;
-      padding:20px;
-      margin-bottom:20px;
-      border-radius:12px;
-      box-shadow:0 2px 8px rgba(0,0,0,0.05);
+      padding:15px;
+      margin-bottom:15px;
+      border-radius:8px;
+      box-shadow:0 1px 4px rgba(0,0,0,0.1);
     }
-
-    .thumbnail-container { display:flex; gap:10px; margin:12px 0; overflow-x:auto; }
-    .thumbnail-container img {
-      width:150px; height:110px; object-fit:cover;
-      border-radius:8px; border:1px solid #eee;
+    .post-card img {
+      max-width:200px;
+      border-radius:6px;
+      margin-top:8px;
     }
-
-    .btn { padding:8px 14px; border:none; border-radius:6px; cursor:pointer; font-weight:bold; }
+    .post-card h3 a {
+      color:#2563eb;
+      text-decoration:none;
+    }
+    .post-card h3 a:hover {
+      text-decoration:underline;
+    }
+    #userInfo {
+      position:absolute;
+      right:20px;
+      top:15px;
+      font-size:14px;
+    }
+    .btn {
+      margin:10px;
+      padding:8px 14px;
+      border:none;
+      border-radius:6px;
+      cursor:pointer;
+      font-weight:bold;
+    }
     .btn-primary { background:#10b981; color:white; }
     .btn-danger { background:#f87171; color:white; }
-
     .search-box {
-      margin:15px; padding:15px; background:white;
-      border-radius:8px; display:flex; gap:10px;
+      margin:15px;
+      padding:15px;
+      background:white;
+      border-radius:8px;
+      box-shadow:0 1px 4px rgba(0,0,0,0.1);
     }
     .search-box input {
-      flex:1; padding:10px; border:1px solid #ddd; border-radius:4px;
+      width:calc(100% - 100px);
+      padding:8px;
+      border:1px solid #ddd;
+      border-radius:4px;
+    }
+    .search-box button {
+      padding:8px 16px;
+      margin-left:5px;
     }
   </style>
 </head>
-
 <body>
-<header>
-  <h1>🦎 K-ReptileWiki</h1>
-  <div id="userInfo">사용자 확인 중...</div>
-</header>
+  <header>
+    <h1>🦎 K-ReptileWiki</h1>
+    <div id="userInfo">로딩 중...</div>
+  </header>
 
-<nav>
-  <a href="index.html">🏠 메인</a>
-  <a href="write.html">✏️ 새 글 쓰기</a>
-  <a href="species/crested_gecko.html">크레스티드 게코</a>
-  <a href="species/leopard_gecko.html">레오파드 게코</a>
-</nav>
+  <nav>
+    <a href="write.html">✏️ 글쓰기</a>
+    <a href="index.html">🏠 메인</a>
+    <a href="species/crested_gecko.html">크레스티드 게코</a>
+    <a href="species/leopard_gecko.html">레오파드 게코</a>
+  </nav>
 
-<div class="search-box">
-  <input id="searchInput" placeholder="궁금한 파충류 정보를 검색하세요">
-  <button id="searchBtn" class="btn btn-primary">검색</button>
-</div>
+  <!-- 검색 -->
+  <div class="search-box">
+    <input id="searchInput" placeholder="검색어 입력">
+    <button id="searchBtn" class="btn btn-primary">검색</button>
+  </div>
 
-<div style="max-width:800px;margin:0 auto;padding:15px;">
-  <h2 id="listTitle">최신 위키 문서</h2>
-  <div id="postList">불러오는 중...</div>
-</div>
+  <!-- 글 목록 -->
+  <div style="margin:15px;">
+    <h2>최신 글</h2>
+    <div id="postList">로딩 중...</div>
+  </div>
 
-<script type="module">
-import { supabaseService } from "./js/supabase.js";
+  <div id="searchResults" style="margin:15px;"></div>
 
-const postList = document.getElementById("postList");
-const listTitle = document.getElementById("listTitle");
+  <script type="module">
+    import { supabaseService } from "./js/supabase.js";
 
-const escapeHtml = s =>
-  s.replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+    // 사용자 정보 표시
+    async function updateUserInfo() {
+      const userInfoDiv = document.getElementById("userInfo");
+      const { user, profile } = supabaseService.getCurrentUser();
 
-async function updateUserInfo() {
-  await supabaseService.waitForAuth();
-  const { user, profile } = supabaseService.getCurrentUser();
-  const el = document.getElementById("userInfo");
+      if (user) {
+        const nickname = profile?.nickname || user.email.split("@")[0];
 
-  if (!user) {
-    el.innerHTML = `<button class="btn btn-primary" onclick="location.href='login.html'">로그인</button>`;
-    return;
-  }
+        userInfoDiv.innerHTML = `
+          ${nickname}님
+          <button id="logoutBtn" class="btn btn-danger" style="margin-left:10px;padding:4px 8px;">로그아웃</button>
+          ${profile?.role === "admin" ? '<button id="adminBtn" class="btn btn-danger" style="padding:4px 8px;">관리자</button>' : ''}
+        `;
 
-  el.innerHTML = `
-    <strong>${profile.nickname}</strong>님
-    <button id="logoutBtn" class="btn btn-danger" style="margin-left:8px;padding:4px 8px;">로그아웃</button>
-  `;
+        document.getElementById("logoutBtn")?.addEventListener("click", async () => {
+          const result = await supabaseService.signOut();
+          if (result.success) {
+            alert("로그아웃되었습니다");
+            location.reload();
+          }
+        });
 
-  document.getElementById("logoutBtn").onclick = async () => {
-    await supabaseService.client.auth.signOut();
-    location.reload();
-  };
-}
+        document.getElementById("adminBtn")?.addEventListener("click", () => {
+          location.href = "admin.html";
+        });
 
-function renderPosts(posts) {
-  postList.innerHTML = "";
-
-  if (posts.length === 0) {
-    postList.innerHTML = "<p>표시할 글이 없습니다.</p>";
-    return;
-  }
-
-  posts.forEach(post => {
-    const plain = post.content?.replace(/<[^>]+>/g,"") ?? "";
-    const summary = plain.length > 120 ? plain.slice(0,120)+"..." : plain;
-
-    let imgs = "";
-    if (post.images?.length) {
-      imgs = `<div class="thumbnail-container">`;
-      post.images.slice(0,3).forEach(url => {
-        imgs += `<img src="${url}" onerror="this.style.display='none'">`;
-      });
-      imgs += `</div>`;
+      } else {
+        userInfoDiv.innerHTML = `<button id="loginBtn" class="btn btn-primary">로그인</button>`;
+        document.getElementById("loginBtn")?.addEventListener("click", () => {
+          location.href = "login.html";
+        });
+      }
     }
 
-    const div = document.createElement("div");
-    div.className = "post-card";
-    div.innerHTML = `
-      <h3><a href="post.html?id=${post.id}">${escapeHtml(post.title)}</a></h3>
-      <p>${escapeHtml(summary)}</p>
-      ${imgs}
-      <div style="font-size:12px;color:#9ca3af;">
-        작성자 <strong>${escapeHtml(post.author)}</strong> ·
-        ${new Date(post.created_at).toLocaleString()}
-      </div>
-    `;
-    postList.appendChild(div);
-  });
-}
+    // 글 목록 로드
+    async function loadPosts() {
+      const listDiv = document.getElementById("postList");
+      const result = await supabaseService.getPosts();
 
-async function loadPosts() {
-  const result = await supabaseService.getPosts();
-  if (!result.success) {
-    postList.innerHTML = "글을 불러오지 못했습니다.";
-    return;
-  }
-  renderPosts(result.data);
-}
+      if (!result.success) {
+        listDiv.textContent = "글을 불러오는 중 오류가 발생했습니다: " + result.error;
+        return;
+      }
 
-document.getElementById("searchBtn").onclick = async () => {
-  const keyword = document.getElementById("searchInput").value.trim().toLowerCase();
-  if (!keyword) return alert("검색어를 입력하세요.");
+      if (!result.data || result.data.length === 0) {
+        listDiv.textContent = "아직 작성된 글이 없습니다.";
+        return;
+      }
 
-  const result = await supabaseService.getPosts();
-  if (!result.success) return;
+      listDiv.innerHTML = "";
+      result.data.forEach(post => {
+        const plainText = post.content?.replace(/<[^>]+>/g, "") ?? "";
+        const shortText = plainText.length > 100 ? plainText.substring(0, 100) + "..." : plainText;
 
-  const matched = result.data.filter(p =>
-    p.title.toLowerCase().includes(keyword) ||
-    p.content.toLowerCase().includes(keyword)
-  );
+        let imgHtml = "";
+        if (post.images && Array.isArray(post.images) && post.images.length > 0) {
+          imgHtml = post.images.slice(0, 3).map(url => `<img src="${url}" alt="첨부 이미지">`).join("");
+        }
 
-  listTitle.innerText = `🔍 검색 결과 (${matched.length})`;
-  renderPosts(matched);
-};
+        const div = document.createElement("div");
+        div.className = "post-card";
+        div.innerHTML = `
+          <h3><a href="post.html?id=${post.id}">${post.title}</a></h3>
+          <p>${shortText}</p>
+          ${imgHtml}
+          <small>작성자: ${post.author ?? "익명"} | ${new Date(post.time).toLocaleString()}</small>
+        `;
+        listDiv.appendChild(div);
+      });
+    }
 
-updateUserInfo();
-loadPosts();
-</script>
+    // 검색 기능
+    async function searchPosts() {
+      const keyword = document.getElementById("searchInput").value.trim().toLowerCase();
+      const resultsDiv = document.getElementById("searchResults");
+      resultsDiv.innerHTML = "";
+
+      if (!keyword) {
+        alert("검색어를 입력하세요");
+        return;
+      }
+
+      const result = await supabaseService.getPosts();
+      if (!result.success) {
+        resultsDiv.textContent = "검색 중 오류가 발생했습니다: " + result.error;
+        return;
+      }
+
+      const matched = result.data.filter(post => {
+        const title = post.title?.toLowerCase() ?? "";
+        const content = post.content?.toLowerCase() ?? "";
+        return title.includes(keyword) || content.includes(keyword);
+      });
+
+      if (matched.length === 0) {
+        resultsDiv.innerHTML = "<h3>검색 결과</h3><p>검색 결과가 없습니다.</p>";
+        return;
+      }
+
+      resultsDiv.innerHTML = `<h3>검색 결과 (${matched.length}개)</h3>`;
+      matched.forEach(post => {
+        const plainText = post.content?.replace(/<[^>]+>/g, "") ?? "";
+        const shortText = plainText.length > 100 ? plainText.substring(0, 100) + "..." : plainText;
+
+        const div = document.createElement("div");
+        div.className = "post-card";
+        div.innerHTML = `
+          <h3><a href="post.html?id=${post.id}">${post.title}</a></h3>
+          <p>${shortText}</p>
+          <small>작성자: ${post.author ?? "익명"} | ${new Date(post.time).toLocaleString()}</small>
+        `;
+        resultsDiv.appendChild(div);
+      });
+    }
+
+    document.getElementById("searchBtn").addEventListener("click", searchPosts);
+
+    // 초기화
+    async function init() {
+      // 로그인 상태 로드 완료 대기
+      await supabaseService.waitForAuth();
+      await updateUserInfo();
+      await loadPosts();
+    }
+
+    init();
+  </script>
 </body>
 </html>
