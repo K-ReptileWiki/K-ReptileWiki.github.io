@@ -248,17 +248,21 @@ function initWiki(pageId) {
 
 console.log("📦 삽입할 payload:", payload);
 
+console.log("📦 삽입할 payload:", payload);
+
 try {
-  const { data, error } = await supabase
+  const result = await supabase
     .from("wiki_contributions")
     .insert([payload])
     .select();
 
-  console.log("🔍 삽입 결과:", { data, error }); // 무조건 찍기
+  console.log("🔍 삽입 결과 전체:", result);
+
+  const { data, error } = result;
 
   if (error) {
-    console.error("❌ 기여 실패:", error.message);
-    alert("기여 실패: " + error.message);
+    console.error("❌ 기여 실패:", error);
+    alert("기여 실패: " + (error.message || "알 수 없는 오류"));
     return;
   }
 
@@ -269,7 +273,7 @@ try {
   await loadContributions();
 } catch (e) {
   console.error("❌ 기여 삽입 예외:", e);
-  alert("기여 중 알 수 없는 오류가 발생했습니다");
+  alert("삽입 중 알 수 없는 오류가 발생했습니다");
 }
 
 
