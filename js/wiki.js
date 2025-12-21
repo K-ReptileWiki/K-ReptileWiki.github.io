@@ -63,6 +63,8 @@ function initWiki(pageId) {
   const addBtn = document.getElementById("addBtn");
   if (addBtn) {
     addBtn.onclick = async () => {
+      console.log("✍️ 기여 버튼 클릭됨");
+
       if (!currentUser?.id) return alert("로그인 후 기여할 수 있습니다.");
 
       const text = document.getElementById("content").value.trim();
@@ -73,20 +75,25 @@ function initWiki(pageId) {
       if (now - (userData.lastPostAt ?? 0) < POST_COOLDOWN)
         return alert("도배 방지: 잠시 후 다시 시도해 주세요.");
 
-  const payload = {
-    id: crypto.randomUUID(), // 브라우저 내장 UUID 생성기
-    post_id: pageId,
-    uid: currentUser.id,
-    username: userData.nickname,
-    text,
-    reports: 0,
-    time: new Date().toISOString()
-  };
+      const payload = {
+        id: crypto.randomUUID(),
+        post_id: pageId,
+        uid: currentUser.id,
+        username: userData.nickname,
+        text,
+        reports: 0,
+        time: new Date().toISOString()
+      };
 
+      console.log("📦 삽입할 payload:", payload);
 
       const { error } = await supabase.from("wiki_contributions").insert([payload]);
-      if (error) return alert("기여 실패: " + error.message);
+      if (error) {
+        console.error("❌ 기여 실패:", error);
+        return alert("기여 실패: " + error.message);
+      }
 
+      console.log("✅ 기여 삽입 성공");
       userData.lastPostAt = now;
       document.getElementById("content").value = "";
       loadContributions();
@@ -96,6 +103,8 @@ function initWiki(pageId) {
   const likeBtn = document.getElementById("likeBtn");
   if (likeBtn) {
     likeBtn.onclick = async () => {
+      console.log("👍 좋아요 버튼 클릭됨");
+
       if (!currentUser?.id) return alert("로그인 후 좋아요를 누를 수 있습니다.");
 
       const { data: existing } = await supabase
@@ -142,5 +151,6 @@ supabase.auth.onAuthStateChange(async (event, session) => {
   }
 });
 
+console.log("🚀 wiki.js 로드됨");
+
 export { initWiki };
-  
