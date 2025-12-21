@@ -15,132 +15,119 @@ class SupabaseService {
     this.currentUser = null;
     this.userData = null;
     
-  this.client.auth.onAuthStateChange((event, session) => {
-    console.log("🔑 인증 상태:", event);
-    this.updateUserData(session?.user);
-  });
+    // 인증 상태 변화 감지
+    this.client.auth.onAuthStateChange(async (event, session) => {
+      console.log("🔑 인증 상태 이벤트:", event);
+      await this.updateUserData(session?.user);
+    });
 
-    
     SupabaseService.instance = this;
   }
 
-async updateUserData(user) {
-  if (!user) {
-    this.currentUser = null;
-    this.userData = null;
-    return;
-  }
-
-  this.currentUser = user;
-  
-  try {
-    const { data } = await this.client
-      .from("profiles")   // ✅ users → profiles
-      .select("*")
-      .eq("id", user.id)
-      .single();
-    
-    if (data) {
-      this.userData = data;
-    } else {
-      const newUser = {
-        id: user.id,
-        email: user.email,
-        nickname: user.email.split("@")[0],
-        role: "user",
-        created_at: new Date().toISOString()
-      };
-      await this.client.from("profiles").insert([newUser]); // ✅ users → profiles
-      this.userData = newUser;
+  /**
+   * ✅ 핵심 추가: 인증 정보가 복구될 때까지 기다리는 메서드
+   * 페이지 로드 직후 호출하여 세션을 안정적으로 가져옵니다.
+   */
+  async waitForAuth() {
+    if (this.currentUser) return this.currentUser;
+    const { data: { session } } = await this.client.auth.getSession();
+    if (session?.user) {
+      await this.updateUserData(session.user);
+      return session.user;
     }
-  } catch (error) {
-    console.error("❌ 사용자 데이터 로드 실패:", error);
+    return null;
   }
-}
 
-
-// 로그인 메서드
-async signIn(email, password) {
-  try {
-    const { data, error } = await this.client.auth.signInWithPassword({ 
-      email, 
-      password 
-    });
-    
-    if (error) throw error;
-
-    // ✅ 로그인 성공 시 유저 데이터 갱신
-    if (data.user) {
-      await this.updateUserData(data.user);
+  async updateUserData(user) {
+    if (!user) {
+      this.currentUser = null;
+      this.userData = null;
+      return;
     }
-
-    return { success: true, data };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-}
-
-// 회원가입 메서드
-async signUp(email, password, nickname) {
-  try {
-    const { data, error } = await this.client.auth.signUp({ 
-      email, 
-      password,
-      options: {
-        emailRedirectTo: "https://k-reptilewiki.github.io/login.html" // 인증 후 돌아올 페이지
+    this.currentUser = user;
+    try {
+      const { data } = await this.client
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+      
+      if (data) {
+        this.userData = data;
+      } else {
+        const newUser = {
+          id: user.id,
+          email: user.email,
+          nickname: user.email.split("@")[0],
+          role: "user",
+          created_at: new Date().toISOString()
+        };
+        await this.client.from("profiles").insert([newUser]);
+        this.userData = newUser;
       }
-    });
-    
-    // 이미 등록된 이메일일 경우 사용자 친화적인 메시지 반환
-    if (error && error.message.includes("already registered")) {
-      return { success: false, error: "이미 있는 이메일입니다. 로그인을 해주세요." };
+    } catch (error) {
+      console.error("❌ 사용자 데이터 로드 실패:", error);
     }
-    
-    if (error) throw error;
-    
-    if (data.user) {
-      await this.client.from("profiles").insert({
-        id: data.user.id,  // ✅ auth.uid()와 동일해야 RLS 통과
-        email,
-        nickname: nickname || email.split("@")[0],
-        role: "user",
-        created_at: new Date().toISOString()
-      });
-    }
-    
-    return { success: true, data };
-  } catch (error) {
-    return { success: false, error: error.message };
   }
-}
 
+  // --- 로그인/회원가입 섹션 ---
+
+  async signIn(email, password) {
+    try {
+      const { data, error } = await this.client.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      if (data.user) await this.updateUserData(data.user);
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  async signUp(email, password, nickname) {
+    try {
+      const { data, error } = await this.client.auth.signUp({ 
+        email, 
+        password,
+        options: { emailRedirectTo: "https://k-reptilewiki.github.io/login.html" }
+      });
+      if (error && error.message.includes("already registered")) {
+        return { success: false, error: "이미 있는 이메일입니다. 로그인을 해주세요." };
+      }
+      if (error) throw error;
+      if (data.user) {
+        await this.client.from("profiles").insert({
+          id: data.user.id,
+          email,
+          nickname: nickname || email.split("@")[0],
+          role: "user",
+          created_at: new Date().toISOString()
+        });
+      }
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
 
   async signOut() {
     try {
       const { error } = await this.client.auth.signOut();
       if (error) throw error;
+      this.currentUser = null;
+      this.userData = null;
       return { success: true };
     } catch (error) {
       return { success: false, error: error.message };
     }
   }
 
-  // 게시글 관련 메서드
+  // --- 게시글 관리 섹션 ---
+
   async getPosts(limit = 50, includeDeleted = false) {
     try {
-      let query = this.client
-        .from("wiki_posts")
-        .select("*")
-        .order("time", { ascending: false })
-        .limit(limit);
-      
-      // 삭제된 글 제외 (관리자가 아니면)
-      if (!includeDeleted) {
-        query = query.eq("deleted", false);
-      }
-      
+      let query = this.client.from("wiki_posts").select("*").order("time", { ascending: false }).limit(limit);
+      if (!includeDeleted) query = query.eq("deleted", false);
       const { data, error } = await query;
-      
       if (error) throw error;
       return { success: true, data };
     } catch (error) {
@@ -150,12 +137,7 @@ async signUp(email, password, nickname) {
 
   async getPost(id) {
     try {
-      const { data, error } = await this.client
-        .from("wiki_posts")
-        .select("*")
-        .eq("id", id)
-        .single();
-      
+      const { data, error } = await this.client.from("wiki_posts").select("*").eq("id", id).single();
       if (error) throw error;
       return { success: true, data };
     } catch (error) {
@@ -164,26 +146,17 @@ async signUp(email, password, nickname) {
   }
 
   async createPost(title, content, images = []) {
-    if (!this.currentUser) {
-      return { success: false, error: "로그인이 필요합니다" };
-    }
-
+    await this.waitForAuth(); // 동작 전 세션 확인
+    if (!this.currentUser) return { success: false, error: "로그인이 필요합니다" };
     try {
-      const { data, error } = await this.client
-        .from("wiki_posts")
-        .insert([{
-          id: crypto.randomUUID(),
-          title,
-          content,
-          author: this.userData?.nickname || this.currentUser.email,
-          uid: this.currentUser.id,
-          time: new Date().toISOString(),
-          images,
-          version: 1,
-          deleted: false
-        }])
-        .select();
-      
+      const { data, error } = await this.client.from("wiki_posts").insert([{
+        id: crypto.randomUUID(),
+        title, content,
+        author: this.userData?.nickname || this.currentUser.email,
+        uid: this.currentUser.id,
+        time: new Date().toISOString(),
+        images, version: 1, deleted: false
+      }]).select();
       if (error) throw error;
       return { success: true, data: data[0] };
     } catch (error) {
@@ -192,22 +165,11 @@ async signUp(email, password, nickname) {
   }
 
   async updatePost(id, title, content, images = []) {
-    if (!this.currentUser) {
-      return { success: false, error: "로그인이 필요합니다" };
-    }
-
+    await this.waitForAuth();
+    if (!this.currentUser) return { success: false, error: "로그인이 필요합니다" };
     try {
-      const { data, error } = await this.client
-        .from("wiki_posts")
-        .update({
-          title,
-          content,
-          images
-        })
-        .eq("id", id)
-        .eq("uid", this.currentUser.id)
-        .select();
-      
+      const { data, error } = await this.client.from("wiki_posts").update({ title, content, images })
+        .eq("id", id).eq("uid", this.currentUser.id).select();
       if (error) throw error;
       return { success: true, data: data[0] };
     } catch (error) {
@@ -216,22 +178,12 @@ async signUp(email, password, nickname) {
   }
 
   async deletePost(id) {
-    if (!this.currentUser) {
-      return { success: false, error: "로그인이 필요합니다" };
-    }
-
+    await this.waitForAuth();
+    if (!this.currentUser) return { success: false, error: "로그인이 필요합니다" };
     try {
-      // 소프트 삭제
-      const { error } = await this.client
-        .from("wiki_posts")
-        .update({
-          deleted: true,
-          deleted_at: new Date().toISOString(),
-          deleted_by: this.currentUser.id
-        })
-        .eq("id", id)
-        .eq("uid", this.currentUser.id);
-      
+      const { error } = await this.client.from("wiki_posts").update({
+        deleted: true, deleted_at: new Date().toISOString(), deleted_by: this.currentUser.id
+      }).eq("id", id).eq("uid", this.currentUser.id);
       if (error) throw error;
       return { success: true };
     } catch (error) {
@@ -239,15 +191,11 @@ async signUp(email, password, nickname) {
     }
   }
 
-  // ✅ 버전 히스토리 관련 메서드
+  // --- 버전 히스토리 섹션 ---
+
   async getPostVersions(postId) {
     try {
-      const { data, error } = await this.client
-        .from("wiki_post_versions")
-        .select("*")
-        .eq("post_id", postId)
-        .order("version_number", { ascending: false });
-      
+      const { data, error } = await this.client.from("wiki_post_versions").select("*").eq("post_id", postId).order("version_number", { ascending: false });
       if (error) throw error;
       return { success: true, data };
     } catch (error) {
@@ -257,13 +205,7 @@ async signUp(email, password, nickname) {
 
   async getPostVersion(postId, versionNumber) {
     try {
-      const { data, error } = await this.client
-        .from("wiki_post_versions")
-        .select("*")
-        .eq("post_id", postId)
-        .eq("version_number", versionNumber)
-        .single();
-      
+      const { data, error } = await this.client.from("wiki_post_versions").select("*").eq("post_id", postId).eq("version_number", versionNumber).single();
       if (error) throw error;
       return { success: true, data };
     } catch (error) {
@@ -272,24 +214,14 @@ async signUp(email, password, nickname) {
   }
 
   async restorePostVersion(postId, versionNumber) {
-    if (!this.currentUser) {
-      return { success: false, error: "로그인이 필요합니다" };
-    }
-
+    await this.waitForAuth();
+    if (!this.currentUser) return { success: false, error: "로그인이 필요합니다" };
     try {
       const { data, error } = await this.client.rpc('restore_post_version', {
-        p_post_id: postId,
-        p_version_number: versionNumber,
-        p_user_id: this.currentUser.id
+        p_post_id: postId, p_version_number: versionNumber, p_user_id: this.currentUser.id
       });
-      
       if (error) throw error;
-      
-      if (data?.success) {
-        return { success: true, version: versionNumber };
-      } else {
-        return { success: false, error: data?.error || "복원 실패" };
-      }
+      return data?.success ? { success: true, version: versionNumber } : { success: false, error: data?.error || "복원 실패" };
     } catch (error) {
       return { success: false, error: error.message };
     }
@@ -297,21 +229,16 @@ async signUp(email, password, nickname) {
 
   async compareVersions(postId, version1, version2) {
     try {
-      const result1 = await this.getPostVersion(postId, version1);
-      const result2 = await this.getPostVersion(postId, version2);
-      
-      if (!result1.success || !result2.success) {
-        return { success: false, error: "버전을 찾을 수 없습니다" };
-      }
-      
+      const r1 = await this.getPostVersion(postId, version1);
+      const r2 = await this.getPostVersion(postId, version2);
+      if (!r1.success || !r2.success) return { success: false, error: "버전을 찾을 수 없습니다" };
       return {
         success: true,
         comparison: {
-          version1: result1.data,
-          version2: result2.data,
-          titleChanged: result1.data.title !== result2.data.title,
-          contentChanged: result1.data.content !== result2.data.content,
-          imagesChanged: JSON.stringify(result1.data.images) !== JSON.stringify(result2.data.images)
+          version1: r1.data, version2: r2.data,
+          titleChanged: r1.data.title !== r2.data.title,
+          contentChanged: r1.data.content !== r2.data.content,
+          imagesChanged: JSON.stringify(r1.data.images) !== JSON.stringify(r2.data.images)
         }
       };
     } catch (error) {
@@ -319,30 +246,16 @@ async signUp(email, password, nickname) {
     }
   }
 
-  // 좋아요 관련 메서드
+  // --- 좋아요/댓글 섹션 ---
+
   async toggleLike(postId) {
-    if (!this.currentUser) {
-      return { success: false, error: "로그인이 필요합니다" };
-    }
-
+    await this.waitForAuth();
+    if (!this.currentUser) return { success: false, error: "로그인이 필요합니다" };
     try {
-      const { data: existing } = await this.client
-        .from("post_likes")
-        .select("id")
-        .eq("post_id", postId)
-        .eq("user_id", this.currentUser.id)
-        .maybeSingle();
-
-      if (existing) {
-        return { success: false, error: "이미 좋아요를 누르셨습니다" };
-      }
-
-      const { error } = await this.client
-        .from("post_likes")
-        .insert([{ post_id: postId, user_id: this.currentUser.id }]);
-      
+      const { data: existing } = await this.client.from("post_likes").select("id").eq("post_id", postId).eq("user_id", this.currentUser.id).maybeSingle();
+      if (existing) return { success: false, error: "이미 좋아요를 누르셨습니다" };
+      const { error } = await this.client.from("post_likes").insert([{ post_id: postId, user_id: this.currentUser.id }]);
       if (error) throw error;
-      
       const count = await this.getLikeCount(postId);
       return { success: true, count };
     } catch (error) {
@@ -352,28 +265,17 @@ async signUp(email, password, nickname) {
 
   async getLikeCount(postId) {
     try {
-      const { count, error } = await this.client
-        .from("post_likes")
-        .select("*", { count: "exact", head: true })
-        .eq("post_id", postId);
-      
+      const { count, error } = await this.client.from("post_likes").select("*", { count: "exact", head: true }).eq("post_id", postId);
       if (error) throw error;
       return count || 0;
     } catch (error) {
-      console.error("좋아요 수 조회 실패:", error);
       return 0;
     }
   }
 
-  // 댓글 관련 메서드
   async getComments(postId) {
     try {
-      const { data, error } = await this.client
-        .from("wiki_comments")
-        .select("*")
-        .eq("post_id", postId)
-        .order("time", { ascending: false });
-      
+      const { data, error } = await this.client.from("wiki_comments").select("*").eq("post_id", postId).order("time", { ascending: false });
       if (error) throw error;
       return { success: true, data };
     } catch (error) {
@@ -382,22 +284,15 @@ async signUp(email, password, nickname) {
   }
 
   async addComment(postId, content) {
-    if (!this.currentUser) {
-      return { success: false, error: "로그인이 필요합니다" };
-    }
-
+    await this.waitForAuth();
+    if (!this.currentUser) return { success: false, error: "로그인이 필요합니다" };
     try {
-      const { data, error } = await this.client
-        .from("wiki_comments")
-        .insert([{
-          post_id: postId,
-          content,
-          author: this.userData?.nickname || this.currentUser.email,
-          uid: this.currentUser.id,
-          time: new Date().toISOString()
-        }])
-        .select();
-      
+      const { data, error } = await this.client.from("wiki_comments").insert([{
+        post_id: postId, content,
+        author: this.userData?.nickname || this.currentUser.email,
+        uid: this.currentUser.id,
+        time: new Date().toISOString()
+      }]).select();
       if (error) throw error;
       return { success: true, data: data[0] };
     } catch (error) {
@@ -405,21 +300,11 @@ async signUp(email, password, nickname) {
     }
   }
 
-  // 유틸리티 메서드
-  isLoggedIn() {
-    return !!this.currentUser;
-  }
+  // --- 유틸리티 섹션 ---
 
-  isAdmin() {
-    return this.userData?.role === "admin";
-  }
-
-  getCurrentUser() {
-    return {
-      user: this.currentUser,
-      data: this.userData
-    };
-  }
+  isLoggedIn() { return !!this.currentUser; }
+  isAdmin() { return this.userData?.role === "admin"; }
+  getCurrentUser() { return { user: this.currentUser, data: this.userData }; }
 }
 
 export const supabaseService = new SupabaseService();
