@@ -11,11 +11,6 @@
 </head>
 <body>
 
-  <div id="loadingOverlay">
-    <div class="spinner"></div>
-    <div style="margin-top: 15px;">데이터를 불러오는 중...</div>
-  </div>
-
   <div id="image-resizer">
     <div class="resizer-content">
       <span class="resizer-label">이미지 너비</span>
@@ -36,7 +31,7 @@
       <div id="editor"></div>
       
       <div style="margin-top: 20px; display: flex; gap: 10px;">
-        <button id="postBtn">등록하기</button>
+        <button id="postBtn" style="background:#9ca3af; cursor:wait;">권한 확인 중...</button>
         <button id="previewBtn" style="background:#10b981;">미리보기</button>
         <button id="cancelBtn" style="background:#6b7280;">취소</button>
       </div>
@@ -48,7 +43,7 @@
   <script type="module">
     import { supabaseService, supabase } from "./js/supabase.js";
 
-    // A. 이미지 리사이즈 확장
+    // 1. 이미지 리사이즈 확장 설정
     const ImageBlot = Quill.import('formats/image');
     class ResizableImage extends ImageBlot {
       static create(value) {
@@ -66,7 +61,7 @@
     }
     Quill.register(ResizableImage, true);
 
-    // B. 에디터 초기화
+    // 2. 에디터 초기화
     const quill = new Quill('#editor', {
       theme: 'snow',
       modules: {
@@ -80,44 +75,41 @@
           handlers: { image: imageHandler }
         }
       },
-      placeholder: "내용을 입력하세요. 이미지는 버튼을 눌러 추가하세요."
+      placeholder: "내용을 입력하세요..."
     });
 
-    // C. [핵심] 로딩 제거 및 권한에 따른 버튼 제어
-    async function initPage() {
-      const loading = document.getElementById("loadingOverlay");
+    // 3. [수정] 페이지 로드 시 즉시 실행: 로딩 없이 권한만 체크
+    async function checkPermission() {
       const postBtn = document.getElementById("postBtn");
       
       try {
-        // 유저 정보 가져오기 (무한대기 방지용 getUser 사용)
+        // 비동기로 유저 체크 (세션이 있으면 바로 가져옴)
         const { data: { user } } = await supabase.auth.getUser();
 
-        // 로딩 화면 즉시 제거
-        if (loading) loading.style.display = "none";
-
         if (!user) {
-          // 🛑 비로그인 상태 설정
-          postBtn.style.backgroundColor = "#9ca3af"; // 회색
+          // 비로그인: 버튼 회색 및 클릭 차단
+          postBtn.style.backgroundColor = "#9ca3af";
           postBtn.style.cursor = "not-allowed";
           postBtn.innerText = "로그인 필요";
-          
-          // 클릭 시 안내 및 차단
           postBtn.onclick = (e) => {
             e.preventDefault();
             alert("로그인 사용자만 이용 가능한 서비스입니다.");
             location.href = "login.html";
           };
         } else {
-          // ✅ 로그인 상태: 등록 함수 연결
+          // 로그인됨: 버튼 파란색으로 변경 및 등록 함수 연결
+          postBtn.style.backgroundColor = "#2563eb";
+          postBtn.style.cursor = "pointer";
+          postBtn.innerText = "등록하기";
           postBtn.onclick = submitPost;
         }
       } catch (err) {
-        if (loading) loading.style.display = "none";
-        console.error("인증 확인 중 에러:", err);
+        console.error("인증 확인 실패:", err);
+        postBtn.innerText = "오류 발생";
       }
     }
 
-    // D. 이미지 업로드 핸들러
+    // 4. 이미지 업로드 핸들러
     async function imageHandler() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -139,11 +131,8 @@
           const fileName = `${Date.now()}.${fileExt}`;
           const path = `${user.id}/${fileName}`;
 
-          const { data, error: uploadError } = await supabase.storage
-            .from("image") 
-            .upload(path, file);
-
-          if (uploadError) throw uploadError;
+          const { data, error } = await supabase.storage.from("image").upload(path, file);
+          if (error) throw error;
 
           const { data: { publicUrl } } = supabase.storage.from("image").getPublicUrl(path);
 
@@ -156,39 +145,7 @@
       };
     }
 
-    // E. 리사이즈 UI 조작
-    let currentImg = null;
-    const resizer = document.getElementById('image-resizer');
-    const slider = document.getElementById('size-slider');
-    const sizeVal = document.getElementById('size-value');
-
-    quill.root.addEventListener('click', (e) => {
-      if (e.target.tagName === 'IMG') {
-        currentImg = e.target;
-        const rect = currentImg.getBoundingClientRect();
-        const currentWidth = parseInt(currentImg.getAttribute('width')) || currentImg.clientWidth;
-        resizer.style.display = 'block';
-        resizer.style.top = `${window.scrollY + rect.top - 60}px`;
-        resizer.style.left = `${window.scrollX + rect.left}px`;
-        slider.value = currentWidth;
-        sizeVal.innerText = `${currentWidth}px`;
-      } else {
-        resizer.style.display = 'none';
-      }
-    });
-
-    slider.addEventListener('input', (e) => {
-      if (currentImg) {
-        const val = e.target.value;
-        currentImg.setAttribute('width', val);
-        currentImg.style.width = `${val}px`;
-        sizeVal.innerText = `${val}px`;
-      }
-    });
-
-    document.getElementById('size-close').addEventListener('click', () => { resizer.style.display = 'none'; });
-
-    // F. 실제 게시글 등록 로직
+    // 5. 게시글 등록 로직
     async function submitPost() {
       const title = document.getElementById("postTitle").value.trim();
       const content = quill.root.innerHTML;
@@ -210,20 +167,51 @@
       }
     }
 
-    // G. 기타 버튼 기능
-    document.getElementById("previewBtn").addEventListener("click", () => {
+    // 6. 이미지 리사이즈 슬라이더 로직
+    let currentImg = null;
+    const resizer = document.getElementById('image-resizer');
+    const slider = document.getElementById('size-slider');
+    const sizeVal = document.getElementById('size-value');
+
+    quill.root.addEventListener('click', (e) => {
+      if (e.target.tagName === 'IMG') {
+        currentImg = e.target;
+        const rect = currentImg.getBoundingClientRect();
+        resizer.style.display = 'block';
+        resizer.style.top = `${window.scrollY + rect.top - 60}px`;
+        resizer.style.left = `${window.scrollX + rect.left}px`;
+        slider.value = currentImg.getAttribute('width') || currentImg.clientWidth;
+        sizeVal.innerText = `${slider.value}px`;
+      } else {
+        resizer.style.display = 'none';
+      }
+    });
+
+    slider.addEventListener('input', (e) => {
+      if (currentImg) {
+        const val = e.target.value;
+        currentImg.setAttribute('width', val);
+        currentImg.style.width = `${val}px`;
+        sizeVal.innerText = `${val}px`;
+      }
+    });
+
+    document.getElementById("size-close").onclick = () => resizer.style.display = 'none';
+
+    // 7. 기타 버튼
+    document.getElementById("previewBtn").onclick = () => {
       const area = document.getElementById("previewArea");
       area.style.display = "block";
       area.innerHTML = `<h2>${document.getElementById("postTitle").value}</h2><hr><div class="ql-editor">${quill.root.innerHTML}</div>`;
       area.scrollIntoView({ behavior: 'smooth' });
-    });
+    };
 
-    document.getElementById("cancelBtn").addEventListener("click", () => {
-      if(confirm("작성을 중단하고 나갈까요?")) location.href = "index.html";
-    });
+    document.getElementById("cancelBtn").onclick = () => {
+      if(confirm("작성을 중단할까요?")) location.href = "index.html";
+    };
 
-    // 페이지 실행
-    initPage();
+    // 실행 시작
+    checkPermission();
   </script>
 </body>
 </html>
