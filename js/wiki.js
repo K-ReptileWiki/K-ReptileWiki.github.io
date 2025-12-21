@@ -10,42 +10,108 @@ const POST_COOLDOWN = 30000;
 function initWiki(pageId) {
   console.log("✅ initWiki 실행됨, pageId:", pageId);
 
-  // 좋아요 버튼
+  // ---------------- 조회 기능 ----------------
+  async function loadContributions() {
+    const { data, error } = await supabase
+      .from("wiki_contributions")
+      .select("*")
+      .eq("post_id", pageId)
+      .order("time", { ascending: false });
+
+    if (error) {
+      console.error("❌ 기여 조회 오류:", error);
+      return;
+    }
+    console.log("📄 기여 목록:", data);
+
+    // 화면에 표시 (예시)
+    const list = document.getElementById("contribList");
+    if (list) {
+      list.innerHTML = "";
+      data.forEach((row) => {
+        const li = document.createElement("li");
+        li.textContent = `${row.username}: ${row.text}`;
+        // 삭제 버튼
+        const delBtn = document.createElement("button");
+        delBtn.textContent = "삭제";
+        delBtn.onclick = () => deleteContribution(row.id);
+        // 수정 버튼
+        const editBtn = document.createElement("button");
+        editBtn.textContent = "수정";
+        editBtn.onclick = () => {
+          const newText = prompt("새로운 내용 입력:", row.text);
+          if (newText) updateContribution(row.id, newText);
+        };
+        li.appendChild(delBtn);
+        li.appendChild(editBtn);
+        list.appendChild(li);
+      });
+    }
+  }
+
+  // ---------------- 삭제 기능 ----------------
+  async function deleteContribution(id) {
+    const { error } = await supabase
+      .from("wiki_contributions")
+      .delete()
+      .eq("id", id)
+      .eq("uid", currentUser.id); // 본인 글만 삭제
+    if (error) {
+      console.error("❌ 삭제 오류:", error);
+      alert("삭제 실패: " + error.message);
+    } else {
+      console.log("✅ 삭제 성공:", id);
+      loadContributions();
+    }
+  }
+
+  // ---------------- 수정 기능 ----------------
+  async function updateContribution(id, newText) {
+    const { error } = await supabase
+      .from("wiki_contributions")
+      .update({ text: newText, time: new Date().toISOString() })
+      .eq("id", id)
+      .eq("uid", currentUser.id); // 본인 글만 수정
+    if (error) {
+      console.error("❌ 수정 오류:", error);
+      alert("수정 실패: " + error.message);
+    } else {
+      console.log("✅ 수정 성공:", id);
+      loadContributions();
+    }
+  }
+
+  // ---------------- 좋아요 버튼 ----------------
   const likeBtn = document.getElementById("likeBtn");
   if (likeBtn) {
     likeBtn.onclick = async () => {
       console.log("❤️ 좋아요 버튼 클릭됨");
       try {
-        const { data: existing, error: checkError } = await supabase
+        const { data: existing } = await supabase
           .from("wiki_likes")
           .select("id")
           .eq("post_id", pageId)
           .eq("user_id", currentUser?.id)
           .single();
 
-        if (checkError) console.error("❌ 좋아요 확인 오류:", checkError);
         if (existing) return alert("이미 좋아요를 눌렀습니다");
 
         const payload = { post_id: pageId, user_id: currentUser.id };
-        console.log("🔍 좋아요 삽입 값:", payload);
-
-        const { data, error } = await supabase.from("wiki_likes").insert([payload]).select();
+        const { error } = await supabase.from("wiki_likes").insert([payload]);
         if (error) {
           console.error("❌ 좋아요 삽입 오류:", error);
           return alert("좋아요 처리 중 오류 발생");
         }
-        console.log("✅ 좋아요 삽입 성공:", data);
-
+        console.log("✅ 좋아요 삽입 성공");
         await supabase.rpc("increment_likes", { post_id: pageId });
         document.getElementById("likeMsg").textContent = "좋아요가 반영되었습니다!";
       } catch (e) {
         console.error("❌ 좋아요 처리 중 예외:", e);
-        alert("예외 발생: " + (e.message || "알 수 없는 오류"));
       }
     };
   }
 
-  // 기여 버튼
+  // ---------------- 기여 버튼 ----------------
   const addBtn = document.getElementById("addBtn");
   if (addBtn) {
     addBtn.onclick = async () => {
@@ -69,26 +135,23 @@ function initWiki(pageId) {
         };
         console.log("🔍 기여 삽입 값:", payload);
 
-        const { data, error } = await supabase.from("wiki_contributions").insert([payload]).select();
+        const { error } = await supabase.from("wiki_contributions").insert([payload]);
         if (error) {
           console.error("❌ 기여 삽입 오류:", error);
           return alert("기여 처리 중 오류 발생: " + error.message);
         }
-        if (!data || data.length === 0) {
-          console.warn("⚠️ 삽입은 성공했지만 반환된 행 없음");
-        } else {
-          console.log("✅ 기여 삽입 성공:", data);
-          alert("기여가 성공적으로 반영되었습니다!");
-        }
-
+        console.log("✅ 기여 삽입 성공");
         userData.lastPostAt = now;
         document.getElementById("content").value = "";
+        loadContributions();
       } catch (e) {
         console.error("❌ 기여 처리 중 예외:", e);
-        alert("예외 발생: " + (e.message || "알 수 없는 오류"));
       }
     };
   }
+
+  // 페이지 로드 시 기여 목록 불러오기
+  loadContributions();
 }
 
 // 모듈 로드 확인
@@ -107,13 +170,11 @@ supabase.auth.onAuthStateChange(async (event, session) => {
     currentUser = session.user;
     console.log("✅ 로그인된 유저:", currentUser.id);
 
-    const { data: snap, error } = await supabase
+    const { data: snap } = await supabase
       .from("users")
       .select("*")
       .eq("id", currentUser.id)
       .single();
-
-    if (error) console.error("❌ users 조회 오류:", error);
 
     if (snap) {
       userData = { nickname: "익명", role: "user", lastPostAt: 0, ...snap };
