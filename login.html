@@ -167,15 +167,13 @@
       
       if (result.success) {
         alert("회원가입 성공! 이메일 인증을 확인해주세요.");
-        isSignupMode = false;
-        signupFields.style.display = "none";
-        toggleBtn.textContent = "회원가입 모드로 전환";
-        document.getElementById("loginBtn").style.display = "block";
-        document.getElementById("signupBtn").style.display = "none";
+        // ✅ 회원가입 성공 후 로그인 페이지로 이동
+        window.location.href = "login.html";
       } else {
-        // 여기서 이미 등록된 이메일이면 사용자 친화적인 메시지 출력
         if (result.error.includes("이미 있는 이메일")) {
           alert(result.error); // "이미 있는 이메일입니다. 로그인을 해주세요."
+          // ✅ 이미 등록된 이메일이면 로그인 페이지로 이동
+          window.location.href = "login.html";
         } else {
           alert("회원가입 실패: " + result.error);
         }
