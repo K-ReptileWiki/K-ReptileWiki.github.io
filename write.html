@@ -47,9 +47,17 @@
       border-radius:8px;
       border:1px solid #ddd;
     }
+    /* 로딩 중 표시 */
+    #loadingOverlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(255,255,255,0.8); display: flex; align-items: center;
+      justify-content: center; z-index: 1000; font-weight: bold;
+    }
   </style>
 </head>
 <body>
+  <div id="loadingOverlay">로그인 확인 중...</div>
+
   <div class="container">
     <h1>📝 글쓰기</h1>
 
@@ -79,6 +87,7 @@
   <script type="module">
     import { supabaseService, supabase } from "./js/supabase.js";
 
+    // Quill 에디터 초기화
     const quill = new Quill('#editor', {
       theme: 'snow',
       modules: {
@@ -94,6 +103,28 @@
       placeholder: "내용을 입력하세요..."
     });
 
+    /**
+     * ✅ 핵심 수정: 페이지 초기화 함수
+     * 로그인 정보를 기다린 후, 비로그인이면 튕겨내고 로그인이면 로딩창을 닫습니다.
+     */
+    async function init() {
+      const user = await supabaseService.waitForAuth();
+      const loadingOverlay = document.getElementById("loadingOverlay");
+
+      if (!user) {
+        alert("로그인이 필요합니다");
+        location.href = "login.html";
+        return;
+      }
+
+      // 로그인 확인 완료 시 로딩창 제거
+      loadingOverlay.style.display = "none";
+    }
+
+    // 초기화 실행
+    init();
+
+    // 등록 버튼 클릭 핸들러
     document.getElementById("postBtn").addEventListener("click", async () => {
       const title = document.getElementById("postTitle").value.trim();
       const content = quill.root.innerHTML;
@@ -103,13 +134,14 @@
         return;
       }
 
-      if (!supabaseService.isLoggedIn()) {
-        alert("로그인이 필요합니다");
+      // 등록 직전 최종 세션 확인
+      const user = await supabaseService.waitForAuth();
+      if (!user) {
+        alert("로그인 세션이 만료되었습니다. 다시 로그인해주세요.");
         location.href = "login.html";
         return;
       }
 
-      const { user } = supabaseService.getCurrentUser();
       const files = document.getElementById("imageUpload").files;
       let imageUrls = [];
       
@@ -118,6 +150,7 @@
         return;
       }
 
+      // 이미지 업로드 로직
       if (files.length > 0) {
         for (const file of files) {
           const filePath = `${user.id}/${Date.now()}_${file.name}`;
@@ -130,26 +163,32 @@
               .from("wiki-images")
               .getPublicUrl(filePath);
             imageUrls.push(publicUrl.publicUrl);
+          } else {
+            console.error("업로드 에러:", uploadError);
           }
         }
       }
 
+      // DB 게시글 생성
       const result = await supabaseService.createPost(title, content, imageUrls);
 
       if (result.success) {
         alert("글이 게시되었습니다!");
+        // 게시글 보기 페이지로 이동 (post.html 또는 detail.html 등 프로젝트에 맞춰 수정 가능)
         location.href = `post.html?id=${result.data.id}`;
       } else {
         alert("글 등록 실패: " + result.error);
       }
     });
 
+    // 취소 버튼
     document.getElementById("cancelBtn").addEventListener("click", () => {
       if (confirm("작성 중인 글을 취소하고 메인으로 돌아가시겠습니까?")) {
         location.href = "index.html";
       }
     });
 
+    // 미리보기 버튼
     document.getElementById("previewBtn").addEventListener("click", () => {
       const title = document.getElementById("postTitle").value.trim();
       const content = quill.root.innerHTML;
@@ -164,14 +203,6 @@
       
       previewArea.scrollIntoView({ behavior: 'smooth' });
     });
-
-    if (!supabaseService.isLoggedIn()) {
-      if (confirm("로그인이 필요합니다. 로그인 페이지로 이동하시겠습니까?")) {
-        location.href = "login.html";
-      } else {
-        location.href = "index.html";
-      }
-    }
   </script>
 </body>
 </html>
