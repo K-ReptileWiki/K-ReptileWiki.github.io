@@ -12,7 +12,6 @@ function initWiki(pageId) {
       console.log("❤️ 좋아요 버튼 클릭됨");
 
       try {
-        // 이미 좋아요 눌렀는지 확인
         const { data: existing, error: checkError } = await supabase
           .from("wiki_likes")
           .select("id")
@@ -21,30 +20,21 @@ function initWiki(pageId) {
           .single();
 
         if (checkError) console.error("❌ 좋아요 확인 오류:", checkError);
-
         if (existing) {
           console.log("⚠️ 이미 좋아요 누름");
           return alert("이미 좋아요를 눌렀습니다");
         }
 
-        // 좋아요 삽입
         const { data, error } = await supabase.from("wiki_likes").insert([
           { post_id: pageId, user_id: currentUser.id }
         ]);
+        console.log("📊 좋아요 삽입 응답:", { data, error });
 
-        if (error) {
-          console.error("❌ 좋아요 삽입 오류:", error);
-        } else {
-          console.log("✅ 좋아요 삽입 성공, data:", data);
-        }
+        if (error) return alert("좋아요 처리 중 오류 발생");
 
-        // 좋아요 수 증가
         const { error: rpcError } = await supabase.rpc("increment_likes", { post_id: pageId });
-        if (rpcError) {
-          console.error("❌ 좋아요 RPC 오류:", rpcError);
-        } else {
-          console.log("✅ 좋아요 RPC 호출 완료");
-        }
+        if (rpcError) console.error("❌ 좋아요 RPC 오류:", rpcError);
+        else console.log("✅ 좋아요 RPC 호출 완료");
 
         document.getElementById("likeMsg").textContent = "좋아요가 반영되었습니다!";
       } catch (e) {
@@ -63,10 +53,7 @@ function initWiki(pageId) {
       console.log("✍️ 기여 버튼 클릭됨");
 
       const text = document.getElementById("content").value.trim();
-      if (!text) {
-        console.log("⚠️ 입력 없음");
-        return;
-      }
+      if (!text) return console.log("⚠️ 입력 없음");
       if (BAD_WORDS.some((w) => text.includes(w))) {
         console.log("🚫 욕설 감지");
         return alert("욕설/비속어는 금지입니다");
@@ -79,21 +66,17 @@ function initWiki(pageId) {
       }
 
       try {
-        // DB 삽입
         const { data, error } = await supabase.from("wiki_contributions").insert([{
           post_id: pageId,
           uid: currentUser.id,
-          user: userData.nickname,
+          username: userData.nickname,
           text,
           reports: 0,
           time: new Date().toISOString()
         }]);
+        console.log("📊 기여 삽입 응답:", { data, error });
 
-        if (error) {
-          console.error("❌ 기여 삽입 오류:", error);
-        } else {
-          console.log("✅ 기여 삽입 성공, data:", data);
-        }
+        if (error) return alert("기여 처리 중 오류 발생");
 
         userData.lastPostAt = now;
         document.getElementById("content").value = "";
