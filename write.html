@@ -15,7 +15,7 @@
       width:100%; padding:10px; border:1px solid #ddd;
       border-radius:4px; box-sizing:border-box; font-size:16px;
     }
-    #editor { height:450px; background:white; }
+    #editor { height:500px; background:white; }
     .btn {
       padding:10px 20px; border:none; border-radius:6px;
       cursor:pointer; font-weight:bold; margin-right:10px;
@@ -39,20 +39,18 @@
       background: #fff; border: 1px solid #2563eb; padding: 8px;
       border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     }
-    /* 에디터 내 이미지 클릭 강조 */
-    .ql-editor img { cursor: pointer; transition: outline 0.2s; }
+    .ql-editor img { cursor: pointer; transition: outline 0.2s; max-width: 100%; }
     .ql-editor img:hover { outline: 2px solid #2563eb; }
   </style>
 </head>
 <body>
   <div id="loadingOverlay">
     <div>로그인 확인 중...</div>
-    <div style="font-size: 12px; color: #666; margin-top: 10px;">데이터를 불러오고 있습니다.</div>
   </div>
 
   <div id="image-resizer">
     <div style="display:flex; gap:10px; align-items:center;">
-      <span style="font-size:12px; font-weight:bold; white-space:nowrap;">너비 조절:</span>
+      <span style="font-size:12px; font-weight:bold; white-space:nowrap;">너비:</span>
       <input type="range" id="size-slider" min="50" max="500" step="50" style="width:120px; cursor:pointer;">
       <span id="size-value" style="font-size:12px; font-weight:bold; color:#2563eb; min-width:40px;">-</span>
       <button id="size-close" style="border:none; background:#eee; cursor:pointer; border-radius:4px; padding:2px 6px;">닫기</button>
@@ -65,11 +63,9 @@
       <div class="form-group">
         <input id="postTitle" placeholder="제목을 입력하세요">
       </div>
+      
       <div id="editor"></div>
-      <div class="form-group" style="margin-top:15px;">
-        <label>📸 이미지 업로드 (최대 5개)</label>
-        <input type="file" id="imageUpload" multiple accept="image/*">
-      </div>
+      
       <div style="margin-top:15px;">
         <button id="postBtn" class="btn btn-primary">등록</button>
         <button id="previewBtn" class="btn btn-success">미리보기</button>
@@ -83,43 +79,68 @@
   <script type="module">
     import { supabaseService, supabase } from "./js/supabase.js";
 
-    // --- 1. Quill 이미지 크기 조절을 위한 Blot 확장 ---
+    // --- 1. Quill 이미지 크기 조절 확장 ---
     const ImageBlot = Quill.import('formats/image');
     class ResizableImage extends ImageBlot {
       static create(value) {
         let node = super.create(value);
-        if (typeof value === 'string') {
-          node.setAttribute('src', value);
-        } else {
-          node.setAttribute('src', value.src);
-          if (value.width) node.setAttribute('width', value.width);
-        }
+        node.setAttribute('src', typeof value === 'string' ? value : value.src);
+        if (value.width) node.setAttribute('width', value.width);
         return node;
       }
       static value(node) {
-        return {
-          src: node.getAttribute('src'),
-          width: node.getAttribute('width')
-        };
+        return { src: node.getAttribute('src'), width: node.getAttribute('width') };
       }
     }
     Quill.register(ResizableImage, true);
 
-    // --- 2. Quill 에디터 초기화 ---
+    // --- 2. Quill 초기화 (이미지 업로드 핸들러 포함) ---
     const quill = new Quill('#editor', {
       theme: 'snow',
       modules: {
-        toolbar: [
-          ['bold', 'italic', 'underline'],
-          [{ 'header': [1, 2, 3, false] }],
-          [{ 'color': [] }, { 'background': [] }],
-          ['link', 'image']
-        ]
+        toolbar: {
+          container: [
+            ['bold', 'italic', 'underline'],
+            [{ 'header': [1, 2, 3, false] }],
+            ['link', 'image'] // 툴바의 이미지 버튼은 유지
+          ],
+          handlers: {
+            image: imageHandler // 이미지 버튼 클릭 시 실행될 커스텀 핸들러
+          }
+        }
       },
-      placeholder: "내용을 입력하세요..."
+      placeholder: "내용을 입력하고 이미지를 드래그하거나 버튼으로 넣어보세요..."
     });
 
-    // --- 3. 이미지 리사이즈 로직 ---
+    // --- 3. 커스텀 이미지 업로드 핸들러 (Supabase Storage 연결) ---
+    async function imageHandler() {
+      const input = document.createElement('input');
+      input.setAttribute('type', 'file');
+      input.setAttribute('accept', 'image/*');
+      input.click();
+
+      input.onchange = async () => {
+        const file = input.files[0];
+        if (!file) return;
+
+        const user = (await supabaseService.waitForAuth());
+        if (!user) return alert("로그인이 필요합니다.");
+
+        const path = `${user.id}/${Date.now()}_${file.name}`;
+        const { error } = await supabase.storage.from("wiki-images").upload(path, file);
+
+        if (!error) {
+          const { data } = supabase.storage.from("wiki-images").getPublicUrl(path);
+          const range = quill.getSelection();
+          // 에디터에 이미지 삽입 (기본 너비 300px로 설정)
+          quill.insertEmbed(range.index, 'image', { src: data.publicUrl, width: '300' });
+        } else {
+          alert("이미지 업로드 실패: " + error.message);
+        }
+      };
+    }
+
+    // --- 4. 이미지 리사이즈 UI 로직 ---
     let currentImg = null;
     const resizer = document.getElementById('image-resizer');
     const slider = document.getElementById('size-slider');
@@ -129,7 +150,7 @@
       if (e.target.tagName === 'IMG') {
         currentImg = e.target;
         const rect = currentImg.getBoundingClientRect();
-        const currentWidth = currentImg.getAttribute('width') || currentImg.clientWidth;
+        const currentWidth = parseInt(currentImg.getAttribute('width')) || currentImg.clientWidth;
 
         resizer.style.display = 'block';
         resizer.style.top = `${window.scrollY + rect.top - 50}px`;
@@ -151,77 +172,40 @@
       }
     });
 
-    document.getElementById('size-close').addEventListener('click', () => {
-      resizer.style.display = 'none';
-    });
+    document.getElementById('size-close').addEventListener('click', () => { resizer.style.display = 'none'; });
 
-    // --- 4. 로그인 초기화 및 타임아웃 ---
+    // --- 5. 로그인 및 등록 로직 ---
     async function init() {
       const loadingOverlay = document.getElementById("loadingOverlay");
-      const forceClose = setTimeout(() => {
-        if (loadingOverlay) loadingOverlay.style.display = "none";
-      }, 5000);
-
-      try {
-        const user = await supabaseService.waitForAuth();
-        clearTimeout(forceClose);
-        if (!user) {
-          alert("로그인이 필요합니다.");
-          location.href = "login.html";
-          return;
-        }
-        if (loadingOverlay) loadingOverlay.style.display = "none";
-      } catch (err) {
-        console.error(err);
-        if (loadingOverlay) loadingOverlay.style.display = "none";
-      }
+      setTimeout(() => { if (loadingOverlay) loadingOverlay.style.display = "none"; }, 5000);
+      const user = await supabaseService.waitForAuth();
+      if (loadingOverlay) loadingOverlay.style.display = "none";
+      if (!user) { alert("로그인이 필요합니다."); location.href = "login.html"; }
     }
     init();
 
-    // --- 5. 등록 및 기타 버튼 로직 ---
     document.getElementById("postBtn").addEventListener("click", async () => {
       const title = document.getElementById("postTitle").value.trim();
       const content = quill.root.innerHTML;
-      if (!title || !content || content === '<p><br></p>') {
-        alert("내용을 입력해주세요."); return;
-      }
+      if (!title || content === '<p><br></p>') return alert("내용을 입력하세요.");
 
       const btn = document.getElementById("postBtn");
       btn.disabled = true; btn.innerText = "등록 중...";
 
-      try {
-        const user = await supabaseService.waitForAuth();
-        const files = document.getElementById("imageUpload").files;
-        let imageUrls = [];
-
-        if (files.length > 5) throw new Error("이미지는 최대 5개까지 가능합니다.");
-
-        for (const file of files) {
-          const path = `${user.id}/${Date.now()}_${file.name}`;
-          const { error } = await supabase.storage.from("wiki-images").upload(path, file);
-          if (!error) {
-            const { data } = supabase.storage.from("wiki-images").getPublicUrl(path);
-            imageUrls.push(data.publicUrl);
-          }
-        }
-
-        const res = await supabaseService.createPost(title, content, imageUrls);
-        if (res.success) {
-          alert("게시되었습니다!");
-          location.href = `post.html?id=${res.data.id}`;
-        } else throw new Error(res.error);
-      } catch (e) {
-        alert(e.message);
+      const res = await supabaseService.createPost(title, content, []); // 이미지는 본문에 포함됨
+      if (res.success) {
+        alert("게시되었습니다!");
+        location.href = `post.html?id=${res.data.id}`;
+      } else {
+        alert("실패: " + res.error);
         btn.disabled = false; btn.innerText = "등록";
       }
     });
 
     document.getElementById("previewBtn").addEventListener("click", () => {
-      const title = document.getElementById("postTitle").value;
-      const content = quill.root.innerHTML;
       const area = document.getElementById("previewArea");
       area.style.display = "block";
-      area.innerHTML = `<h2>${title}</h2><hr><div class="ql-editor">${content}</div>`;
+      area.innerHTML = `<h2>${document.getElementById("postTitle").value}</h2><hr><div class="ql-editor">${quill.root.innerHTML}</div>`;
       area.scrollIntoView({ behavior: 'smooth' });
     });
 
