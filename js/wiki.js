@@ -12,6 +12,7 @@ function initWiki(pageId) {
       console.log("❤️ 좋아요 버튼 클릭됨");
 
       try {
+        // 이미 좋아요 눌렀는지 확인
         const { data: existing, error: checkError } = await supabase
           .from("wiki_likes")
           .select("id")
@@ -25,13 +26,20 @@ function initWiki(pageId) {
           return alert("이미 좋아요를 눌렀습니다");
         }
 
-        const { data, error } = await supabase.from("wiki_likes").insert([
-          { post_id: pageId, user_id: currentUser.id }
-        ]);
+        // 삽입 값 확인
+        const payload = { post_id: pageId, user_id: currentUser.id };
+        console.log("🔍 좋아요 삽입 값:", payload);
+
+        // 좋아요 삽입
+        const { data, error } = await supabase.from("wiki_likes").insert([payload]);
         console.log("📊 좋아요 삽입 응답:", { data, error });
 
-        if (error) return alert("좋아요 처리 중 오류 발생");
+        if (error) {
+          console.error("❌ 좋아요 삽입 오류:", error);
+          return alert("좋아요 처리 중 오류 발생");
+        }
 
+        // 좋아요 수 증가 RPC
         const { error: rpcError } = await supabase.rpc("increment_likes", { post_id: pageId });
         if (rpcError) console.error("❌ 좋아요 RPC 오류:", rpcError);
         else console.log("✅ 좋아요 RPC 호출 완료");
@@ -66,17 +74,25 @@ function initWiki(pageId) {
       }
 
       try {
-        const { data, error } = await supabase.from("wiki_contributions").insert([{
+        // 삽입 값 확인
+        const payload = {
           post_id: pageId,
           uid: currentUser.id,
           username: userData.nickname,
           text,
           reports: 0,
           time: new Date().toISOString()
-        }]);
+        };
+        console.log("🔍 기여 삽입 값:", payload);
+
+        // DB 삽입
+        const { data, error } = await supabase.from("wiki_contributions").insert([payload]);
         console.log("📊 기여 삽입 응답:", { data, error });
 
-        if (error) return alert("기여 처리 중 오류 발생");
+        if (error) {
+          console.error("❌ 기여 삽입 오류:", error);
+          return alert("기여 처리 중 오류 발생");
+        }
 
         userData.lastPostAt = now;
         document.getElementById("content").value = "";
