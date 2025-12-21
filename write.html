@@ -7,33 +7,53 @@
   <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+  <style>
+    /* 이미지 리사이저 스타일 */
+    #image-resizer {
+      display: none;
+      position: absolute;
+      z-index: 1000;
+      background: white;
+      padding: 10px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      border: 1px solid #ddd;
+    }
+    .resizer-content { display: flex; align-items: center; gap: 10px; }
+    .editor-container { background: white; padding: 20px; border-radius: 8px; margin-top: 20px; }
+    #editor { height: 400px; }
+    .form-group input { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 6px; font-size: 18px; }
+  </style>
 </head>
 <body>
 
   <div id="image-resizer">
     <div class="resizer-content">
-      <span class="resizer-label">이미지 너비</span>
+      <span style="font-size:12px; font-weight:bold;">너비 조절</span>
       <input type="range" id="size-slider" min="50" max="800" step="10">
-      <span id="size-value">300px</span>
-      <button id="size-close" style="background:#6b7280; color:white; border:none; padding:4px 8px; border-radius:4px;">닫기</button>
+      <span id="size-value" style="font-size:12px;">300px</span>
+      <button id="size-close" style="background:#ef4444; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">닫기</button>
     </div>
   </div>
 
-  <div class="container">
+  <div class="container" style="max-width: 900px; margin: 0 auto; padding: 20px;">
     <h1>📝 새 문서 작성</h1>
+    
     <div class="editor-container">
       <div class="form-group">
-        <input id="postTitle" placeholder="제목을 입력하세요" maxlength="100">
+        <input id="postTitle" placeholder="문서 제목을 입력하세요 (예: 크레스티드 게코 사육법)" maxlength="100">
       </div>
+
       <div id="editor"></div>
       
       <div style="margin-top: 20px; display: flex; gap: 10px;">
-        <button id="postBtn" style="background:#2563eb; color:white; padding:10px 20px; border-radius:6px; cursor:pointer;">등록하기</button>
-        <button id="previewBtn" style="background:#10b981; color:white; padding:10px 20px; border-radius:6px;">미리보기</button>
-        <button id="cancelBtn" style="background:#6b7280; color:white; padding:10px 20px; border-radius:6px;">취소</button>
+        <button id="postBtn" style="background:#2563eb; color:white; padding:12px 24px; border:none; border-radius:6px; cursor:pointer; font-weight:bold;">등록하기</button>
+        <button id="previewBtn" style="background:#10b981; color:white; padding:12px 24px; border:none; border-radius:6px; cursor:pointer;">미리보기</button>
+        <button id="cancelBtn" style="background:#6b7280; color:white; padding:12px 24px; border:none; border-radius:6px; cursor:pointer;">취소</button>
       </div>
     </div>
-    <div id="previewArea" class="preview" style="display:none; margin-top:20px;"></div>
+
+    <div id="previewArea" class="preview" style="display:none; margin-top:30px; padding:20px; background:white; border:1px solid #ddd; border-radius:8px;"></div>
   </div>
 
   <script type="module">
@@ -41,33 +61,28 @@
 
     let quill;
 
-    // A. 에디터 설정 및 이미지 확장 (사진 안 보임 방지 처리)
+    // A. 에디터 초기 설정 및 이미지 기능 확장
     function setupQuill() {
       const ImageBlot = Quill.import('formats/image');
       
+      // 이미지에 width 속성을 부여하기 위한 확장 클래스
       class ResizableImage extends ImageBlot {
         static create(value) {
           const node = super.create(value);
-          // value가 객체({src, width})인지 단순 URL 문자열인지 체크하여 src 설정
           const src = typeof value === 'string' ? value : value.src;
           const width = typeof value === 'object' ? value.width : '300';
-          
           node.setAttribute('src', src);
-          if (width) {
-            node.setAttribute('width', width);
-            node.style.width = width + 'px';
-          }
+          node.setAttribute('width', width);
+          node.style.width = width + 'px';
           return node;
         }
         static value(node) {
-          return {
-            src: node.getAttribute('src'),
-            width: node.getAttribute('width')
-          };
+          return { src: node.getAttribute('src'), width: node.getAttribute('width') };
         }
       }
       Quill.register(ResizableImage, true);
 
+      // 에디터 생성
       quill = new Quill('#editor', {
         theme: 'snow',
         modules: {
@@ -78,10 +93,10 @@
             ['link', 'image']
           ]
         },
-        placeholder: "내용을 입력하세요..."
+        placeholder: "내용을 상세히 입력해 주세요..."
       });
 
-      // B. 이미지 핸들러 (파일 선택창 강제 실행 + 업로드)
+      // 이미지 업로드 핸들러 가로채기
       const toolbar = quill.getModule('toolbar');
       toolbar.addHandler('image', () => {
         const input = document.createElement('input');
@@ -94,65 +109,71 @@
 
           try {
             const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return alert("로그인 사용자만 이용 가능한 서비스입니다.");
+            if (!user) return alert("로그인이 필요합니다.");
 
+            // 1. 파일 업로드
             const fileExt = file.name.split('.').pop();
-            const path = `${user.id}/${Date.now()}.${fileExt}`;
+            const fileName = `${Date.now()}.${fileExt}`;
+            const path = `${user.id}/${fileName}`;
 
-            console.log("업로드 시작...");
-            const { error } = await supabase.storage.from("image").upload(path, file);
+            const { data, error } = await supabase.storage.from("image").upload(path, file);
             if (error) throw error;
 
+            // 2. 공개 URL 가져오기
             const { data: { publicUrl } } = supabase.storage.from("image").getPublicUrl(path);
 
-            // 사진이 보이도록 객체 형식으로 삽입
+            // 3. 에디터에 삽입 (객체 형태로 전달하여 width 정보 포함)
             const range = quill.getSelection(true);
-            quill.insertEmbed(range.index, 'image', {
-              src: publicUrl,
-              width: '300'
-            }, Quill.Sources.USER);
-            
+            quill.insertEmbed(range.index, 'image', { src: publicUrl, width: '300' });
             quill.setSelection(range.index + 1);
+            
           } catch (err) {
-            alert("이미지 처리 실패: " + err.message);
+            alert("이미지 업로드 중 오류 발생: " + err.message);
           }
         };
         input.click();
       });
     }
 
-    // C. 초기화 (권한 체크 및 버튼 색상 변경)
+    // B. 페이지 초기화 및 권한 체크
     async function init() {
       setupQuill();
       
       const postBtn = document.getElementById("postBtn");
       const { data: { user } } = await supabase.auth.getUser();
 
+      // 1. 로그인 상태에 따른 버튼 처리
       if (!user) {
-        // 비로그인 사용자: 버튼 회색 및 클릭 제한
         postBtn.style.backgroundColor = "#9ca3af";
-        postBtn.style.cursor = "not-allowed";
         postBtn.innerText = "로그인 필요";
-        postBtn.onclick = (e) => {
-          e.preventDefault();
-          alert("로그인 사용자만 이용 가능한 서비스입니다.");
+        postBtn.onclick = () => {
+          alert("로그인한 사용자만 글을 쓸 수 있습니다.");
           location.href = "login.html";
         };
       } else {
-        // 로그인 사용자: 정상 작동
+        // 2. 글 등록 로직
         postBtn.onclick = async () => {
           const title = document.getElementById("postTitle").value.trim();
           const content = quill.root.innerHTML;
-          if (!title || content === '<p><br></p>') return alert("내용을 입력하세요.");
-          
+
+          if (!title) return alert("제목을 입력하세요.");
+          if (content === '<p><br></p>') return alert("내용을 입력하세요.");
+
           postBtn.disabled = true;
-          postBtn.innerText = "저장 중...";
-          const res = await supabaseService.createPost(title, content, []);
+          postBtn.innerText = "문서 저장 중...";
+
+          // 🔥 중요: 본문 내 이미지 주소(src)를 모두 추출하여 DB의 images 컬럼에 저장
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = content;
+          const imageUrls = Array.from(tempDiv.querySelectorAll('img')).map(img => img.src);
+
+          const res = await supabaseService.createPost(title, content, imageUrls);
+          
           if (res.success) {
-            alert("등록 성공!");
+            alert("문서가 등록되었습니다!");
             location.href = `post.html?id=${res.data.id}`;
           } else {
-            alert("저장 실패: " + res.error);
+            alert("등록 실패: " + res.error);
             postBtn.disabled = false;
             postBtn.innerText = "등록하기";
           }
@@ -161,7 +182,7 @@
       setupResizer();
     }
 
-    // D. 이미지 리사이즈 로직
+    // C. 이미지 클릭 시 크기 조절 바 노출
     function setupResizer() {
       const resizer = document.getElementById('image-resizer');
       const slider = document.getElementById('size-slider');
@@ -175,9 +196,10 @@
           resizer.style.display = 'block';
           resizer.style.top = `${window.scrollY + rect.top - 60}px`;
           resizer.style.left = `${window.scrollX + rect.left}px`;
-          const w = currentImg.getAttribute('width') || 300;
-          slider.value = w;
-          sizeVal.innerText = w + "px";
+          
+          const currentWidth = currentImg.getAttribute('width') || 300;
+          slider.value = currentWidth;
+          sizeVal.innerText = currentWidth + "px";
         } else {
           resizer.style.display = 'none';
         }
@@ -194,17 +216,24 @@
       document.getElementById("size-close").onclick = () => resizer.style.display = 'none';
     }
 
-    // E. 미리보기 기능
+    // D. 미리보기 버튼
     document.getElementById("previewBtn").onclick = () => {
+      const title = document.getElementById("postTitle").value;
       const area = document.getElementById("previewArea");
       area.style.display = "block";
-      area.innerHTML = `<h2>${document.getElementById("postTitle").value}</h2><hr><div class="ql-editor">${quill.root.innerHTML}</div>`;
+      area.innerHTML = `
+        <h2 style="margin-top:0;">[미리보기] ${title}</h2>
+        <hr>
+        <div class="ql-editor">${quill.root.innerHTML}</div>
+      `;
       area.scrollIntoView({ behavior: 'smooth' });
     };
 
-    // F. 취소 기능
+    // E. 취소 버튼
     document.getElementById("cancelBtn").onclick = () => {
-      if(confirm("작성을 중단하고 나갈까요?")) location.href = "index.html";
+      if (confirm("작성 중인 내용은 저장되지 않습니다. 돌아가시겠습니까?")) {
+        location.href = "index.html";
+      }
     };
 
     init();
