@@ -7,12 +7,17 @@
   <style>
     body { font-family: Arial, sans-serif; margin: 0; background: #f5f5f5; }
     header { background: #1f2937; color: white; padding: 15px; }
-    main { padding: 20px; max-width: 800px; margin: auto; background: white; }
+    main { padding: 20px; max-width: 900px; margin: auto; background: white; }
     img { max-width: 100%; border-radius: 10px; }
     .badge { display: inline-block; padding: 6px 10px; border-radius: 6px; font-size: 14px; margin-right: 5px; color: white; }
     .easy { background: #16a34a; }
     .safe { background: #2563eb; }
     h2 { margin-top: 30px; }
+    textarea { width: 100%; height: 80px; margin-top: 10px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    th { background: #f0f0f0; }
+    button { margin: 2px; }
   </style>
 </head>
 <body>
@@ -64,7 +69,21 @@
   <h2>📝 사용자 기여</h2>
   <textarea id="content" placeholder="추가할 내용을 적어주세요"></textarea><br>
   <button id="addBtn">기여하기</button>
-  <ul id="contributions"></ul>
+
+  <!-- 기여 목록 테이블 -->
+  <table>
+    <thead>
+      <tr>
+        <th>작성자</th>
+        <th>내용</th>
+        <th>시간</th>
+        <th>관리</th>
+      </tr>
+    </thead>
+    <tbody id="contribList">
+      <!-- JS에서 행을 채워줍니다 -->
+    </tbody>
+  </table>
 
   <hr>
   <p><a href="../index.html">← 메인으로 돌아가기</a></p>
