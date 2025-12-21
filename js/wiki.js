@@ -128,6 +128,7 @@ function initWiki(pageId) {
   loadContributions();
 }
 
+// 로그인 상태 처리만 담당
 supabase.auth.onAuthStateChange(async (event, session) => {
   console.log("🔑 Auth 상태 변경:", event);
   if (session?.user) {
@@ -143,12 +144,16 @@ supabase.auth.onAuthStateChange(async (event, session) => {
     } else {
       await supabase.from("users").insert([{ id: currentUser.id, ...userData }]);
     }
-
-    if (window.__PAGE_ID__) initWiki(window.__PAGE_ID__);
   } else {
     currentUser = null;
     userData = null;
   }
+});
+
+// DOM 준비 후 initWiki 실행
+document.addEventListener("DOMContentLoaded", () => {
+  console.log("🌐 DOMContentLoaded 이벤트 발생");
+  if (window.__PAGE_ID__) initWiki(window.__PAGE_ID__);
 });
 
 console.log("🚀 wiki.js 로드됨");
