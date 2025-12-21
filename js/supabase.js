@@ -15,10 +15,11 @@ class SupabaseService {
     this.currentUser = null;
     this.userData = null;
     
-    this.client.auth.onAuthStateChanged(async (event, session) => {
-      console.log("🔑 인증 상태:", event);
-      await this.updateUserData(session?.user);
-    });
+  this.client.auth.onAuthStateChange((event, session) => {
+    console.log("🔑 인증 상태:", event);
+    this.updateUserData(session?.user);
+  });
+
     
     SupabaseService.instance = this;
   }
