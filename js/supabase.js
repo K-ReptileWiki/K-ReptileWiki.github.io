@@ -68,6 +68,12 @@ async signIn(email, password) {
     });
     
     if (error) throw error;
+
+    // ✅ 로그인 성공 시 유저 데이터 갱신
+    if (data.user) {
+      await this.updateUserData(data.user);
+    }
+
     return { success: true, data };
   } catch (error) {
     return { success: false, error: error.message };
