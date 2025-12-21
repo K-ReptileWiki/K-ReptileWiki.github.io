@@ -246,33 +246,32 @@ function initWiki(pageId) {
         time: new Date().toISOString(),
       };
 
-      console.log("📦 삽입할 payload:", payload);
+console.log("📦 삽입할 payload:", payload);
 
-      try {
-        const { data, error } = await supabase
-          .from("wiki_contributions")
-          .insert([payload])
-          .select(); // Return inserted rows for verification
+try {
+  const { data, error } = await supabase
+    .from("wiki_contributions")
+    .insert([payload])
+    .select();
 
-        if (error) {
-          console.error("❌ 기여 실패:", error);
-          alert("기여 실패: " + error.message);
-          return;
-        }
+  console.log("🔍 삽입 결과:", { data, error }); // 무조건 찍기
 
-        console.log("✅ 기여 삽입 성공:", data);
-        lastPostAt = now;
-        contentInput.value = "";
-        alert("기여가 추가되었습니다!");
-        await loadContributions();
-      } catch (e) {
-        console.error("❌ 기여 삽입 예외:", e);
-        alert("기여 중 알 수 없는 오류가 발생했습니다");
-      }
-    };
-  } else {
-    console.warn("⚠️ addBtn 요소를 찾지 못했습니다. HTML에 <button id='addBtn'>추가</button>가 있어야 합니다.");
+  if (error) {
+    console.error("❌ 기여 실패:", error.message);
+    alert("기여 실패: " + error.message);
+    return;
   }
+
+  console.log("✅ 기여 삽입 성공:", data);
+  lastPostAt = now;
+  contentInput.value = "";
+  alert("기여가 추가되었습니다!");
+  await loadContributions();
+} catch (e) {
+  console.error("❌ 기여 삽입 예외:", e);
+  alert("기여 중 알 수 없는 오류가 발생했습니다");
+}
+
 
   // 좋아요 수 업데이트
   async function updateLikeCount() {
