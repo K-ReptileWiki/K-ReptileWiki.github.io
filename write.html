@@ -1,47 +1,45 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
-  <title>📝 새 문서 작성 - K-ReptileWiki</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="UTF-8">
+<title>📝 새 문서 작성 - K-ReptileWiki</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <!-- Quill -->
-  <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
-  <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+<!-- Quill -->
+<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+<script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
 
-  <style>
-    body { font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif; background:#f9fafb; margin:0; }
-    .container { max-width:900px; margin:0 auto; padding:20px; }
-    .editor-container { background:white; padding:20px; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,0.05); }
-    #editor { height:420px; }
-    input { width:100%; padding:14px; margin-bottom:15px; border:1px solid #ddd; border-radius:6px; font-size:18px; }
-    button { padding:12px 22px; border:none; border-radius:6px; cursor:pointer; font-weight:bold; }
-    #image-resizer { display:none; position:absolute; z-index:1000; background:white; padding:10px; border-radius:8px; border:1px solid #ddd; box-shadow:0 4px 12px rgba(0,0,0,0.15); }
-    #image-resizer input { width:200px; }
-  </style>
+<style>
+body { font-family: 'Apple SD Gothic Neo','Malgun Gothic',sans-serif; background:#f9fafb; margin:0; }
+.container { max-width:900px; margin:0 auto; padding:20px; }
+.editor-container { background:white; padding:20px; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,0.05); }
+#editor { height:420px; }
+input#postTitle { width:100%; padding:14px; margin-bottom:15px; border:1px solid #ddd; border-radius:6px; font-size:18px; }
+button { padding:12px 22px; border:none; border-radius:6px; cursor:pointer; font-weight:bold; }
+#image-resizer { display:none; position:absolute; z-index:1000; background:white; padding:10px; border-radius:8px; border:1px solid #ddd; box-shadow:0 4px 12px rgba(0,0,0,0.15);}
+#image-resizer input { width:200px; }
+#sizeValue { font-size:12px; text-align:center; }
+</style>
 </head>
 <body>
 
 <div id="image-resizer">
   <span style="font-size:12px;">이미지 너비</span><br>
   <input type="range" id="sizeSlider" min="50" max="800" step="10">
-  <div id="sizeValue" style="font-size:12px;text-align:center;">300px</div>
+  <div id="sizeValue">300px</div>
 </div>
 
 <div class="container">
   <h1>📝 새 문서 작성</h1>
-
   <div class="editor-container">
     <input id="postTitle" placeholder="문서 제목을 입력하세요">
     <div id="editor"></div>
-
     <div style="margin-top:20px;display:flex;gap:10px;">
       <button id="postBtn" style="background:#2563eb;color:white;">등록하기</button>
       <button id="previewBtn" style="background:#10b981;color:white;">미리보기</button>
       <button id="cancelBtn" style="background:#6b7280;color:white;">취소</button>
     </div>
   </div>
-
   <div id="previewArea" style="display:none;margin-top:30px;background:white;padding:20px;border-radius:10px;"></div>
 </div>
 
@@ -50,9 +48,7 @@ import { supabaseService, supabase } from "./js/supabase.js";
 
 let quill;
 
-/* ===============================
-   1️⃣ Quill + 이미지 Blot
-================================ */
+/* 1️⃣ Quill 초기화 + 이미지 Resizable Blot */
 function setupQuill() {
   const ImageBlot = Quill.import('formats/image');
 
@@ -60,7 +56,7 @@ function setupQuill() {
     static create(value) {
       const node = super.create();
       const src = typeof value === 'string' ? value : value.src;
-      const width = typeof value === 'object' ? value.width : '300';
+      const width = typeof value === 'object' ? value.width : 300;
       node.setAttribute('src', src);
       node.setAttribute('width', width);
       node.style.width = width + 'px';
@@ -76,13 +72,13 @@ function setupQuill() {
   Quill.register(ResizableImage, true);
 
   quill = new Quill('#editor', {
-    theme: 'snow',
-    placeholder: "내용을 입력하세요...",
-    modules: {
-      toolbar: [
+    theme:'snow',
+    placeholder:'내용을 입력하세요...',
+    modules:{
+      toolbar:[
         ['bold','italic','underline','strike'],
-        [{ header: [1,2,3,false] }],
-        [{ color: [] }, { background: [] }],
+        [{ header:[1,2,3,false] }],
+        [{ color:[] }, { background:[] }],
         ['link','image']
       ]
     }
@@ -92,9 +88,7 @@ function setupQuill() {
   setupImageResizer();
 }
 
-/* ===============================
-   2️⃣ 이미지 업로드
-================================ */
+/* 2️⃣ 이미지 업로드 */
 function setupImageUpload() {
   const toolbar = quill.getModule('toolbar');
   const BUCKET = "image";
@@ -108,29 +102,27 @@ function setupImageUpload() {
       const file = input.files[0];
       if (!file) return;
 
-      const user = supabaseService.currentUser;
+      const user = supabaseService.getCurrentUser().user;
       if (!user) return alert("로그인이 필요합니다.");
 
       const ext = file.name.split('.').pop();
-      const path = `${user.id}/${Date.now()}.${ext}`;
+      const fileName = `${Date.now()}.${ext}`;
+      const path = `${user.id}/${fileName}`;
 
       const { error } = await supabase.storage.from(BUCKET).upload(path, file);
-      if (error) return alert("이미지 업로드 실패: " + error.message);
+      if (error) return alert("이미지 업로드 실패");
 
       const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
-
       const range = quill.getSelection(true);
-      quill.insertEmbed(range.index, 'image', { src: data.publicUrl, width:'300' });
-      quill.setSelection(range.index + 1);
+      quill.insertEmbed(range.index, 'image', { src:data.publicUrl, width:300 });
+      quill.setSelection(range.index+1);
     };
 
     input.click();
   });
 }
 
-/* ===============================
-   3️⃣ 이미지 클릭 → 크기 조절
-================================ */
+/* 3️⃣ 이미지 클릭 → 크기 조절 */
 function setupImageResizer() {
   const resizer = document.getElementById("image-resizer");
   const slider = document.getElementById("sizeSlider");
@@ -160,18 +152,18 @@ function setupImageResizer() {
   };
 }
 
-/* ===============================
-   4️⃣ 글 등록
-================================ */
+/* 4️⃣ 글 등록 */
 document.getElementById("postBtn").onclick = async () => {
+  if (!supabaseService.isLoggedIn()) {
+    alert("로그인이 필요합니다.");
+    return;
+  }
+
   const title = document.getElementById("postTitle").value.trim();
   const content = quill.root.innerHTML;
 
   if (!title) return alert("제목을 입력하세요.");
   if (content === "<p><br></p>") return alert("내용을 입력하세요.");
-
-  const user = supabaseService.currentUser;
-  if (!user) return alert("로그인이 필요합니다.");
 
   const temp = document.createElement("div");
   temp.innerHTML = content;
@@ -186,9 +178,7 @@ document.getElementById("postBtn").onclick = async () => {
   }
 };
 
-/* ===============================
-   5️⃣ 미리보기 / 취소
-================================ */
+/* 5️⃣ 미리보기 / 취소 */
 document.getElementById("previewBtn").onclick = () => {
   const area = document.getElementById("previewArea");
   area.style.display = "block";
@@ -197,19 +187,14 @@ document.getElementById("previewBtn").onclick = () => {
 };
 
 document.getElementById("cancelBtn").onclick = () => {
-  if (confirm("작성 중인 내용은 저장되지 않습니다.")) location.href = "index.html";
+  if (confirm("작성 중인 내용은 저장되지 않습니다.")) {
+    location.href = "index.html";
+  }
 };
 
-/* ===============================
-   초기화
-================================ */
-async function initEditor() {
-  await supabaseService.waitForAuth(); // 로그인 상태 확인
-  setupQuill();
-}
+// 초기화
+setupQuill();
 
-initEditor();
 </script>
-
 </body>
 </html>
