@@ -24,39 +24,40 @@ class SupabaseService {
     SupabaseService.instance = this;
   }
 
-  async updateUserData(user) {
-    if (!user) {
-      this.currentUser = null;
-      this.userData = null;
-      return;
-    }
-
-    this.currentUser = user;
-    
-    try {
-      const { data } = await this.client
-        .from("users")
-        .select("*")
-        .eq("id", user.id)
-        .single();
-      
-      if (data) {
-        this.userData = data;
-      } else {
-        const newUser = {
-          id: user.id,
-          email: user.email,
-          nickname: user.email.split("@")[0],
-          role: "user",
-          created_at: new Date().toISOString()
-        };
-        await this.client.from("users").insert([newUser]);
-        this.userData = newUser;
-      }
-    } catch (error) {
-      console.error("❌ 사용자 데이터 로드 실패:", error);
-    }
+async updateUserData(user) {
+  if (!user) {
+    this.currentUser = null;
+    this.userData = null;
+    return;
   }
+
+  this.currentUser = user;
+  
+  try {
+    const { data } = await this.client
+      .from("profiles")   // ✅ users → profiles
+      .select("*")
+      .eq("id", user.id)
+      .single();
+    
+    if (data) {
+      this.userData = data;
+    } else {
+      const newUser = {
+        id: user.id,
+        email: user.email,
+        nickname: user.email.split("@")[0],
+        role: "user",
+        created_at: new Date().toISOString()
+      };
+      await this.client.from("profiles").insert([newUser]); // ✅ users → profiles
+      this.userData = newUser;
+    }
+  } catch (error) {
+    console.error("❌ 사용자 데이터 로드 실패:", error);
+  }
+}
+
 
   // 인증 관련 메서드
   async signIn(email, password) {
