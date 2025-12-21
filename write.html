@@ -2,186 +2,214 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>📝 글쓰기 - K-ReptileWiki</title>
+  <title>📝 새 문서 작성 - K-ReptileWiki</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- Quill -->
   <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+
   <style>
-    body { background:#f9fafb; }
-    .container {
-      max-width:900px;
-      margin:20px auto;
-      padding:20px;
-    }
-    h1 { color:#2563eb; }
-    .form-group {
-      margin-bottom:15px;
-    }
-    .form-group input {
-      width:100%;
-      padding:10px;
-      border:1px solid #ddd;
-      border-radius:4px;
-      box-sizing:border-box;
-      font-size:16px;
-    }
-    #editor {
-      height:400px;
-      background:white;
-    }
-    .btn {
-      padding:10px 20px;
-      border:none;
-      border-radius:6px;
-      cursor:pointer;
-      font-weight:bold;
-      margin-right:10px;
-    }
-    .btn-primary { background:#2563eb; color:white; }
-    .btn-success { background:#10b981; color:white; }
-    .btn-secondary { background:#6b7280; color:white; }
-    .preview {
-      margin-top:20px;
-      padding:20px;
-      background:white;
-      border-radius:8px;
-      border:1px solid #ddd;
-    }
+    body { font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif; background:#f9fafb; margin:0; }
+    .container { max-width:900px; margin:0 auto; padding:20px; }
+    .editor-container { background:white; padding:20px; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,0.05); }
+    #editor { height:420px; }
+    input { width:100%; padding:14px; margin-bottom:15px; border:1px solid #ddd; border-radius:6px; font-size:18px; }
+    button { padding:12px 22px; border:none; border-radius:6px; cursor:pointer; font-weight:bold; }
+    #image-resizer { display:none; position:absolute; z-index:1000; background:white; padding:10px; border-radius:8px; border:1px solid #ddd; box-shadow:0 4px 12px rgba(0,0,0,0.15); }
+    #image-resizer input { width:200px; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>📝 글쓰기</h1>
 
-    <div class="editor-container">
-      <div class="form-group">
-        <input id="postTitle" placeholder="제목을 입력하세요">
-      </div>
-      
-      <div id="editor"></div>
-      
-      <div class="form-group" style="margin-top:15px;">
-        <label>이미지 업로드 (최대 5개)</label>
-        <input type="file" id="imageUpload" multiple accept="image/*">
-      </div>
+<div id="image-resizer">
+  <span style="font-size:12px;">이미지 너비</span><br>
+  <input type="range" id="sizeSlider" min="50" max="800" step="10">
+  <div id="sizeValue" style="font-size:12px;text-align:center;">300px</div>
+</div>
 
-      <div style="margin-top:15px;">
-        <button id="postBtn" class="btn btn-primary">등록</button>
-        <button id="previewBtn" class="btn btn-success">미리보기</button>
-        <button id="cancelBtn" class="btn btn-secondary">취소</button>
-      </div>
+<div class="container">
+  <h1>📝 새 문서 작성</h1>
+
+  <div class="editor-container">
+    <input id="postTitle" placeholder="문서 제목을 입력하세요">
+    <div id="editor"></div>
+
+    <div style="margin-top:20px;display:flex;gap:10px;">
+      <button id="postBtn" style="background:#2563eb;color:white;">등록하기</button>
+      <button id="previewBtn" style="background:#10b981;color:white;">미리보기</button>
+      <button id="cancelBtn" style="background:#6b7280;color:white;">취소</button>
     </div>
-
-    <div id="previewArea" class="preview" style="display:none;"></div>
   </div>
 
-  <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
-  <script type="module">
-    import { supabaseService, supabase } from "./js/supabase.js";
+  <div id="previewArea" style="display:none;margin-top:30px;background:white;padding:20px;border-radius:10px;"></div>
+</div>
 
-    // Quill 에디터 초기화
-    const quill = new Quill('#editor', {
-      theme: 'snow',
-      modules: {
-        toolbar: [
-          ['bold','italic','underline','strike'],
-          [{ 'header': [1,2,3,false] }],
-          [{ 'color': [] }, { 'background': [] }],
-          [{ 'align': [] }],
-          ['blockquote','code-block'],
-          ['link','image']
-        ]
-      },
-      placeholder: "내용을 입력하세요..."
-    });
+<script type="module">
+import { supabaseService, supabase } from "./js/supabase.js";
 
-    // 글 등록
-    document.getElementById("postBtn").addEventListener("click", async () => {
-      const title = document.getElementById("postTitle").value.trim();
-      const content = quill.root.innerHTML;
+let quill;
 
-      if (!title || !content || content === '<p><br></p>') {
-        alert("제목과 내용을 입력하세요");
-        return;
-      }
+/* ===============================
+   1️⃣ Quill + 이미지 Blot
+================================ */
+function setupQuill() {
+  const ImageBlot = Quill.import('formats/image');
 
-      if (!supabaseService.isLoggedIn()) {
-        alert("로그인이 필요합니다");
-        location.href = "login.html";
-        return;
-      }
-
-      const { user } = supabaseService.getCurrentUser();
-
-      // 이미지 업로드
-      const files = document.getElementById("imageUpload").files;
-      let imageUrls = [];
-      
-      if (files.length > 5) {
-        alert("이미지는 최대 5개까지 업로드 가능합니다");
-        return;
-      }
-
-      if (files.length > 0) {
-        for (const file of files) {
-          const filePath = `${user.id}/${Date.now()}_${file.name}`;
-          const { error: uploadError } = await supabase.storage
-            .from("wiki-images")
-            .upload(filePath, file);
-          
-          if (!uploadError) {
-            const { data: publicUrl } = supabase.storage
-              .from("wiki-images")
-              .getPublicUrl(filePath);
-            imageUrls.push(publicUrl.publicUrl);
-          } else {
-            console.error("이미지 업로드 실패:", uploadError);
-          }
-        }
-      }
-
-      // 글 등록
-      const result = await supabaseService.createPost(title, content, imageUrls);
-
-      if (result.success) {
-        alert("글이 게시되었습니다!");
-        location.href = `post.html?id=${result.data.id}`;
-      } else {
-        alert("글 등록 실패: " + result.error);
-      }
-    });
-
-    // 취소
-    document.getElementById("cancelBtn").addEventListener("click", () => {
-      if (confirm("작성 중인 글을 취소하고 메인으로 돌아가시겠습니까?")) {
-        location.href = "index.html";
-      }
-    });
-
-    // 미리보기
-    document.getElementById("previewBtn").addEventListener("click", () => {
-      const title = document.getElementById("postTitle").value.trim();
-      const content = quill.root.innerHTML;
-      const previewArea = document.getElementById("previewArea");
-      
-      previewArea.style.display = "block";
-      previewArea.innerHTML = `
-        <h2>${title || "(제목 없음)"}</h2>
-        <hr>
-        <div>${content || "(내용 없음)"}</div>
-      `;
-      
-      previewArea.scrollIntoView({ behavior: 'smooth' });
-    });
-
-    // 로그인 확인
-    if (!supabaseService.isLoggedIn()) {
-      if (confirm("로그인이 필요합니다. 로그인 페이지로 이동하시겠습니까?")) {
-        location.href = "login.html";
-      } else {
-        location.href = "index.html";
-      }
+  class ResizableImage extends ImageBlot {
+    static create(value) {
+      const node = super.create();
+      const src = typeof value === 'string' ? value : value.src;
+      const width = typeof value === 'object' ? value.width : '300';
+      node.setAttribute('src', src);
+      node.setAttribute('width', width);
+      node.style.width = width + 'px';
+      return node;
     }
-  </script>
+    static value(node) {
+      return { src: node.getAttribute('src'), width: node.getAttribute('width') };
+    }
+  }
+
+  ResizableImage.blotName = 'image';
+  ResizableImage.tagName = 'IMG';
+  Quill.register(ResizableImage, true);
+
+  quill = new Quill('#editor', {
+    theme: 'snow',
+    placeholder: "내용을 입력하세요...",
+    modules: {
+      toolbar: [
+        ['bold','italic','underline','strike'],
+        [{ header: [1,2,3,false] }],
+        [{ color: [] }, { background: [] }],
+        ['link','image']
+      ]
+    }
+  });
+
+  setupImageUpload();
+  setupImageResizer();
+}
+
+/* ===============================
+   2️⃣ 이미지 업로드
+================================ */
+function setupImageUpload() {
+  const toolbar = quill.getModule('toolbar');
+  const BUCKET = "image";
+
+  toolbar.addHandler('image', () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+
+    input.onchange = async () => {
+      const file = input.files[0];
+      if (!file) return;
+
+      const user = supabaseService.currentUser;
+      if (!user) return alert("로그인이 필요합니다.");
+
+      const ext = file.name.split('.').pop();
+      const path = `${user.id}/${Date.now()}.${ext}`;
+
+      const { error } = await supabase.storage.from(BUCKET).upload(path, file);
+      if (error) return alert("이미지 업로드 실패: " + error.message);
+
+      const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+
+      const range = quill.getSelection(true);
+      quill.insertEmbed(range.index, 'image', { src: data.publicUrl, width:'300' });
+      quill.setSelection(range.index + 1);
+    };
+
+    input.click();
+  });
+}
+
+/* ===============================
+   3️⃣ 이미지 클릭 → 크기 조절
+================================ */
+function setupImageResizer() {
+  const resizer = document.getElementById("image-resizer");
+  const slider = document.getElementById("sizeSlider");
+  const value = document.getElementById("sizeValue");
+  let targetImg = null;
+
+  quill.root.addEventListener("click", e => {
+    if (e.target.tagName === "IMG") {
+      targetImg = e.target;
+      const rect = targetImg.getBoundingClientRect();
+      resizer.style.display = "block";
+      resizer.style.top = window.scrollY + rect.top - 60 + "px";
+      resizer.style.left = window.scrollX + rect.left + "px";
+
+      const w = targetImg.getAttribute("width") || 300;
+      slider.value = w;
+      value.innerText = w + "px";
+    } else resizer.style.display = "none";
+  });
+
+  slider.oninput = e => {
+    if (!targetImg) return;
+    const w = e.target.value;
+    targetImg.setAttribute("width", w);
+    targetImg.style.width = w + "px";
+    value.innerText = w + "px";
+  };
+}
+
+/* ===============================
+   4️⃣ 글 등록
+================================ */
+document.getElementById("postBtn").onclick = async () => {
+  const title = document.getElementById("postTitle").value.trim();
+  const content = quill.root.innerHTML;
+
+  if (!title) return alert("제목을 입력하세요.");
+  if (content === "<p><br></p>") return alert("내용을 입력하세요.");
+
+  const user = supabaseService.currentUser;
+  if (!user) return alert("로그인이 필요합니다.");
+
+  const temp = document.createElement("div");
+  temp.innerHTML = content;
+  const images = Array.from(temp.querySelectorAll("img")).map(img => img.src);
+
+  const res = await supabaseService.createPost(title, content, images);
+  if (res.success) {
+    alert("문서가 등록되었습니다!");
+    location.href = `post.html?id=${res.data.id}`;
+  } else {
+    alert("등록 실패: " + res.error);
+  }
+};
+
+/* ===============================
+   5️⃣ 미리보기 / 취소
+================================ */
+document.getElementById("previewBtn").onclick = () => {
+  const area = document.getElementById("previewArea");
+  area.style.display = "block";
+  area.innerHTML = `<h2>미리보기</h2><hr><div class="ql-editor">${quill.root.innerHTML}</div>`;
+  area.scrollIntoView({ behavior: "smooth" });
+};
+
+document.getElementById("cancelBtn").onclick = () => {
+  if (confirm("작성 중인 내용은 저장되지 않습니다.")) location.href = "index.html";
+};
+
+/* ===============================
+   초기화
+================================ */
+async function initEditor() {
+  await supabaseService.waitForAuth(); // 로그인 상태 확인
+  setupQuill();
+}
+
+initEditor();
+</script>
+
 </body>
 </html>
