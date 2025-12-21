@@ -38,37 +38,55 @@ class SupabaseService {
     return null;
   }
 
-  async updateUserData(user) {
-    if (!user) {
-      this.currentUser = null;
-      this.userData = null;
-      return;
-    }
-    this.currentUser = user;
-    try {
-      const { data } = await this.client
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single();
-      
-      if (data) {
-        this.userData = data;
-      } else {
-        const newUser = {
-          id: user.id,
-          email: user.email,
-          nickname: user.email.split("@")[0],
-          role: "user",
-          created_at: new Date().toISOString()
-        };
-        await this.client.from("profiles").insert([newUser]);
-        this.userData = newUser;
-      }
-    } catch (error) {
-      console.error("❌ 사용자 데이터 로드 실패:", error);
-    }
+async updateUserData(user) {
+  if (!user) {
+    this.currentUser = null;
+    this.userData = null;
+    return;
   }
+
+  this.currentUser = user;
+  
+  try {
+    // 1. .single() 대신 .maybeSingle()을 사용하여 데이터가 없어도 에러를 내지 않게 합니다.
+    const { data, error } = await this.client
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .maybeSingle(); 
+    
+    if (error) throw error;
+
+    if (data) {
+      // 2. 기존 데이터가 있으면 적용
+      this.userData = data;
+    } else {
+      // 3. 데이터가 없으면 새로 생성 후 적용
+      const newUser = {
+        id: user.id,
+        email: user.email,
+        nickname: user.email.split("@")[0],
+        role: "user",
+        created_at: new Date().toISOString()
+      };
+      
+      const { error: insertError } = await this.client.from("profiles").insert([newUser]);
+      if (insertError) throw insertError;
+      
+      this.userData = newUser;
+    }
+  } catch (error) {
+    console.error("❌ 사용자 데이터 로드 실패:", error);
+    
+    // 4. [핵심] DB 로드에 실패하더라도 화면이 멈추지 않도록 기본값 강제 할당
+    this.userData = {
+      id: user.id,
+      email: user.email,
+      nickname: user.email.split("@")[0],
+      role: "user"
+    };
+  }
+}
 
   // --- 로그인/회원가입 섹션 ---
 
