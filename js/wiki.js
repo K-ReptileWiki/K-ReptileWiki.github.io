@@ -28,7 +28,8 @@ function initWiki(pageId) {
         const payload = { post_id: pageId, user_id: currentUser.id };
         console.log("🔍 좋아요 삽입 값:", payload);
 
-        const { data, error } = await supabase.from("wiki_likes").insert([payload]);
+        // ✅ 삽입 후 결과 반환
+        const { data, error } = await supabase.from("wiki_likes").insert([payload]).select();
         console.log("📊 좋아요 삽입 응답:", { data, error });
 
         if (error) {
@@ -80,7 +81,8 @@ function initWiki(pageId) {
         };
         console.log("🔍 기여 삽입 값:", payload);
 
-        const { data, error } = await supabase.from("wiki_contributions").insert([payload]);
+        // ✅ 삽입 후 결과 반환
+        const { data, error } = await supabase.from("wiki_contributions").insert([payload]).select();
         console.log("📊 기여 삽입 응답:", { data, error });
 
         if (error) {
