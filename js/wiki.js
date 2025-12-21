@@ -12,7 +12,6 @@ function initWiki(pageId) {
       console.log("❤️ 좋아요 버튼 클릭됨");
 
       try {
-        // 이미 좋아요 눌렀는지 확인
         const { data: existing, error: checkError } = await supabase
           .from("wiki_likes")
           .select("id")
@@ -26,11 +25,9 @@ function initWiki(pageId) {
           return alert("이미 좋아요를 눌렀습니다");
         }
 
-        // 삽입 값 확인
         const payload = { post_id: pageId, user_id: currentUser.id };
         console.log("🔍 좋아요 삽입 값:", payload);
 
-        // 좋아요 삽입
         const { data, error } = await supabase.from("wiki_likes").insert([payload]);
         console.log("📊 좋아요 삽입 응답:", { data, error });
 
@@ -39,14 +36,13 @@ function initWiki(pageId) {
           return alert("좋아요 처리 중 오류 발생");
         }
 
-        // 좋아요 수 증가 RPC
         const { error: rpcError } = await supabase.rpc("increment_likes", { post_id: pageId });
         if (rpcError) console.error("❌ 좋아요 RPC 오류:", rpcError);
         else console.log("✅ 좋아요 RPC 호출 완료");
 
         document.getElementById("likeMsg").textContent = "좋아요가 반영되었습니다!";
       } catch (e) {
-        console.error("❌ 좋아요 처리 중 예외:", e);
+        console.error("❌ 좋아요 처리 중 예외:", e.message, e);
       }
     };
   } else {
@@ -74,7 +70,6 @@ function initWiki(pageId) {
       }
 
       try {
-        // 삽입 값 확인
         const payload = {
           post_id: pageId,
           uid: currentUser.id,
@@ -85,7 +80,6 @@ function initWiki(pageId) {
         };
         console.log("🔍 기여 삽입 값:", payload);
 
-        // DB 삽입
         const { data, error } = await supabase.from("wiki_contributions").insert([payload]);
         console.log("📊 기여 삽입 응답:", { data, error });
 
@@ -97,7 +91,7 @@ function initWiki(pageId) {
         userData.lastPostAt = now;
         document.getElementById("content").value = "";
       } catch (e) {
-        console.error("❌ 기여 처리 중 예외:", e);
+        console.error("❌ 기여 처리 중 예외:", e.message, e);
       }
     };
   } else {
