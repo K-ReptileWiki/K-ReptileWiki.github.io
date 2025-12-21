@@ -5,220 +5,253 @@
   <title>K-ReptileWiki 글 상세</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="style.css">
+  <style>
+    body { background:#f9fafb; }
+    .container {
+      max-width:900px;
+      margin:20px auto;
+      padding:20px;
+    }
+    .post-detail {
+      background:white;
+      padding:30px;
+      border-radius:8px;
+      box-shadow:0 2px 8px rgba(0,0,0,0.1);
+      margin-bottom:20px;
+    }
+    .post-detail h2 {
+      color:#2563eb;
+      margin-top:0;
+    }
+    .post-detail img {
+      max-width:100%;
+      height:auto;
+      border-radius:8px;
+      margin:10px 0;
+    }
+    .post-meta {
+      color:#6b7280;
+      font-size:14px;
+      margin:15px 0;
+      padding:10px;
+      background:#f3f4f6;
+      border-radius:4px;
+    }
+    .btn {
+      padding:8px 16px;
+      border:none;
+      border-radius:6px;
+      cursor:pointer;
+      font-weight:bold;
+      margin-right:10px;
+    }
+    .btn-primary { background:#2563eb; color:white; }
+    .btn-danger { background:#f87171; color:white; }
+    .btn-secondary { background:#6b7280; color:white; }
+    .comment-section {
+      background:white;
+      padding:20px;
+      border-radius:8px;
+      box-shadow:0 2px 8px rgba(0,0,0,0.1);
+    }
+    .comment-card {
+      background:#f9fafb;
+      padding:15px;
+      margin:10px 0;
+      border-radius:6px;
+      border-left:3px solid #2563eb;
+    }
+    .comment-input {
+      width:100%;
+      padding:10px;
+      border:1px solid #ddd;
+      border-radius:4px;
+      resize:vertical;
+      min-height:80px;
+      box-sizing:border-box;
+    }
+  </style>
 </head>
 <body>
-  <h1>🦎 K-ReptileWiki 글 상세</h1>
+  <div class="container">
+    <h1>🦎 K-ReptileWiki</h1>
+    
+    <div id="postDetail" class="post-detail">로딩 중...</div>
 
-  <!-- 글 상세 영역 -->
-  <div id="postDetail" class="editor-container"></div>
+    <button id="goHomeBtn" class="btn btn-secondary">🏠 메인으로</button>
 
-  <!-- 메인으로 돌아가기 버튼 -->
-  <button id="goHomeBtn">🏠 메인으로</button>
+    <hr style="margin:30px 0;">
 
-  <hr>
-  <h2>💬 댓글</h2>
-  <ul id="commentList"></ul>
+    <div class="comment-section">
+      <h2>💬 댓글</h2>
+      <div id="commentList">로딩 중...</div>
 
-  <!-- 댓글 입력 -->
-  <textarea id="commentInput" placeholder="댓글을 입력하세요"></textarea><br>
-  <button id="addCommentBtn">댓글 작성</button>
+      <h3 style="margin-top:30px;">댓글 작성</h3>
+      <textarea id="commentInput" class="comment-input" placeholder="댓글을 입력하세요"></textarea>
+      <button id="addCommentBtn" class="btn btn-primary" style="margin-top:10px;">댓글 작성</button>
+    </div>
+  </div>
 
-  <!-- 자바스크립트 -->
   <script type="module">
-    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
+    import { supabaseService } from "./js/supabase.js";
 
-    const supabase = createClient(
-      "https://cpaikpjzlzzujwfgnanb.supabase.co",
-      "sb_publishable_-dZ6xDssPQs29A_hHa2Irw_WxZ24NxB"
-    );
+    const params = new URLSearchParams(location.search);
+    const postId = params.get("id");
 
-    document.addEventListener("DOMContentLoaded", async () => {
-      console.log("✅ DOMContentLoaded 실행됨");
-
-      // 로그인 사용자 확인
-      const { data: userRes, error: userError } = await supabase.auth.getUser();
-      console.log("🔎 getUser 결과:", userRes, userError);
-
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      console.log("🔎 getSession 결과:", session, sessionError);
-
-      const currentUser = userRes?.user ?? null;
-      console.log("👤 currentUser:", currentUser);
-
-      // URL에서 글 id 가져오기
-      const params = new URLSearchParams(location.search);
-      const postId = params.get("id");
-      console.log("📌 postId:", postId);
-
-      const postDetail = document.getElementById("postDetail");
-      const commentList = document.getElementById("commentList");
-      const commentInput = document.getElementById("commentInput");
-      const addCommentBtn = document.getElementById("addCommentBtn");
-      const goHomeBtn = document.getElementById("goHomeBtn");
-
-      if (!postId) {
-        postDetail.textContent = "잘못된 접근입니다. 글 ID가 없습니다.";
-        return;
-      }
-
-      await loadPost(postId, currentUser);
-      await loadComments(postId);
-
-      // 댓글 작성 이벤트
-      addCommentBtn.onclick = async () => {
-        console.log("📝 댓글 작성 시도, currentUser:", currentUser);
-        const content = commentInput.value.trim();
-        if (!content) return alert("댓글을 입력하세요");
-        if (!currentUser) return alert("로그인이 필요합니다");
-
-        const { error } = await supabase.from("wiki_comments").insert([{
-          post_id: postId,
-          content,
-          author: currentUser.email ?? "익명",
-          uid: currentUser.id,
-          time: new Date().toISOString()
-        }]);
-
-        if (error) {
-          console.error("❌ 댓글 작성 실패:", error);
-          alert("댓글 작성 실패: " + error.message);
-        } else {
-          console.log("✅ 댓글 작성 성공");
-          commentInput.value = "";
-          loadComments(postId);
-        }
-      };
-
-      goHomeBtn.onclick = () => {
-        console.log("🏠 메인으로 이동");
-        window.location.href = "index.html";
-      };
-    });
+    if (!postId) {
+      alert("잘못된 접근입니다");
+      location.href = "index.html";
+    }
 
     // 글 불러오기
-    async function loadPost(postId, currentUser) {
-      console.log("📖 글 불러오기 시도:", postId);
-      const { data, error } = await supabase
-        .from("wiki_posts")
-        .select("*")
-        .eq("id", postId)
-        .single();
-
-      console.log("🔎 글 데이터:", data, "에러:", error);
-
+    async function loadPost() {
+      const result = await supabaseService.getPost(postId);
       const div = document.getElementById("postDetail");
-      if (error || !data) {
-        div.textContent = "글을 찾을 수 없습니다.";
+
+      if (!result.success) {
+        div.innerHTML = `<p>글을 불러올 수 없습니다: ${result.error}</p>`;
         return;
       }
 
+      const post = result.data;
       let imgHtml = "";
-      if (data.images && Array.isArray(data.images)) {
-        imgHtml = data.images.map(url => `<img src="${url}" class="species-image">`).join("");
+      if (post.images && Array.isArray(post.images)) {
+        imgHtml = post.images.map(url => 
+          `<img src="${url}" class="species-image" alt="첨부 이미지">`
+        ).join("");
       }
 
       div.innerHTML = `
-        <h2>${data.title}</h2>
-        <div>${data.content}</div>
+        <h2>${post.title}</h2>
+        <div class="post-meta">
+          작성자: ${post.author ?? "익명"} | 
+          ${new Date(post.time).toLocaleString()}
+        </div>
+        <div>${post.content}</div>
         ${imgHtml}
-        <small>작성자: ${data.author ?? "익명"} | ${new Date(data.time).toLocaleString()}</small><br>
+        <div style="margin-top:20px;">
+          <button id="likeBtn" class="btn btn-primary">❤️ 로딩 중...</button>
+          <span id="likeMsg" style="color:#10b981;margin-left:10px;"></span>
+        </div>
       `;
 
-      // 좋아요 버튼 (post_likes 테이블 기반)
-      const likeBtn = document.createElement("button");
-      div.appendChild(likeBtn);
-      await updateLikeCount(postId, likeBtn);
+      // 좋아요 버튼 설정
+      await updateLikeButton();
 
-      likeBtn.onclick = async () => {
-        console.log("❤️ 좋아요 클릭, currentUser:", currentUser);
-        if (!currentUser) return alert("로그인이 필요합니다");
-        const { error } = await supabase
-          .from("post_likes")
-          .insert([{ post_id: postId, user_id: currentUser.id }]);
-        if (error) {
-          console.error("❌ 좋아요 실패:", error);
-          if (error.code === "23505") {
-            alert("이미 좋아요를 누르셨습니다!");
-          } else {
-            alert("좋아요 실패: " + error.message);
-          }
-        } else {
-          console.log("✅ 좋아요 성공");
-          await updateLikeCount(postId, likeBtn);
+      // 삭제 버튼 (작성자만)
+      if (supabaseService.isLoggedIn()) {
+        const { user } = supabaseService.getCurrentUser();
+        if (user.id === post.uid) {
+          const deleteBtn = document.createElement("button");
+          deleteBtn.className = "btn btn-danger";
+          deleteBtn.textContent = "글 삭제";
+          deleteBtn.onclick = deletePost;
+          div.querySelector("div[style*='margin-top:20px']").appendChild(deleteBtn);
         }
-      };
-
-      // 삭제 버튼
-      if (currentUser && currentUser.id === data.uid) {
-        const btn = document.createElement("button");
-        btn.className = "delete-btn";
-        btn.textContent = "글 삭제";
-        btn.onclick = () => deletePost(data.id);
-        div.appendChild(btn);
       }
     }
 
-    // 좋아요 수 업데이트
-    async function updateLikeCount(postId, btn) {
-      console.log("🔄 좋아요 수 업데이트:", postId);
-      const { count, error } = await supabase
-        .from("post_likes")
-        .select("*", { count: "exact", head: true })
-        .eq("post_id", postId);
+    // 좋아요 버튼 업데이트
+    async function updateLikeButton() {
+      const likeBtn = document.getElementById("likeBtn");
+      const count = await supabaseService.getLikeCount(postId);
+      likeBtn.textContent = `❤️ ${count}`;
 
-      console.log("❤️ 좋아요 수:", count, "에러:", error);
+      likeBtn.onclick = async () => {
+        if (!supabaseService.isLoggedIn()) {
+          alert("로그인이 필요합니다");
+          location.href = "login.html";
+          return;
+        }
 
-      if (!error) {
-        btn.textContent = `❤️ ${count}`;
-      }
+        const result = await supabaseService.toggleLike(postId);
+        
+        if (result.success) {
+          document.getElementById("likeMsg").textContent = "좋아요!";
+          setTimeout(() => {
+            document.getElementById("likeMsg").textContent = "";
+          }, 2000);
+          await updateLikeButton();
+        } else {
+          alert(result.error);
+        }
+      };
     }
 
     // 댓글 불러오기
-    async function loadComments(postId) {
-      console.log("💬 댓글 불러오기:", postId);
-      const { data, error } = await supabase
-        .from("wiki_comments")
-        .select("*")
-        .eq("post_id", postId)
-        .order("time", { ascending: false });
-
-      console.log("🔎 댓글 데이터:", data, "에러:", error);
-
+    async function loadComments() {
+      const result = await supabaseService.getComments(postId);
       const ul = document.getElementById("commentList");
+
+      if (!result.success) {
+        ul.textContent = "댓글을 불러올 수 없습니다: " + result.error;
+        return;
+      }
+
+      if (!result.data || result.data.length === 0) {
+        ul.innerHTML = "<p>아직 댓글이 없습니다. 첫 댓글을 작성해보세요!</p>";
+        return;
+      }
+
       ul.innerHTML = "";
-
-      if (error) {
-        ul.textContent = "댓글을 불러오는 중 오류 발생";
-        return;
-      }
-      if (!data || data.length === 0) {
-        ul.textContent = "아직 댓글이 없습니다.";
-        return;
-      }
-
-      data.forEach(c => {
-        const li = document.createElement("li");
-        li.className = "comment-card";
-        li.innerHTML = `
-          <p>${c.content}</p>
-          <small>${c.author ?? "익명"} | ${new Date(c.time).toLocaleString()}</small><br>
+      result.data.forEach(comment => {
+        const div = document.createElement("div");
+        div.className = "comment-card";
+        div.innerHTML = `
+          <p>${comment.content}</p>
+          <small>${comment.author ?? "익명"} | ${new Date(comment.time).toLocaleString()}</small>
         `;
-        ul.appendChild(li);
+        ul.appendChild(div);
       });
     }
 
-    // 글 삭제
-    async function deletePost(id) {
-      console.log("🗑️ 글 삭제 시도:", id);
-      if (!confirm("정말 글을 삭제하시겠습니까?")) return;
-      const { error } = await supabase.from("wiki_posts").delete().eq("id", id);
-      if (error) {
-        console.error("❌ 글 삭제 실패:", error);
-        return alert("글 삭제 실패: " + error.message);
+    // 댓글 작성
+    document.getElementById("addCommentBtn").addEventListener("click", async () => {
+      const content = document.getElementById("commentInput").value.trim();
+
+      if (!content) {
+        alert("댓글을 입력하세요");
+        return;
       }
-      alert("글 삭제 완료");
-      location.href = "index.html";
+
+      if (!supabaseService.isLoggedIn()) {
+        alert("로그인이 필요합니다");
+        location.href = "login.html";
+        return;
+      }
+
+      const result = await supabaseService.addComment(postId, content);
+
+      if (result.success) {
+        document.getElementById("commentInput").value = "";
+        await loadComments();
+      } else {
+        alert("댓글 작성 실패: " + result.error);
+      }
+    });
+
+    // 글 삭제
+    async function deletePost() {
+      if (!confirm("정말 글을 삭제하시겠습니까?")) return;
+
+      const result = await supabaseService.deletePost(postId);
+
+      if (result.success) {
+        alert("글이 삭제되었습니다");
+        location.href = "index.html";
+      } else {
+        alert("글 삭제 실패: " + result.error);
+      }
     }
+
+    // 메인으로
+    document.getElementById("goHomeBtn").addEventListener("click", () => {
+      location.href = "index.html";
+    });
+
+    // 초기화
+    loadPost();
+    loadComments();
   </script>
 </body>
 </html>
