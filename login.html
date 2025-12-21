@@ -16,40 +16,23 @@
       box-shadow:0 2px 8px rgba(0,0,0,0.1);
     }
     h1 { text-align:center; color:#2563eb; }
-    .form-group {
-      margin-bottom:15px;
-    }
-    .form-group label {
-      display:block;
-      margin-bottom:5px;
-      font-weight:bold;
-    }
+    .form-group { margin-bottom:15px; }
+    .form-group label { display:block; margin-bottom:5px; font-weight:bold; }
     .form-group input {
-      width:100%;
-      padding:10px;
-      border:1px solid #ddd;
-      border-radius:4px;
-      box-sizing:border-box;
+      width:100%; padding:10px; border:1px solid #ddd;
+      border-radius:4px; box-sizing:border-box;
     }
     .btn {
-      width:100%;
-      padding:12px;
-      border:none;
-      border-radius:6px;
-      cursor:pointer;
-      font-weight:bold;
-      margin-bottom:10px;
+      width:100%; padding:12px; border:none; border-radius:6px;
+      cursor:pointer; font-weight:bold; margin-bottom:10px;
     }
     .btn-primary { background:#2563eb; color:white; }
     .btn-success { background:#10b981; color:white; }
     .btn-danger { background:#f87171; color:white; }
     .btn-secondary { background:#6b7280; color:white; }
     .user-info {
-      padding:15px;
-      background:#f3f4f6;
-      border-radius:6px;
-      margin-bottom:15px;
-      text-align:center;
+      padding:15px; background:#f3f4f6; border-radius:6px;
+      margin-bottom:15px; text-align:center;
     }
   </style>
 </head>
@@ -83,7 +66,7 @@
       </div>
 
       <button id="loginBtn" class="btn btn-primary">로그인</button>
-      <button id="signupBtn" class="btn btn-success">회원가입</button>
+      <button id="signupBtn" class="btn btn-success" style="display:none;">회원가입</button>
       <button id="toggleBtn" class="btn btn-secondary">회원가입 모드로 전환</button>
     </div>
 
@@ -138,6 +121,7 @@
       }
     });
 
+    // 로그인 처리
     document.getElementById("loginBtn").addEventListener("click", async () => {
       const email = document.getElementById("email").value.trim();
       const password = document.getElementById("password").value.trim();
@@ -157,6 +141,7 @@
       }
     });
 
+    // 회원가입 처리
     document.getElementById("signupBtn").addEventListener("click", async () => {
       const email = document.getElementById("email").value.trim();
       const password = document.getElementById("password").value.trim();
@@ -188,10 +173,16 @@
         document.getElementById("loginBtn").style.display = "block";
         document.getElementById("signupBtn").style.display = "none";
       } else {
-        alert("회원가입 실패: " + result.error);
+        // 여기서 이미 등록된 이메일이면 사용자 친화적인 메시지 출력
+        if (result.error.includes("이미 있는 이메일")) {
+          alert(result.error); // "이미 있는 이메일입니다. 로그인을 해주세요."
+        } else {
+          alert("회원가입 실패: " + result.error);
+        }
       }
     });
 
+    // 로그아웃 처리
     document.getElementById("logoutBtn").addEventListener("click", async () => {
       const result = await supabaseService.signOut();
       
