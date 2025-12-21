@@ -163,24 +163,32 @@ async updateUserData(user) {
     }
   }
 
-  async createPost(title, content, images = []) {
-    await this.waitForAuth(); // 동작 전 세션 확인
-    if (!this.currentUser) return { success: false, error: "로그인이 필요합니다" };
-    try {
-      const { data, error } = await this.client.from("wiki_posts").insert([{
-        id: crypto.randomUUID(),
-        title, content,
-        author: this.userData?.nickname || this.currentUser.email,
-        uid: this.currentUser.id,
-        time: new Date().toISOString(),
-        images, version: 1, deleted: false
-      }]).select();
-      if (error) throw error;
-      return { success: true, data: data[0] };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
+async createPost(title, content, images = []) {
+  await this.waitForAuth(); // 세션 확인
+  if (!this.currentUser) return { success: false, error: "로그인이 필요합니다" };
+
+  try {
+    const { data, error } = await this.client.from("wiki_posts").insert([{
+      // id는 DB가 자동으로 생성하므로 제외합니다.
+      title: title, 
+      content: content,
+      // 사진 속 nickname 컬럼이 비어있을 수 있으니 이메일을 백업으로 사용합니다.
+      author: this.userData?.nickname || this.currentUser.email.split('@')[0],
+      uid: this.currentUser.id,
+      time: new Date().toISOString(),
+      images: images, // 반드시 배열 형태여야 함
+      version: 1,
+      deleted: false,
+      likes: 0 // 사진 속 기본값이 0이므로 명시해줍니다.
+    }]).select();
+
+    if (error) throw error;
+    return { success: true, data: data[0] };
+  } catch (error) {
+    console.error("Post Creation Error:", error.message);
+    return { success: false, error: error.message };
   }
+}
 
   async updatePost(id, title, content, images = []) {
     await this.waitForAuth();
