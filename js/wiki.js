@@ -10,44 +10,60 @@ const POST_COOLDOWN = 30000;
 function initWiki(pageId) {
   console.log("✅ initWiki 실행됨, pageId:", pageId);
 
-  // ---------------- 조회 기능 ----------------
-  async function loadContributions() {
-    const { data, error } = await supabase
-      .from("wiki_contributions")
-      .select("*")
-      .eq("post_id", pageId)
-      .order("time", { ascending: false });
+// ---------------- 조회 기능 ----------------
+async function loadContributions() {
+  const { data, error } = await supabase
+    .from("wiki_contributions")
+    .select("*")
+    .eq("post_id", pageId)
+    .order("time", { ascending: false });
 
-    if (error) {
-      console.error("❌ 기여 조회 오류:", error);
-      return;
-    }
-    console.log("📄 기여 목록:", data);
-
-    // 화면에 표시 (예시)
-    const list = document.getElementById("contribList");
-    if (list) {
-      list.innerHTML = "";
-      data.forEach((row) => {
-        const li = document.createElement("li");
-        li.textContent = `${row.username}: ${row.text}`;
-        // 삭제 버튼
-        const delBtn = document.createElement("button");
-        delBtn.textContent = "삭제";
-        delBtn.onclick = () => deleteContribution(row.id);
-        // 수정 버튼
-        const editBtn = document.createElement("button");
-        editBtn.textContent = "수정";
-        editBtn.onclick = () => {
-          const newText = prompt("새로운 내용 입력:", row.text);
-          if (newText) updateContribution(row.id, newText);
-        };
-        li.appendChild(delBtn);
-        li.appendChild(editBtn);
-        list.appendChild(li);
-      });
-    }
+  if (error) {
+    console.error("❌ 기여 조회 오류:", error);
+    return;
   }
+  console.log("📄 기여 목록:", data);
+
+  const list = document.getElementById("contribList");
+  if (list) {
+    list.innerHTML = "";
+    data.forEach((row) => {
+      const tr = document.createElement("tr");
+
+      const tdUser = document.createElement("td");
+      tdUser.textContent = row.username;
+
+      const tdText = document.createElement("td");
+      tdText.textContent = row.text;
+
+      const tdTime = document.createElement("td");
+      tdTime.textContent = new Date(row.time).toLocaleString();
+
+      const tdActions = document.createElement("td");
+      const delBtn = document.createElement("button");
+      delBtn.textContent = "삭제";
+      delBtn.onclick = () => deleteContribution(row.id);
+
+      const editBtn = document.createElement("button");
+      editBtn.textContent = "수정";
+      editBtn.onclick = () => {
+        const newText = prompt("새로운 내용 입력:", row.text);
+        if (newText) updateContribution(row.id, newText);
+      };
+
+      tdActions.appendChild(delBtn);
+      tdActions.appendChild(editBtn);
+
+      tr.appendChild(tdUser);
+      tr.appendChild(tdText);
+      tr.appendChild(tdTime);
+      tr.appendChild(tdActions);
+
+      list.appendChild(tr);
+    });
+  }
+}
+
 
   // ---------------- 삭제 기능 ----------------
   async function deleteContribution(id) {
