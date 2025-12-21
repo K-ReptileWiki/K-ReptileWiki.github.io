@@ -103,26 +103,38 @@
       placeholder: "내용을 입력하세요..."
     });
 
-    /**
-     * ✅ 핵심 수정: 페이지 초기화 함수
-     * 로그인 정보를 기다린 후, 비로그인이면 튕겨내고 로그인이면 로딩창을 닫습니다.
-     */
     async function init() {
-      const user = await supabaseService.waitForAuth();
-      const loadingOverlay = document.getElementById("loadingOverlay");
+  const loadingOverlay = document.getElementById("loadingOverlay");
+  
+  try {
+    console.log("🔍 로그인 상태 확인 시작...");
+    // 1. 로그인 정보를 기다립니다.
+    const user = await supabaseService.waitForAuth();
+    
+    // 로그에 찍힌 상태 확인 (개발자 도구 Console 탭에서 확인 가능)
+    console.log("✅ 확인된 유저:", user);
 
-      if (!user) {
-        alert("로그인이 필요합니다");
-        location.href = "login.html";
-        return;
-      }
-
-      // 로그인 확인 완료 시 로딩창 제거
-      loadingOverlay.style.display = "none";
+    if (!user) {
+      alert("로그인이 필요합니다");
+      location.href = "login.html";
+      return;
     }
 
-    // 초기화 실행
-    init();
+    // 2. 로그인이 확인되면 로딩창을 즉시 숨깁니다.
+    if (loadingOverlay) {
+      loadingOverlay.style.display = "none";
+      console.log("🚀 로딩 오버레이 제거 완료");
+    }
+
+  } catch (err) {
+    console.error("❌ 초기화 중 에러 발생:", err);
+    // 에러가 나더라도 무한 로딩에 빠지지 않게 처리
+    if (loadingOverlay) loadingOverlay.style.display = "none";
+  }
+}
+
+// 실행
+init();
 
     // 등록 버튼 클릭 핸들러
     document.getElementById("postBtn").addEventListener("click", async () => {
