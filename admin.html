@@ -6,29 +6,75 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     body { font-family: Arial, sans-serif; background:#f3f4f6; margin:0; }
-    header { background:#2563eb; color:white; padding:15px; text-align:center; }
-    nav { display:flex; background:#e5e7eb; }
+    header { 
+      background:#2563eb; 
+      color:white; 
+      padding:15px; 
+      text-align:center;
+      position:relative;
+    }
+    .exit-btn {
+      position:absolute;
+      right:20px;
+      top:15px;
+      background:#f87171;
+      color:white;
+      border:none;
+      padding:8px 16px;
+      border-radius:6px;
+      cursor:pointer;
+      font-weight:bold;
+    }
+    nav { 
+      display:flex; 
+      background:#e5e7eb; 
+      overflow-x:auto;
+    }
     nav button {
-      flex:1; padding:12px; border:none; background:#e5e7eb;
-      cursor:pointer; font-size:16px; transition:background 0.2s;
+      flex:1; 
+      padding:12px; 
+      border:none; 
+      background:#e5e7eb;
+      cursor:pointer; 
+      font-size:16px; 
+      transition:background 0.2s;
+      white-space:nowrap;
     }
     nav button:hover { background:#d1d5db; }
     nav button.active { background:white; border-bottom:3px solid #2563eb; }
-    section { padding:20px; display:none; }
+    section { 
+      padding:20px; 
+      display:none;
+      max-width:1200px;
+      margin:0 auto;
+    }
     section.active { display:block; }
-    ul { list-style:none; padding:0; }
-    li.card {
-      background:white; margin:10px 0; padding:15px;
-      border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.1);
+    .card-list { 
+      display:grid;
+      gap:15px;
+      grid-template-columns:repeat(auto-fill, minmax(300px, 1fr));
     }
-    button {
-      margin:3px; padding:6px 12px; border:none; border-radius:4px;
-      cursor:pointer; font-size:14px;
+    .card {
+      background:white;
+      padding:15px;
+      border-radius:8px;
+      box-shadow:0 2px 6px rgba(0,0,0,0.1);
     }
-    .exit-btn {
-      background:#f87171; color:white; font-weight:bold;
-      position:absolute; right:20px; top:20px;
+    .card h3 {
+      margin-top:0;
+      color:#2563eb;
     }
+    button.action-btn {
+      margin:3px;
+      padding:6px 12px;
+      border:none;
+      border-radius:4px;
+      cursor:pointer;
+      font-size:14px;
+    }
+    .btn-danger { background:#f87171; color:white; }
+    .btn-success { background:#10b981; color:white; }
+    .btn-warning { background:#fbbf24; color:white; }
   </style>
 </head>
 <body>
@@ -37,65 +83,226 @@
     <button id="exitAdmin" class="exit-btn">관리자 페이지 나가기</button>
   </header>
 
-  <!-- 탭 메뉴 -->
   <nav>
     <button id="tabUsers" class="active">👥 사용자 관리</button>
     <button id="tabPosts">📝 글 관리</button>
     <button id="tabComments">💬 댓글 관리</button>
-    <button id="tabVisits">📊 방문 기록</button>
   </nav>
 
-  <!-- 사용자 관리 -->
   <section id="users" class="active">
     <h2>사용자 목록</h2>
-    <ul id="userList"></ul>
+    <div id="userList" class="card-list">로딩 중...</div>
   </section>
 
-  <!-- 글 관리 -->
   <section id="posts">
     <h2>글 목록</h2>
-    <ul id="postList"></ul>
+    <div id="postList" class="card-list">로딩 중...</div>
   </section>
 
-  <!-- 댓글 관리 -->
   <section id="comments">
     <h2>댓글 목록</h2>
-    <ul id="commentList"></ul>
+    <div id="commentList" class="card-list">로딩 중...</div>
   </section>
 
-  <!-- 방문 기록 관리 -->
-  <section id="visits">
-    <h2>방문 기록</h2>
-    <ul id="visitList"></ul>
-  </section>
+  <script type="module">
+    import { supabaseService, supabase } from "./js/supabase.js";
 
-  <!-- 관리자 기능 스크립트 -->
-  <script type="module" src="./js/admin.js"></script>
-  <script>
-    // 탭 전환 기능
+    // 권한 확인
+    if (!supabaseService.isLoggedIn() || !supabaseService.isAdmin()) {
+      alert("관리자만 접근 가능합니다");
+      location.href = "index.html";
+    }
+
+    // 탭 전환
     const tabs = {
       tabUsers: "users",
       tabPosts: "posts",
-      tabComments: "comments",
-      tabVisits: "visits"
+      tabComments: "comments"
     };
 
     Object.entries(tabs).forEach(([btnId, secId]) => {
       document.getElementById(btnId).addEventListener("click", () => {
-        // 버튼 active 처리
-        Object.keys(tabs).forEach(id => document.getElementById(id).classList.remove("active"));
+        Object.keys(tabs).forEach(id => 
+          document.getElementById(id).classList.remove("active")
+        );
         document.getElementById(btnId).classList.add("active");
 
-        // 섹션 active 처리
-        Object.values(tabs).forEach(id => document.getElementById(id).classList.remove("active"));
+        Object.values(tabs).forEach(id => 
+          document.getElementById(id).classList.remove("active")
+        );
         document.getElementById(secId).classList.add("active");
       });
     });
 
-    // 관리자 페이지 나가기 버튼
+    // 나가기
     document.getElementById("exitAdmin").addEventListener("click", () => {
       location.href = "index.html";
     });
+
+    // 사용자 목록 로드
+    async function loadUsers() {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      const div = document.getElementById("userList");
+      
+      if (error) {
+        div.innerHTML = `<p>오류: ${error.message}</p>`;
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        div.innerHTML = "<p>사용자가 없습니다</p>";
+        return;
+      }
+
+      div.innerHTML = "";
+      data.forEach(user => {
+        const card = document.createElement("div");
+        card.className = "card";
+        card.innerHTML = `
+          <h3>${user.nickname ?? "닉네임없음"}</h3>
+          <p><strong>이메일:</strong> ${user.email}</p>
+          <p><strong>권한:</strong> ${user.role ?? "user"}</p>
+          <p><strong>가입일:</strong> ${new Date(user.created_at).toLocaleString()}</p>
+          ${user.role !== "admin" ? 
+            `<button class="action-btn btn-success" onclick="makeAdmin('${user.id}')">관리자 승격</button>` :
+            `<button class="action-btn btn-warning" onclick="removeAdmin('${user.id}')">관리자 해제</button>`
+          }
+        `;
+        div.appendChild(card);
+      });
+    }
+
+    // 글 목록 로드
+    async function loadPosts() {
+      const result = await supabaseService.getPosts(100);
+      const div = document.getElementById("postList");
+
+      if (!result.success) {
+        div.innerHTML = `<p>오류: ${result.error}</p>`;
+        return;
+      }
+
+      if (!result.data || result.data.length === 0) {
+        div.innerHTML = "<p>글이 없습니다</p>";
+        return;
+      }
+
+      div.innerHTML = "";
+      result.data.forEach(post => {
+        const card = document.createElement("div");
+        card.className = "card";
+        const plainText = post.content?.replace(/<[^>]+>/g, "").substring(0, 100) ?? "";
+        card.innerHTML = `
+          <h3>${post.title}</h3>
+          <p>${plainText}...</p>
+          <p><strong>작성자:</strong> ${post.author ?? "익명"}</p>
+          <p><strong>작성일:</strong> ${new Date(post.time).toLocaleString()}</p>
+          <button class="action-btn btn-danger" onclick="deletePost('${post.id}')">삭제</button>
+          <button class="action-btn btn-success" onclick="viewPost('${post.id}')">보기</button>
+        `;
+        div.appendChild(card);
+      });
+    }
+
+    // 댓글 목록 로드
+    async function loadComments() {
+      const { data, error } = await supabase
+        .from("wiki_comments")
+        .select("*")
+        .order("time", { ascending: false })
+        .limit(100);
+
+      const div = document.getElementById("commentList");
+
+      if (error) {
+        div.innerHTML = `<p>오류: ${error.message}</p>`;
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        div.innerHTML = "<p>댓글이 없습니다</p>";
+        return;
+      }
+
+      div.innerHTML = "";
+      data.forEach(comment => {
+        const card = document.createElement("div");
+        card.className = "card";
+        card.innerHTML = `
+          <p><strong>${comment.author ?? "익명"}</strong></p>
+          <p>${comment.content}</p>
+          <p><small>${new Date(comment.time).toLocaleString()}</small></p>
+          <button class="action-btn btn-danger" onclick="deleteComment('${comment.id}')">삭제</button>
+        `;
+        div.appendChild(card);
+      });
+    }
+
+    // 관리자 기능
+    window.makeAdmin = async (uid) => {
+      if (!confirm("이 사용자를 관리자로 승격하시겠습니까?")) return;
+      const { error } = await supabase
+        .from("profiles")
+        .update({ role: "admin" })
+        .eq("id", uid);
+      if (error) alert("실패: " + error.message);
+      else {
+        alert("관리자로 승격되었습니다");
+        loadUsers();
+      }
+    };
+
+    window.removeAdmin = async (uid) => {
+      if (!confirm("이 사용자의 관리자 권한을 해제하시겠습니까?")) return;
+      const { error } = await supabase
+        .from("profiles")
+        .update({ role: "user" })
+        .eq("id", uid);
+      if (error) alert("실패: " + error.message);
+      else {
+        alert("관리자 권한이 해제되었습니다");
+        loadUsers();
+      }
+    };
+
+    window.deletePost = async (postId) => {
+      if (!confirm("정말 이 글을 삭제하시겠습니까?")) return;
+      const { error } = await supabase
+        .from("wiki_posts")
+        .delete()
+        .eq("id", postId);
+      if (error) alert("삭제 실패: " + error.message);
+      else {
+        alert("글이 삭제되었습니다");
+        loadPosts();
+      }
+    };
+
+    window.viewPost = (postId) => {
+      window.open(`post.html?id=${postId}`, "_blank");
+    };
+
+    window.deleteComment = async (commentId) => {
+      if (!confirm("정말 이 댓글을 삭제하시겠습니까?")) return;
+      const { error } = await supabase
+        .from("wiki_comments")
+        .delete()
+        .eq("id", commentId);
+      if (error) alert("삭제 실패: " + error.message);
+      else {
+        alert("댓글이 삭제되었습니다");
+        loadComments();
+      }
+    };
+
+    // 초기 로드
+    loadUsers();
+    loadPosts();
+    loadComments();
   </script>
 </body>
 </html>
