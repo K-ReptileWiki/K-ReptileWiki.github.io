@@ -1,10 +1,101 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>📝 새 문서 작성 - K-ReptileWiki</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<!-- Quill -->
+<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+<script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+
+<style>
+body {
+  font-family: 'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+  background:#f9fafb;
+  margin:0;
+}
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px;
+}
+.editor-container {
+  background: white;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+#editor {
+  height: 420px;
+}
+input#postTitle {
+  width: 100%;
+  padding: 14px;
+  margin-bottom: 15px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 18px;
+}
+button {
+  padding: 12px 22px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+}
+#image-resizer {
+  display: none;
+  position: absolute;
+  z-index: 1000;
+  background: white;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+#image-resizer input { width: 200px; }
+#postStatus {
+  margin-top: 15px;
+  font-size: 14px;
+  color: #2563eb;
+}
+</style>
+</head>
+<body>
+
+<div id="image-resizer">
+  <span style="font-size:12px;">이미지 너비</span><br>
+  <input type="range" id="sizeSlider" min="50" max="800" step="10">
+  <div id="sizeValue" style="font-size:12px;text-align:center;">300px</div>
+</div>
+
+<div class="container">
+  <h1>📝 새 문서 작성</h1>
+
+  <div class="editor-container">
+    <input id="postTitle" placeholder="문서 제목을 입력하세요">
+    <div id="editor"></div>
+
+    <div style="margin-top:20px;display:flex;gap:10px;">
+      <button id="postBtn" style="background:#2563eb;color:white;">등록하기</button>
+      <button id="previewBtn" style="background:#10b981;color:white;">미리보기</button>
+      <button id="cancelBtn" style="background:#6b7280;color:white;">취소</button>
+    </div>
+
+    <div id="postStatus"></div>
+  </div>
+
+  <div id="previewArea" style="display:none;margin-top:30px;background:white;padding:20px;border-radius:10px;"></div>
+</div>
+
 <script type="module">
 import { supabaseService, supabase } from "./js/supabase.js";
 
 let quill;
 
 /* ===============================
-   1️⃣ Quill + 이미지 Blot
+   Quill 초기화 + 이미지 업로드/리사이즈
 ================================ */
 function setupQuill() {
   const ImageBlot = Quill.import('formats/image');
@@ -46,7 +137,7 @@ function setupQuill() {
 }
 
 /* ===============================
-   2️⃣ 이미지 업로드
+   이미지 업로드
 ================================ */
 function setupImageUpload() {
   const toolbar = quill.getModule('toolbar');
@@ -82,7 +173,7 @@ function setupImageUpload() {
 }
 
 /* ===============================
-   3️⃣ 이미지 클릭 → 크기 조절
+   이미지 클릭 → 크기 조절
 ================================ */
 function setupImageResizer() {
   const resizer = document.getElementById("image-resizer");
@@ -115,27 +206,32 @@ function setupImageResizer() {
 }
 
 /* ===============================
-   4️⃣ 글 등록
+   DOM 로드 후 초기화
 ================================ */
-document.getElementById("postBtn").onclick = async () => {
-  const btn = document.getElementById("postBtn");
-  const status = document.getElementById("postStatus");
-  btn.disabled = true;
-  status.style.color = "#2563eb";
-  status.textContent = "문서를 등록 중입니다...";
+window.addEventListener("DOMContentLoaded", async () => {
+  await supabaseService.waitForAuth();
+  setupQuill();
 
-  try {
+  const postBtn = document.getElementById("postBtn");
+  const status = document.getElementById("postStatus");
+
+  // 글 등록
+  postBtn.onclick = async () => {
+    postBtn.disabled = true;
+    status.style.color = "#2563eb";
+    status.textContent = "문서를 등록 중입니다...";
+
     if (!supabaseService.isLoggedIn()) {
       status.textContent = "로그인이 필요합니다.";
-      btn.disabled = false;
+      postBtn.disabled = false;
       return;
     }
 
     const title = document.getElementById("postTitle").value.trim();
     const content = quill.root.innerHTML;
 
-    if (!title) { status.textContent = "제목을 입력하세요."; btn.disabled=false; return; }
-    if (content === "<p><br></p>") { status.textContent = "내용을 입력하세요."; btn.disabled=false; return; }
+    if (!title) { status.textContent = "제목을 입력하세요."; postBtn.disabled=false; return; }
+    if (content === "<p><br></p>") { status.textContent = "내용을 입력하세요."; postBtn.disabled=false; return; }
 
     const temp = document.createElement("div");
     temp.innerHTML = content;
@@ -150,54 +246,32 @@ document.getElementById("postBtn").onclick = async () => {
     } else {
       status.style.color = "#f87171";
       status.textContent = "등록 실패: " + res.error;
-      btn.disabled = false;
+      postBtn.disabled = false;
     }
-  } catch(err) {
-    console.error(err);
-    status.style.color = "#f87171";
-    status.textContent = "오류가 발생했습니다.";
-    btn.disabled = false;
-  }
-};
+  };
 
-/* ===============================
-   5️⃣ 미리보기 / 취소
-================================ */
-document.getElementById("previewBtn").onclick = () => {
-  const area = document.getElementById("previewArea");
-  area.style.display = "block";
-  area.innerHTML = `
-    <h2>미리보기</h2>
-    <hr>
-    <div class="ql-editor">${quill.root.innerHTML}</div>
-  `;
-  area.scrollIntoView({ behavior: "smooth" });
-};
+  // 미리보기
+  document.getElementById("previewBtn").onclick = () => {
+    const area = document.getElementById("previewArea");
+    area.style.display = "block";
+    area.innerHTML = `<h2>미리보기</h2><hr><div class="ql-editor">${quill.root.innerHTML}</div>`;
+    area.scrollIntoView({ behavior: "smooth" });
+  };
 
-document.getElementById("cancelBtn").onclick = () => {
-  if (confirm("작성 중인 내용은 저장되지 않습니다.")) location.href = "index.html";
-};
+  // 취소
+  document.getElementById("cancelBtn").onclick = () => {
+    if (confirm("작성 중인 내용은 저장되지 않습니다.")) location.href = "index.html";
+  };
 
-/* ===============================
-   6️⃣ 초기화
-================================ */
-async function initPage() {
-  // 로그인 상태 대기
-  await supabaseService.waitForAuth();
-
-  // Quill 초기화
-  setupQuill();
-
-  // 글 작성 버튼 활성화/비활성화
-  const postBtn = document.getElementById("postBtn");
+  // 로그인 상태에 따른 버튼 활성화
   if (!supabaseService.isLoggedIn()) {
-    document.getElementById("postStatus").textContent = "로그인이 필요합니다.";
+    status.textContent = "로그인이 필요합니다.";
     postBtn.disabled = true;
   } else {
     postBtn.disabled = false;
   }
-}
-
-// 페이지 초기화
-initPage();
+});
 </script>
+
+</body>
+</html>
