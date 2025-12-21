@@ -74,30 +74,33 @@ async updateUserData(user) {
     }
   }
 
-  async signUp(email, password, nickname) {
-    try {
-      const { data, error } = await this.client.auth.signUp({ 
-        email, 
-        password 
-      });
-      
-      if (error) throw error;
-      
-      if (data.user) {
-        await this.client.from("profiles").insert({
-          id: data.user.id,
-          email,
-          nickname: nickname || email.split("@")[0],
-          role: "user",
-          created_at: new Date().toISOString()
-        });
+async signUp(email, password, nickname) {
+  try {
+    const { data, error } = await this.client.auth.signUp({ 
+      email, 
+      password,
+      options: {
+        emailRedirectTo: "https://k-reptilewiki.github.io/login.html" // 인증 후 돌아올 페이지
       }
-      
-      return { success: true, data };
-    } catch (error) {
-      return { success: false, error: error.message };
+    });
+    
+    if (error) throw error;
+    
+    if (data.user) {
+      await this.client.from("profiles").insert({
+        id: data.user.id,  // ✅ auth.uid()와 동일해야 RLS 통과
+        email,
+        nickname: nickname || email.split("@")[0],
+        role: "user",
+        created_at: new Date().toISOString()
+      });
     }
+    
+    return { success: true, data };
+  } catch (error) {
+    return { success: false, error: error.message };
   }
+}
 
   async signOut() {
     try {
