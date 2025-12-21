@@ -1,49 +1,99 @@
-/* 1. 기본 레이아웃 (기존 유지) */
-body { font-family: Arial, sans-serif; margin: 20px; background:#f9f9f9; }
-.container { max-width: 900px; margin: 0 auto; }
+/* 기본 레이아웃 */
+body { 
+  font-family: Arial, sans-serif; 
+  margin: 20px; 
+  background:#f9f9f9; 
+}
 
-/* 2. 글쓰기 에디터 및 폼 (보완) */
-.editor-container { background:#fff; padding:20px; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.1); }
-#editor { height: 400px; font-size: 16px; }
-.form-group { margin-bottom: 15px; }
-.form-group input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font-size: 16px; }
+/* 글쓰기 에디터 영역 */
+.editor-container { 
+  background:#fff; 
+  padding:20px; 
+  border-radius:8px; 
+  box-shadow:0 2px 6px rgba(0,0,0,0.1); 
+}
 
-/* 3. 버튼 (기존 유지) */
-button { padding:8px 16px; border:none; border-radius:6px; cursor:pointer; background:#2563eb; color:white; font-weight: bold; }
+#editor { height: 300px; }
+
+/* 미리보기 영역 */
+.preview { 
+  margin-top:20px; 
+  padding:15px; 
+  background:#fff; 
+  border:1px solid #ddd; 
+  border-radius:8px; 
+}
+
+/* 업로드 이미지 미리보기 */
+.images-preview img { 
+  max-width:150px; 
+  margin:5px; 
+  border-radius:6px; 
+}
+
+/* 버튼 공통 스타일 */
+button { 
+  padding:8px 16px; 
+  border:none; 
+  border-radius:6px; 
+  cursor:pointer; 
+  background:#2563eb; 
+  color:white; 
+}
 button:hover { background:#1e40af; }
 
-/* 4. 미리보기 및 카드 (기존 유지) */
-.preview { margin-top:20px; padding:15px; background:#fff; border:1px solid #ddd; border-radius:8px; }
-.post-card { background:#fff; padding:15px; margin-bottom:15px; border-radius:8px; box-shadow:0 1px 4px rgba(0,0,0,0.1); }
-.post-card h3 a { color:#2563eb; text-decoration:none; }
-
-/* 5. 댓글 시스템 (기존 유지) */
-.comment-card { background:#fff; padding:10px; margin:8px 0; border-radius:6px; border:1px solid #ddd; }
-#commentInput { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ddd; margin-bottom: 10px; resize: vertical; box-sizing: border-box; }
-
-/* 6. 이미지 리사이저 도구 (새로 추가) */
-#image-resizer {
-  position: absolute; display: none; z-index: 1500;
-  background: white; border: 1px solid #2563eb; padding: 10px;
-  border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-}
-.resizer-content { display: flex; gap: 10px; align-items: center; }
-.resizer-label { font-size: 12px; font-weight: bold; color: #2563eb; }
-#size-slider { cursor: pointer; }
-#size-value { font-size: 12px; font-weight: bold; min-width: 40px; }
-
-/* 7. 이미지 관련 (수정: 리사이즈 허용을 위해 !important 제거) */
-.ql-editor img { cursor: pointer; max-width: 100%; height: auto; border-radius: 8px; }
-.ql-editor img:hover { outline: 3px solid #2563eb; }
-.species-image { max-width: 100%; height: auto; display: block; margin: 10px auto; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
-
-/* 8. 로딩 표시 */
-#loadingOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.9); display: flex; align-items: center; justify-content: center; z-index: 3000; flex-direction: column; }
-.spinner { width: 30px; height: 30px; border: 3px solid #f3f3f3; border-top: 3px solid #2563eb; border-radius: 50%; animation: spin 1s linear infinite; }
-@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-/* 9. 반응형 툴바 (기존 유지) */
+/* 반응형 Quill 툴바 */
 .ql-toolbar { padding-bottom: 6px; }
+.ql-toolbar button,
+.ql-toolbar .ql-picker { margin-right: 4px; }
 @media (max-width: 600px) {
-  .ql-toolbar { overflow-x: auto; white-space: nowrap; }
+  .ql-toolbar { overflow-x: auto; white-space: nowrap; font-size: 14px; }
+  .ql-toolbar button { padding: 4px; }
+}
+
+/* 글 카드 스타일 (목록) */
+.post-card { 
+  background:#fff; 
+  padding:15px; 
+  margin-bottom:15px; 
+  border-radius:8px; 
+  box-shadow:0 1px 4px rgba(0,0,0,0.1); 
+}
+.post-card h3 a { color:#2563eb; text-decoration:none; }
+.post-card h3 a:hover { text-decoration:underline; }
+
+/* 종 페이지 이미지 (중간 크기 강제 적용) */
+.species-image {
+  max-width: 300px !important;  /* ✅ 강제 적용 */
+  height: auto;
+  display: block;
+  margin: 10px auto;            /* 중앙 정렬 */
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+}
+
+
+/* 댓글 카드 */
+.comment-card {
+  background:#fff;
+  padding:10px;
+  margin:8px 0;
+  border-radius:6px;
+  border:1px solid #ddd;
+}
+.comment-card p {
+  margin:0 0 5px 0;
+}
+.comment-card small {
+  color:#555;
+}
+
+/* 댓글 입력창 */
+#commentInput {
+  width: 100%;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+  margin-bottom: 10px;
+  resize: vertical;
 }
