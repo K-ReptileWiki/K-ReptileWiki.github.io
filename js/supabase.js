@@ -5,7 +5,7 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 ========================= */
 const SUPABASE_CONFIG = {
   url: "https://cpaikpjzlzzujwfgnanb.supabase.co",
-  key: "YOUR_ANON_KEY" // ← anon key
+  key: "YOUR_ANON_KEY" // ← 실제 anon key 넣기
 };
 
 /* =========================
@@ -13,35 +13,58 @@ const SUPABASE_CONFIG = {
 ========================= */
 class SupabaseService {
   constructor() {
-    if (SupabaseService.instance) {
-      return SupabaseService.instance;
-    }
+    if (SupabaseService.instance) return SupabaseService.instance;
 
-    this.client = createClient(
-      SUPABASE_CONFIG.url,
-      SUPABASE_CONFIG.key
-    );
+    this.client = createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.key);
 
     this.currentUser = null;
     this.userData = null;
 
-    /* ✅ 인증 상태 변경 (v2) */
+    /* auth 대기용 */
+    this._authResolved = false;
+    this._authPromise = null;
+    this._resolveAuth = null;
+
+    /* 인증 상태 변경 */
     this.client.auth.onAuthStateChange(async (event, session) => {
       console.log("🔑 인증 상태:", event);
       await this.updateUserData(session?.user);
+
+      if (!this._authResolved) {
+        this._authResolved = true;
+        this._resolveAuth?.();
+      }
     });
 
-    /* ✅ 새로고침 시 로그인 유지 */
+    /* 새로고침 시 로그인 유지 */
     this.client.auth.getSession().then(({ data }) => {
-      this.updateUserData(data.session?.user);
+      this.updateUserData(data.session?.user).then(() => {
+        if (!this._authResolved) {
+          this._authResolved = true;
+          this._resolveAuth?.();
+        }
+      });
     });
 
     SupabaseService.instance = this;
   }
 
   /* =========================
+     Auth 대기
+  ========================== */
+  async waitForAuth() {
+    if (this._authResolved) return;
+    if (!this._authPromise) {
+      this._authPromise = new Promise(resolve => {
+        this._resolveAuth = resolve;
+      });
+    }
+    return this._authPromise;
+  }
+
+  /* =========================
      사용자 데이터
-  ========================= */
+  ========================== */
   async updateUserData(user) {
     if (!user) {
       this.currentUser = null;
@@ -58,9 +81,7 @@ class SupabaseService {
         .eq("id", user.id)
         .single();
 
-      if (error && error.code !== "PGRST116") {
-        throw error;
-      }
+      if (error && error.code !== "PGRST116") throw error;
 
       if (data) {
         this.userData = data;
@@ -72,7 +93,6 @@ class SupabaseService {
           role: "user",
           created_at: new Date().toISOString()
         };
-
         await this.client.from("users").insert([newUser]);
         this.userData = newUser;
       }
@@ -83,15 +103,10 @@ class SupabaseService {
 
   /* =========================
      인증
-  ========================= */
+  ========================== */
   async signIn(email, password) {
     try {
-      const { data, error } =
-        await this.client.auth.signInWithPassword({
-          email,
-          password
-        });
-
+      const { data, error } = await this.client.auth.signInWithPassword({ email, password });
       if (error) throw error;
       return { success: true, data };
     } catch (err) {
@@ -101,12 +116,7 @@ class SupabaseService {
 
   async signUp(email, password, nickname) {
     try {
-      const { data, error } =
-        await this.client.auth.signUp({
-          email,
-          password
-        });
-
+      const { data, error } = await this.client.auth.signUp({ email, password });
       if (error) throw error;
 
       if (data.user) {
@@ -137,22 +147,13 @@ class SupabaseService {
 
   /* =========================
      게시글
-  ========================= */
+  ========================== */
   async getPosts(limit = 50, includeDeleted = false) {
     try {
-      let query = this.client
-        .from("wiki_posts")
-        .select("*")
-        .order("time", { ascending: false })
-        .limit(limit);
-
-      if (!includeDeleted) {
-        query = query.eq("deleted", false);
-      }
-
+      let query = this.client.from("wiki_posts").select("*").order("time", { ascending: false }).limit(limit);
+      if (!includeDeleted) query = query.eq("deleted", false);
       const { data, error } = await query;
       if (error) throw error;
-
       return { success: true, data };
     } catch (err) {
       return { success: false, error: err.message };
@@ -161,12 +162,7 @@ class SupabaseService {
 
   async getPost(id) {
     try {
-      const { data, error } = await this.client
-        .from("wiki_posts")
-        .select("*")
-        .eq("id", id)
-        .single();
-
+      const { data, error } = await this.client.from("wiki_posts").select("*").eq("id", id).single();
       if (error) throw error;
       return { success: true, data };
     } catch (err) {
@@ -175,13 +171,10 @@ class SupabaseService {
   }
 
   async createPost(title, content, images = []) {
-    if (!this.currentUser) {
-      return { success: false, error: "로그인이 필요합니다" };
-    }
+    if (!this.currentUser) return { success: false, error: "로그인이 필요합니다" };
 
     try {
-      const { data, error } = await this.client
-        .from("wiki_posts")
+      const { data, error } = await this.client.from("wiki_posts")
         .insert([{
           id: crypto.randomUUID(),
           title,
@@ -195,7 +188,6 @@ class SupabaseService {
         }])
         .select()
         .single();
-
       if (error) throw error;
       return { success: true, data };
     } catch (err) {
@@ -204,19 +196,15 @@ class SupabaseService {
   }
 
   async updatePost(id, title, content, images = []) {
-    if (!this.currentUser) {
-      return { success: false, error: "로그인이 필요합니다" };
-    }
+    if (!this.currentUser) return { success: false, error: "로그인이 필요합니다" };
 
     try {
-      const { data, error } = await this.client
-        .from("wiki_posts")
+      const { data, error } = await this.client.from("wiki_posts")
         .update({ title, content, images })
         .eq("id", id)
         .eq("uid", this.currentUser.id)
         .select()
         .single();
-
       if (error) throw error;
       return { success: true, data };
     } catch (err) {
@@ -225,21 +213,13 @@ class SupabaseService {
   }
 
   async deletePost(id) {
-    if (!this.currentUser) {
-      return { success: false, error: "로그인이 필요합니다" };
-    }
+    if (!this.currentUser) return { success: false, error: "로그인이 필요합니다" };
 
     try {
-      const { error } = await this.client
-        .from("wiki_posts")
-        .update({
-          deleted: true,
-          deleted_at: new Date().toISOString(),
-          deleted_by: this.currentUser.id
-        })
+      const { error } = await this.client.from("wiki_posts")
+        .update({ deleted: true, deleted_at: new Date().toISOString(), deleted_by: this.currentUser.id })
         .eq("id", id)
         .eq("uid", this.currentUser.id);
-
       if (error) throw error;
       return { success: true };
     } catch (err) {
@@ -249,94 +229,95 @@ class SupabaseService {
 
   /* =========================
      버전 히스토리
-  ========================= */
+  ========================== */
   async getPostVersions(postId) {
-    const { data, error } = await this.client
-      .from("wiki_post_versions")
-      .select("*")
-      .eq("post_id", postId)
-      .order("version_number", { ascending: false });
+    const { data, error } = await this.client.from("wiki_post_versions")
+      .select("*").eq("post_id", postId).order("version_number", { ascending: false });
+    if (error) return { success: false, error: error.message };
+    return { success: true, data };
+  }
 
+  async getPostVersion(postId, versionNumber) {
+    const { data, error } = await this.client.from("wiki_post_versions")
+      .select("*").eq("post_id", postId).eq("version_number", versionNumber).single();
     if (error) return { success: false, error: error.message };
     return { success: true, data };
   }
 
   async restorePostVersion(postId, versionNumber) {
-    if (!this.currentUser) {
-      return { success: false, error: "로그인이 필요합니다" };
-    }
+    if (!this.currentUser) return { success: false, error: "로그인이 필요합니다" };
 
-    const { data, error } = await this.client.rpc(
-      "restore_post_version",
-      {
-        p_post_id: postId,
-        p_version_number: versionNumber,
-        p_user_id: this.currentUser.id
-      }
-    );
-
+    const { data, error } = await this.client.rpc("restore_post_version", {
+      p_post_id: postId,
+      p_version_number: versionNumber,
+      p_user_id: this.currentUser.id
+    });
     if (error) return { success: false, error: error.message };
     return { success: true, data };
   }
 
+  async compareVersions(postId, version1, version2) {
+    try {
+      const r1 = await this.getPostVersion(postId, version1);
+      const r2 = await this.getPostVersion(postId, version2);
+      if (!r1.success || !r2.success) return { success: false, error: "버전을 찾을 수 없습니다" };
+      return {
+        success: true,
+        comparison: {
+          version1: r1.data,
+          version2: r2.data,
+          titleChanged: r1.data.title !== r2.data.title,
+          contentChanged: r1.data.content !== r2.data.content,
+          imagesChanged: JSON.stringify(r1.data.images) !== JSON.stringify(r2.data.images)
+        }
+      };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }
+
   /* =========================
      좋아요
-  ========================= */
+  ========================== */
   async toggleLike(postId) {
-    if (!this.currentUser) {
-      return { success: false, error: "로그인이 필요합니다" };
-    }
+    if (!this.currentUser) return { success: false, error: "로그인이 필요합니다" };
 
-    const { data: existing } = await this.client
-      .from("post_likes")
+    const { data: existing } = await this.client.from("post_likes")
       .select("id")
       .eq("post_id", postId)
       .eq("user_id", this.currentUser.id)
       .maybeSingle();
 
-    if (existing) {
-      return { success: false, error: "이미 좋아요를 눌렀습니다" };
-    }
+    if (existing) return { success: false, error: "이미 좋아요를 눌렀습니다" };
 
-    await this.client.from("post_likes").insert([{
-      post_id: postId,
-      user_id: this.currentUser.id
-    }]);
-
+    await this.client.from("post_likes").insert([{ post_id: postId, user_id: this.currentUser.id }]);
     const count = await this.getLikeCount(postId);
     return { success: true, count };
   }
 
   async getLikeCount(postId) {
-    const { count } = await this.client
-      .from("post_likes")
+    const { count } = await this.client.from("post_likes")
       .select("*", { count: "exact", head: true })
       .eq("post_id", postId);
-
     return count || 0;
   }
 
   /* =========================
      댓글
-  ========================= */
+  ========================== */
   async getComments(postId) {
-    const { data, error } = await this.client
-      .from("wiki_comments")
+    const { data, error } = await this.client.from("wiki_comments")
       .select("*")
       .eq("post_id", postId)
       .order("time", { ascending: false });
-
     if (error) return { success: false, error: error.message };
     return { success: true, data };
   }
 
   async addComment(postId, content) {
-    if (!this.currentUser) {
-      return { success: false, error: "로그인이 필요합니다" };
-    }
+    if (!this.currentUser) return { success: false, error: "로그인이 필요합니다" };
 
-    const { data, error } = await this.client
-      .from("wiki_comments")
+    const { data, error } = await this.client.from("wiki_comments")
       .insert([{
         post_id: postId,
         content,
@@ -353,7 +334,7 @@ class SupabaseService {
 
   /* =========================
      유틸
-  ========================= */
+  ========================== */
   isLoggedIn() {
     return !!this.currentUser;
   }
@@ -365,7 +346,7 @@ class SupabaseService {
   getCurrentUser() {
     return {
       user: this.currentUser,
-      data: this.userData
+      profile: this.userData // index.html에서 profile로 사용
     };
   }
 }
