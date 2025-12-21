@@ -387,4 +387,4 @@ document.addEventListener("DOMContentLoaded", () => {
 
 console.log("🚀 wiki.js 로드됨");
 
-export { initWiki };
+//export { initWiki };
