@@ -59,21 +59,22 @@ async updateUserData(user) {
 }
 
 
-  // 인증 관련 메서드
-  async signIn(email, password) {
-    try {
-      const { data, error } = await this.client.auth.signInWithPassword({ 
-        email, 
-        password 
-      });
-      
-      if (error) throw error;
-      return { success: true, data };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
+// 로그인 메서드
+async signIn(email, password) {
+  try {
+    const { data, error } = await this.client.auth.signInWithPassword({ 
+      email, 
+      password 
+    });
+    
+    if (error) throw error;
+    return { success: true, data };
+  } catch (error) {
+    return { success: false, error: error.message };
   }
+}
 
+// 회원가입 메서드
 async signUp(email, password, nickname) {
   try {
     const { data, error } = await this.client.auth.signUp({ 
@@ -83,6 +84,11 @@ async signUp(email, password, nickname) {
         emailRedirectTo: "https://k-reptilewiki.github.io/login.html" // 인증 후 돌아올 페이지
       }
     });
+    
+    // 이미 등록된 이메일일 경우 사용자 친화적인 메시지 반환
+    if (error && error.message.includes("already registered")) {
+      return { success: false, error: "이미 있는 이메일입니다. 로그인을 해주세요." };
+    }
     
     if (error) throw error;
     
@@ -101,6 +107,7 @@ async signUp(email, password, nickname) {
     return { success: false, error: error.message };
   }
 }
+
 
   async signOut() {
     try {
