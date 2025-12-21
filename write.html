@@ -1,94 +1,3 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-<meta charset="UTF-8">
-<title>📝 새 문서 작성 - K-ReptileWiki</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-
-<!-- Quill -->
-<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
-<script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
-
-<style>
-body {
-  font-family: 'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
-  background:#f9fafb;
-  margin:0;
-}
-.container {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 20px;
-}
-.editor-container {
-  background: white;
-  padding: 20px;
-  border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-}
-#editor {
-  height: 420px;
-}
-input#postTitle {
-  width: 100%;
-  padding: 14px;
-  margin-bottom: 15px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  font-size: 18px;
-}
-button {
-  padding: 12px 22px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: bold;
-}
-#image-resizer {
-  display: none;
-  position: absolute;
-  z-index: 1000;
-  background: white;
-  padding: 10px;
-  border-radius: 8px;
-  border: 1px solid #ddd;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-}
-#image-resizer input { width: 200px; }
-#postStatus {
-  margin-top: 15px;
-  font-size: 14px;
-  color: #2563eb;
-}
-</style>
-</head>
-<body>
-
-<div id="image-resizer">
-  <span style="font-size:12px;">이미지 너비</span><br>
-  <input type="range" id="sizeSlider" min="50" max="800" step="10">
-  <div id="sizeValue" style="font-size:12px;text-align:center;">300px</div>
-</div>
-
-<div class="container">
-  <h1>📝 새 문서 작성</h1>
-
-  <div class="editor-container">
-    <input id="postTitle" placeholder="문서 제목을 입력하세요">
-    <div id="editor"></div>
-
-    <div style="margin-top:20px;display:flex;gap:10px;">
-      <button id="postBtn" style="background:#2563eb;color:white;">등록하기</button>
-      <button id="previewBtn" style="background:#10b981;color:white;">미리보기</button>
-      <button id="cancelBtn" style="background:#6b7280;color:white;">취소</button>
-    </div>
-
-    <div id="postStatus"></div>
-  </div>
-
-  <div id="previewArea" style="display:none;margin-top:30px;background:white;padding:20px;border-radius:10px;"></div>
-</div>
-
 <script type="module">
 import { supabaseService, supabase } from "./js/supabase.js";
 
@@ -270,10 +179,25 @@ document.getElementById("cancelBtn").onclick = () => {
 };
 
 /* ===============================
-   초기화
+   6️⃣ 초기화
 ================================ */
-setupQuill();
-</script>
+async function initPage() {
+  // 로그인 상태 대기
+  await supabaseService.waitForAuth();
 
-</body>
-</html>
+  // Quill 초기화
+  setupQuill();
+
+  // 글 작성 버튼 활성화/비활성화
+  const postBtn = document.getElementById("postBtn");
+  if (!supabaseService.isLoggedIn()) {
+    document.getElementById("postStatus").textContent = "로그인이 필요합니다.";
+    postBtn.disabled = true;
+  } else {
+    postBtn.disabled = false;
+  }
+}
+
+// 페이지 초기화
+initPage();
+</script>
