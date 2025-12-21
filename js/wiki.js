@@ -1,5 +1,4 @@
 import { supabase } from "./supabase.js";
-import { v4 as uuidv4 } from "uuid"; // npm install uuid 필요
 
 let currentUser = null;
 let userData = { nickname: "익명", role: "user", lastPostAt: 0 };
@@ -74,15 +73,16 @@ function initWiki(pageId) {
       if (now - (userData.lastPostAt ?? 0) < POST_COOLDOWN)
         return alert("도배 방지: 잠시 후 다시 시도해 주세요.");
 
-      const payload = {
-        id: uuidv4(),
-        post_id: pageId,
-        uid: currentUser.id,
-        username: userData.nickname,
-        text,
-        reports: 0,
-        time: new Date().toISOString()
-      };
+  const payload = {
+    id: crypto.randomUUID(), // 브라우저 내장 UUID 생성기
+    post_id: pageId,
+    uid: currentUser.id,
+    username: userData.nickname,
+    text,
+    reports: 0,
+    time: new Date().toISOString()
+  };
+
 
       const { error } = await supabase.from("wiki_contributions").insert([payload]);
       if (error) return alert("기여 실패: " + error.message);
@@ -143,3 +143,4 @@ supabase.auth.onAuthStateChange(async (event, session) => {
 });
 
 export { initWiki };
+  
