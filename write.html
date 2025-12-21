@@ -26,9 +26,7 @@ body {
   border-radius: 10px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.05);
 }
-#editor {
-  height: 420px;
-}
+#editor { height: 420px; }
 input#postTitle {
   width: 100%;
   padding: 14px;
@@ -94,9 +92,9 @@ import { supabaseService, supabase } from "./js/supabase.js";
 
 let quill;
 
-/* ===============================
-   Quill 초기화 + 이미지 업로드/리사이즈
-================================ */
+// ===============================
+// Quill 초기화 + 이미지 업로드/리사이즈
+// ===============================
 function setupQuill() {
   const ImageBlot = Quill.import('formats/image');
 
@@ -136,9 +134,9 @@ function setupQuill() {
   setupImageResizer();
 }
 
-/* ===============================
-   이미지 업로드
-================================ */
+// ===============================
+// 이미지 업로드
+// ===============================
 function setupImageUpload() {
   const toolbar = quill.getModule('toolbar');
   const BUCKET = "image";
@@ -151,7 +149,6 @@ function setupImageUpload() {
     input.onchange = async () => {
       const file = input.files[0];
       if (!file) return;
-
       if (!supabaseService.isLoggedIn()) return alert("로그인이 필요합니다.");
       const { user } = supabaseService.getCurrentUser();
 
@@ -172,9 +169,9 @@ function setupImageUpload() {
   });
 }
 
-/* ===============================
-   이미지 클릭 → 크기 조절
-================================ */
+// ===============================
+// 이미지 클릭 → 크기 조절
+// ===============================
 function setupImageResizer() {
   const resizer = document.getElementById("image-resizer");
   const slider = document.getElementById("sizeSlider");
@@ -205,14 +202,16 @@ function setupImageResizer() {
   };
 }
 
-/* ===============================
-   DOM 로드 후 초기화
-================================ */
+// ===============================
+// DOM 로드 후 초기화
+// ===============================
 window.addEventListener("DOMContentLoaded", async () => {
   await supabaseService.waitForAuth();
   setupQuill();
 
   const postBtn = document.getElementById("postBtn");
+  const previewBtn = document.getElementById("previewBtn");
+  const cancelBtn = document.getElementById("cancelBtn");
   const status = document.getElementById("postStatus");
 
   // 글 등록
@@ -251,7 +250,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   };
 
   // 미리보기
-  document.getElementById("previewBtn").onclick = () => {
+  previewBtn.onclick = () => {
     const area = document.getElementById("previewArea");
     area.style.display = "block";
     area.innerHTML = `<h2>미리보기</h2><hr><div class="ql-editor">${quill.root.innerHTML}</div>`;
@@ -259,7 +258,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   };
 
   // 취소
-  document.getElementById("cancelBtn").onclick = () => {
+  cancelBtn.onclick = () => {
     if (confirm("작성 중인 내용은 저장되지 않습니다.")) location.href = "index.html";
   };
 
