@@ -48,25 +48,25 @@ class SupabaseService {
   }
 
   async updateUserData(user) {
-    this.currentUser = user;
-    try {
-      console.log("🔍 [System] 프로필 조회 중...");
-      const { data, error } = await this.client
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .maybeSingle();
+  this.currentUser = user;
+  try {
+    console.log("🔍 [System] 프로필 조회 중...");
+    const { data, error } = await this.client
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .maybeSingle();
 
-      if (error) throw error;
-      this.userData = data || { id: user.id, nickname: user.email.split("@")[0], role: "user" };
-      console.log("👤 [User] 데이터 로드 성공:", this.userData.nickname);
-    } catch (err) {
-      console.error("❌ [User] 데이터 로드 실패:", err.message);
-      this.userData = { id: user.id, nickname: user.email.split("@")[0], role: "user" };
-    } finally {
-      this._completeAuth();
-    }
+    if (error) throw error;
+    this.userData = data || { id: user.id, nickname: user.email.split("@")[0], role: "user" };
+    console.log("👤 [User] 데이터 로드 성공:", this.userData.nickname);
+  } catch (err) {
+    console.error("❌ [User] 데이터 로드 실패:", err.message);
+    this.userData = { id: user.id, nickname: user.email.split("@")[0], role: "user" };
+  } finally {
+    this._completeAuth(); // ✅ 성공/실패 상관없이 항상 호출
   }
+}
 
   /* =========================
      인증 기능
