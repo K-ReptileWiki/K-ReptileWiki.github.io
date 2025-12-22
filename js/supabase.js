@@ -128,30 +128,53 @@ class SupabaseService {
   async createPost(title, content, images = []) {
     if (!this.currentUser) return { success: false, error: "로그인 필요" };
     try {
-      const { data, error } = await this.client.from("wiki_posts").insert([{
-        title, content, images,
-        uid: this.currentUser.id,
-        author: this.userData?.nickname || this.currentUser.email,
-        time: new Date().toISOString(),
-        deleted: false
-      }]).select().single();
+      // text[] 배열로 전송 (PostgreSQL 배열 타입)
+      const { data, error } = await this.client
+        .from("wiki_posts")
+        .insert({
+          title, 
+          content, 
+          images: images, // text[] 배열 그대로
+          uid: this.currentUser.id,
+          author: this.userData?.nickname || this.currentUser.email,
+          time: new Date().toISOString(),
+          deleted: false
+        })
+        .select()
+        .single();
+      
       if (error) throw error;
+      console.log("✅ [Post] 등록 성공:", data.id);
       return { success: true, data };
-    } catch (err) { return { success: false, error: err.message }; }
+    } catch (err) { 
+      console.error("❌ [Post] 등록 실패:", err);
+      return { success: false, error: err.message }; 
+    }
   }
 
   async getPosts() {
-    const { data, error } = await this.client.from("wiki_posts").select("*").eq("deleted", false).order("time", { ascending: false });
+    const { data, error } = await this.client
+      .from("wiki_posts")
+      .select("*")
+      .eq("deleted", false)
+      .order("time", { ascending: false });
     return error ? { success: false, error: error.message } : { success: true, data };
   }
 
   async getPost(id) {
-    const { data, error } = await this.client.from("wiki_posts").select("*").eq("id", id).single();
+    const { data, error } = await this.client
+      .from("wiki_posts")
+      .select("*")
+      .eq("id", id)
+      .single();
     return error ? { success: false, error: error.message } : { success: true, data };
   }
 
   async deletePost(id) {
-    const { error } = await this.client.from("wiki_posts").update({ deleted: true }).eq("id", id);
+    const { error } = await this.client
+      .from("wiki_posts")
+      .update({ deleted: true })
+      .eq("id", id);
     return error ? { success: false, error: error.message } : { success: true };
   }
 
@@ -161,19 +184,31 @@ class SupabaseService {
   async addComment(postId, content) {
     if (!this.currentUser) return { success: false, error: "로그인 필요" };
     try {
-      const { data, error } = await this.client.from("wiki_comments").insert([{
-        post_id: postId, content,
-        uid: this.currentUser.id,
-        author: this.userData?.nickname || this.currentUser.email,
-        time: new Date().toISOString()
-      }]).select().single();
+      const { data, error } = await this.client
+        .from("wiki_comments")
+        .insert({
+          post_id: postId, 
+          content,
+          uid: this.currentUser.id,
+          author: this.userData?.nickname || this.currentUser.email,
+          time: new Date().toISOString()
+        })
+        .select()
+        .single();
+      
       if (error) throw error;
       return { success: true, data };
-    } catch (err) { return { success: false, error: err.message }; }
+    } catch (err) { 
+      return { success: false, error: err.message }; 
+    }
   }
 
   async getComments(postId) {
-    const { data, error } = await this.client.from("wiki_comments").select("*").eq("post_id", postId).order("time", { ascending: false });
+    const { data, error } = await this.client
+      .from("wiki_comments")
+      .select("*")
+      .eq("post_id", postId)
+      .order("time", { ascending: false });
     return error ? { success: false, error: error.message } : { success: true, data: data || [] };
   }
 
@@ -182,21 +217,36 @@ class SupabaseService {
   ========================== */
   async addContribution(postId, content, summary) {
     if (!this.currentUser) return { success: false, error: "로그인 필요" };
-    const { error } = await this.client.from("wiki_contributions").insert([{
-      post_id: postId, uid: this.currentUser.id,
-      author: this.userData?.nickname || this.currentUser.email,
-      content, summary, time: new Date().toISOString()
-    }]);
+    const { error } = await this.client
+      .from("wiki_contributions")
+      .insert({
+        post_id: postId, 
+        uid: this.currentUser.id,
+        author: this.userData?.nickname || this.currentUser.email,
+        content, 
+        summary, 
+        time: new Date().toISOString()
+      });
     return error ? { success: false, error: error.message } : { success: true };
   }
 
   /* =========================
      유틸리티
   ========================== */
-  isLoggedIn() { return !!this.currentUser; }
-  isAdmin() { return this.userData?.role === "admin"; }
+  isLoggedIn() { 
+    return !!this.currentUser; 
+  }
+  
+  isAdmin() { 
+    return this.userData?.role === "admin"; 
+  }
+  
   getCurrentUser() {
-    return { user: this.currentUser, data: this.userData, profile: this.userData };
+    return { 
+      user: this.currentUser, 
+      data: this.userData, 
+      profile: this.userData 
+    };
   }
 }
 
