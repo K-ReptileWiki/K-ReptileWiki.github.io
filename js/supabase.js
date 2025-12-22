@@ -21,12 +21,22 @@ class SupabaseService {
 
     console.log("🚀 [System] Supabase 서비스 초기화 중...");
 
+    // 초기 세션 확인
+    this.client.auth.getSession().then(({ data: { session } }) => {
+      console.log("🔍 [Init] 초기 세션 확인:", session?.user?.email || "세션 없음");
+      if (session?.user) {
+        this.updateUserData(session.user);
+      } else {
+        this._completeAuth();
+      }
+    });
+
     this.client.auth.onAuthStateChange(async (event, session) => {
       console.log(`🔑 [Auth Event] ${event}`, session?.user?.email || "세션 없음");
-      
-      if (session?.user) {
+
+      if (event === 'SIGNED_IN' && session?.user) {
         await this.updateUserData(session.user);
-      } else {
+      } else if (event === 'SIGNED_OUT') {
         this.currentUser = null;
         this.userData = null;
         this._completeAuth();
@@ -37,43 +47,67 @@ class SupabaseService {
   }
 
   _completeAuth() {
+    if (this._authResolved) {
+      console.log("⚠️ [System] 인증이 이미 완료됨 (중복 호출)");
+      return;
+    }
     this._authResolved = true;
-    if (this._resolveAuth) this._resolveAuth();
+    if (this._resolveAuth) {
+      this._resolveAuth();
+      console.log("✅ [System] _resolveAuth() 호출됨");
+    }
     console.log("🏁 [System] 인증 및 프로필 로드 완료");
   }
 
   async waitForAuth() {
-    if (this._authResolved) return Promise.resolve();
+    console.log("⏳ [System] waitForAuth 호출됨, _authResolved:", this._authResolved);
+    if (this._authResolved) {
+      console.log("✅ [System] 이미 인증 완료, 즉시 반환");
+      return Promise.resolve();
+    }
+    console.log("⏳ [System] 인증 대기 중...");
     return this._authPromise;
   }
 
   async updateUserData(user) {
-  this.currentUser = user;
-  try {
-    console.log("🔍 [System] 프로필 조회 중...");
-    const { data, error } = await this.client
-      .from("profiles")
-      .select("*")
-      .eq("id", user.id)
-      .maybeSingle();
+    console.log("📝 [System] updateUserData 시작:", user.email);
+    this.currentUser = user;
+    try {
+      console.log("🔍 [System] 프로필 조회 중...");
+      const { data, error } = await this.client
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .maybeSingle();
 
-    if (error) throw error;
-    this.userData = data || { id: user.id, nickname: user.email.split("@")[0], role: "user" };
-    console.log("👤 [User] 데이터 로드 성공:", this.userData.nickname);
-  } catch (err) {
-    console.error("❌ [User] 데이터 로드 실패:", err.message);
-    this.userData = { id: user.id, nickname: user.email.split("@")[0], role: "user" };
-  } finally {
-    this._completeAuth(); // ✅ 성공/실패 상관없이 항상 호출
+      if (error) {
+        console.error("⚠️ [DB Error]", error);
+        throw error;
+      }
+      
+      this.userData = data || { id: user.id, nickname: user.email.split("@")[0], role: "user" };
+      console.log("👤 [User] 데이터 로드 성공:", this.userData.nickname);
+    } catch (err) {
+      console.error("❌ [User] 데이터 로드 실패:", err.message);
+      this.userData = { id: user.id, nickname: user.email.split("@")[0], role: "user" };
+    } finally {
+      console.log("🔚 [System] updateUserData finally 블록 실행");
+      this._completeAuth();
+    }
   }
-}
 
   /* =========================
      인증 기능
   ========================== */
   async signIn(email, password) {
+    console.log("🔐 [Auth] 로그인 시도:", email);
     const { data, error } = await this.client.auth.signInWithPassword({ email, password });
-    return error ? { success: false, error: error.message } : { success: true, data };
+    if (error) {
+      console.error("❌ [Auth] 로그인 실패:", error.message);
+      return { success: false, error: error.message };
+    }
+    console.log("✅ [Auth] 로그인 성공");
+    return { success: true, data };
   }
 
   async signUp(email, password, nickname) {
