@@ -49,7 +49,7 @@ class SupabaseService {
     try {
       // 테이블명이 profiles인지 users인지 확인이 필요할 수 있습니다. (기존 index.html 등에서 profiles 사용)
       const { data, error } = await this.client
-        .from("users") 
+        .from("profiles") 
         .select("*")
         .eq("id", user.id)
         .maybeSingle();
