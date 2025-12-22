@@ -13,21 +13,24 @@ const SUPABASE_CONFIG = {
 ========================= */
 class SupabaseService {
   constructor() {
-    if (SupabaseService.instance) return SupabaseService.instance;
+    // 싱글톤 패턴
+    if (SupabaseService.instance) {
+      return SupabaseService.instance;
+    }
 
     this.client = createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.key);
     this.currentUser = null;
     this.userData = null;
-    this._authResolved = false;
 
-    // ⭐ 로그인 상태 확인을 보장하는 Promise 시스템
+    // 인증 대기 시스템 (핵심)
+    this._authResolved = false;
     this._authPromise = new Promise((resolve) => {
       this._resolveAuth = resolve;
     });
 
     console.log("🚀 [System] Supabase 서비스 초기화 중...");
 
-    // 인증 상태 변화 감지
+    // 인증 상태 변경 리스너
     this.client.auth.onAuthStateChange(async (event, session) => {
       console.log(`🔑 [Auth Event] ${event}`, session?.user?.email || "세션 없음");
       
@@ -36,32 +39,33 @@ class SupabaseService {
       } else {
         this.currentUser = null;
         this.userData = null;
-        this._completeAuth(); // 로그아웃 상태일 때도 대기 해제
+        this._completeAuth();
       }
     });
 
     SupabaseService.instance = this;
   }
 
-  // 내부 사용: 인증 절차 완료를 알림
+  // 인증 및 데이터 로드 완료 신호
   _completeAuth() {
     this._authResolved = true;
-    this._resolveAuth();
+    if (this._resolveAuth) this._resolveAuth();
     console.log("🏁 [System] 인증 및 프로필 로드 완료");
   }
 
-  // 외부 사용: 페이지 로드 시 인증이 끝날 때까지 대기
+  // 페이지 로드 시 "인증 완료"까지 기다리는 함수
   async waitForAuth() {
     if (this._authResolved) return Promise.resolve();
     return this._authPromise;
   }
 
+  // 사용자 상세 데이터(profiles 테이블) 로드
   async updateUserData(user) {
     this.currentUser = user;
     try {
       console.log("🔍 [System] 프로필 조회 중...");
       const { data, error } = await this.client
-        .from("profiles") // admin.js와 일치하도록 profiles 테이블 사용
+        .from("profiles")
         .select("*")
         .eq("id", user.id)
         .maybeSingle();
@@ -72,7 +76,7 @@ class SupabaseService {
         this.userData = data;
         console.log("👤 [User] 데이터 로드 성공:", data.nickname);
       } else {
-        console.warn("⚠️ [User] 프로필이 없습니다. 기본값 사용.");
+        console.warn("⚠️ [User] 프로필 없음. 기본값 설정.");
         this.userData = { 
           id: user.id, 
           nickname: user.email.split("@")[0], 
@@ -88,7 +92,7 @@ class SupabaseService {
   }
 
   /* =========================
-     인증 기능 (로그인, 가입, 로그아웃)
+     인증 기능 (로그인 / 가입 / 로그아웃)
   ========================== */
   async signIn(email, password) {
     console.log("Attempting Login:", email);
@@ -101,11 +105,11 @@ class SupabaseService {
     const { data, error } = await this.client.auth.signUp({ email, password });
     if (error) return { success: false, error: error.message };
     
-    // 회원가입 성공 시 profiles 테이블에 기본 정보 생성
+    // 가입 시 profiles 테이블에 기록 (닉네임 포함)
     if (data?.user) {
       await this.client.from("profiles").insert([{ 
         id: data.user.id, 
-        email: email,
+        email: email, 
         nickname: nickname || email.split("@")[0], 
         role: 'user' 
       }]);
@@ -123,8 +127,6 @@ class SupabaseService {
   ========================== */
   async createPost(title, content, images = []) {
     if (!this.currentUser) return { success: false, error: "로그인이 필요합니다" };
-    console.log("📝 [Create] 글 등록 시도:", title);
-
     try {
       const { data, error } = await this.client
         .from("wiki_posts")
@@ -142,7 +144,6 @@ class SupabaseService {
       if (error) throw error;
       return { success: true, data };
     } catch (err) {
-      console.error("❌ [Create] 에러:", err.message);
       return { success: false, error: err.message };
     }
   }
@@ -166,7 +167,7 @@ class SupabaseService {
   }
 
   async deletePost(id) {
-    // 실제 삭제 대신 deleted 플래그를 true로 변경 (Soft Delete)
+    // 실제 삭제 대신 Soft Delete (플래그 변경)
     const { error } = await this.client
       .from("wiki_posts")
       .update({ deleted: true })
@@ -204,11 +205,12 @@ class SupabaseService {
       .select("*")
       .eq("post_id", postId)
       .order("time", { ascending: false });
+    
     return error ? { success: false, error: error.message } : { success: true, data: data || [] };
   }
 
   /* =========================
-     유틸리티 메서드
+     유틸리티 (기존 index.html/admin.js와 호환)
   ========================== */
   isLoggedIn() { return !!this.currentUser; }
   isAdmin() { return this.userData?.role === "admin"; }
@@ -216,7 +218,7 @@ class SupabaseService {
     return { 
       user: this.currentUser, 
       data: this.userData,
-      profile: this.userData // index.html 등 다른 코드와의 호환성 유지
+      profile: this.userData // index.html 등 다른 파일과의 호환성
     }; 
   }
 }
