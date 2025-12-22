@@ -5,67 +5,37 @@
 <title>📝 새 문서 작성 - K-ReptileWiki</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
-<!-- Quill -->
 <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
 <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
 
 <style>
-body {
-  font-family: 'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
-  background:#f9fafb;
-  margin:0;
-}
-.container {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 20px;
-}
-.editor-container {
-  background: white;
-  padding: 20px;
-  border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-}
-#editor { height: 420px; }
-input#postTitle {
-  width: 100%;
-  padding: 14px;
-  margin-bottom: 15px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  font-size: 18px;
-}
-button {
-  padding: 12px 22px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: bold;
-}
-#image-resizer {
-  display: none;
-  position: absolute;
-  z-index: 1000;
-  background: white;
-  padding: 10px;
-  border-radius: 8px;
-  border: 1px solid #ddd;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-}
-#image-resizer input { width: 200px; }
-#postStatus {
-  margin-top: 15px;
-  font-size: 14px;
-  color: #2563eb;
-}
+  body { font-family: 'Apple SD Gothic Neo','Malgun Gothic',sans-serif; background:#f9fafb; margin:0; }
+  .container { max-width: 900px; margin: 0 auto; padding: 20px; }
+  .editor-container { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+  #editor { height: 420px; background: #fff; }
+  input#postTitle { width: 100%; padding: 14px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 6px; font-size: 18px; box-sizing: border-box; }
+  
+  /* 버튼 스타일 */
+  .btn-group { margin-top:20px; display:flex; gap:10px; }
+  button { padding: 12px 22px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; color: white; }
+  #postBtn { background:#2563eb; }
+  #postBtn:disabled { background:#94a3b8; cursor:not-allowed; }
+  #previewBtn { background:#10b981; }
+  #cancelBtn { background:#6b7280; }
+
+  /* 이미지 리사이저 팝업 */
+  #image-resizer { display: none; position: absolute; z-index: 1000; background: white; padding: 10px; border-radius: 8px; border: 1px solid #ddd; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+  
+  /* 상태 메시지창 */
+  #postStatus { margin-top: 15px; padding: 10px; border-radius: 6px; background: #f1f5f9; font-size: 14px; color: #334155; min-height: 20px; white-space: pre-line; border-left: 4px solid #2563eb; }
 </style>
 </head>
 <body>
 
 <div id="image-resizer">
-  <span style="font-size:12px;">이미지 너비</span><br>
+  <span style="font-size:12px; font-weight:bold;">이미지 너비 조절</span><br>
   <input type="range" id="sizeSlider" min="50" max="800" step="10">
-  <div id="sizeValue" style="font-size:12px;text-align:center;">300px</div>
+  <div id="sizeValue" style="font-size:12px; text-align:center; margin-top:5px;">300px</div>
 </div>
 
 <div class="container">
@@ -73,44 +43,55 @@ button {
 
   <div class="editor-container">
     <input id="postTitle" placeholder="문서 제목을 입력하세요">
+    
     <div id="editor"></div>
 
-    <div style="margin-top:20px;display:flex;gap:10px;">
-      <button id="postBtn" style="background:#2563eb;color:white;">등록하기</button>
-      <button id="previewBtn" style="background:#10b981;color:white;">미리보기</button>
-      <button id="cancelBtn" style="background:#6b7280;color:white;">취소</button>
+    <div class="btn-group">
+      <button id="postBtn">등록하기</button>
+      <button id="previewBtn">미리보기</button>
+      <button id="cancelBtn">취소</button>
     </div>
 
-    <div id="postStatus"></div>
+    <div id="postStatus">시스템 준비 중...</div>
   </div>
 
-  <div id="previewArea" style="display:none;margin-top:30px;background:white;padding:20px;border-radius:10px;"></div>
+  <div id="previewArea" style="display:none; margin-top:30px; background:white; padding:20px; border-radius:10px; border:1px solid #ddd;"></div>
 </div>
 
 <script type="module">
 import { supabaseService, supabase } from "./js/supabase.js";
 
 let quill = null;
+const statusEl = document.getElementById("postStatus");
+
+// 화면과 콘솔에 동시에 로그를 찍는 함수
+function log(msg, isError = false) {
+  const timestamp = new Date().toLocaleTimeString();
+  const logMsg = `[${timestamp}] ${msg}`;
+  console.log(logMsg);
+  statusEl.innerText += `\n${logMsg}`;
+  if(isError) statusEl.style.borderLeftColor = "#ef4444";
+}
 
 /* ===============================
-   Quill 초기화
+   1. Quill 에디터 및 이미지 설정
 ================================ */
 function setupQuill() {
-  if (!window.Quill) {
-    alert("Quill 로딩 실패");
-    return;
-  }
-
+  log("Quill 초기화 시작...");
+  
   const ImageBlot = Quill.import('formats/image');
-
   class ResizableImage extends ImageBlot {
     static create(value) {
+      log("에디터에 이미지 노드 생성 중...");
       const node = super.create();
+      // value가 객체일 때와 문자열일 때 모두 대응
       const src = typeof value === 'string' ? value : value.src;
-      const width = typeof value === 'object' ? value.width : '300';
+      const width = value.width || '300';
+      
       node.setAttribute('src', src);
       node.setAttribute('width', width);
       node.style.width = width + 'px';
+      node.style.display = 'block'; // 한 줄 차지하도록 설정
       return node;
     }
     static value(node) {
@@ -127,33 +108,31 @@ function setupQuill() {
 
   quill = new Quill('#editor', {
     theme: 'snow',
-    placeholder: "내용을 입력하세요...",
+    placeholder: "내용을 입력하세요. 이미지는 툴바 아이콘으로 업로드 가능합니다.",
     modules: {
       toolbar: [
-        ['bold','italic','underline','strike'],
-        [{ header: [1,2,3,false] }],
+        [{ header: [1, 2, 3, false] }],
+        ['bold', 'italic', 'underline', 'strike'],
         [{ color: [] }, { background: [] }],
-        ['link','image']
+        ['link', 'image'],
+        ['clean']
       ]
     }
   });
 
   setupImageUpload();
   setupImageResizer();
+  log("Quill 준비 완료.");
 }
 
 /* ===============================
-   이미지 업로드 (null 완전 방어)
+   2. 이미지 업로드 로직 (Supabase Storage)
 ================================ */
 function setupImageUpload() {
-  if (!quill) return;
-
   const toolbar = quill.getModule('toolbar');
-  if (!toolbar) return;
-
-  const BUCKET = "image";
-
   toolbar.addHandler('image', () => {
+    log("이미지 업로드 버튼 클릭됨.");
+    
     if (!supabaseService.isLoggedIn()) {
       alert("로그인이 필요합니다.");
       return;
@@ -167,164 +146,150 @@ function setupImageUpload() {
       const file = input.files?.[0];
       if (!file) return;
 
-      const session = supabaseService.getCurrentUser();
-      if (!session || !session.user) {
-        alert("로그인이 필요합니다.");
-        return;
+      log(`파일 선택됨: ${file.name} (${(file.size/1024).toFixed(1)}KB)`);
+      
+      try {
+        const user = supabaseService.getCurrentUser().user;
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}.${fileExt}`;
+        const path = `${user.id}/${fileName}`;
+
+        log("Supabase Storage에 업로드 중...");
+        const { data: uploadData, error: uploadError } = await supabase
+          .storage.from("image")
+          .upload(path, file);
+
+        if (uploadError) throw uploadError;
+
+        log("업로드 성공! Public URL 생성 중...");
+        const { data: urlData } = supabase.storage.from("image").getPublicUrl(path);
+        
+        // 에디터에 삽입
+        const range = quill.getSelection(true);
+        quill.insertEmbed(range.index, 'image', {
+          src: urlData.publicUrl,
+          width: '300'
+        });
+        quill.setSelection(range.index + 1);
+        log("에디터에 이미지가 정상적으로 삽입되었습니다.");
+
+      } catch (err) {
+        log("이미지 처리 에러: " + err.message, true);
+        alert("이미지 업로드에 실패했습니다: " + err.message);
       }
-
-      const user = session.user;
-      const ext = file.name.split('.').pop();
-      const fileName = `${Date.now()}.${ext}`;
-      const path = `${user.id}/${fileName}`;
-
-      const { error } = await supabase
-        .storage.from(BUCKET)
-        .upload(path, file);
-
-      if (error) {
-        alert("이미지 업로드 실패");
-        return;
-      }
-
-      const { data } = supabase
-        .storage.from(BUCKET)
-        .getPublicUrl(path);
-
-      const range = quill.getSelection(true) || { index: quill.getLength() };
-      quill.insertEmbed(range.index, 'image', {
-        src: data.publicUrl,
-        width: '300'
-      });
-      quill.setSelection(range.index + 1);
     };
-
     input.click();
   });
 }
 
 /* ===============================
-   이미지 리사이저 (null 방어)
+   3. 이미지 리사이저 로직
 ================================ */
 function setupImageResizer() {
-  if (!quill || !quill.root) return;
-
   const resizer = document.getElementById("image-resizer");
   const slider = document.getElementById("sizeSlider");
-  const value = document.getElementById("sizeValue");
+  const valueLabel = document.getElementById("sizeValue");
   let targetImg = null;
 
   quill.root.addEventListener("click", e => {
     if (e.target && e.target.tagName === "IMG") {
       targetImg = e.target;
       const rect = targetImg.getBoundingClientRect();
-
       resizer.style.display = "block";
-      resizer.style.top = window.scrollY + rect.top - 60 + "px";
-      resizer.style.left = window.scrollX + rect.left + "px";
-
-      const w = targetImg.getAttribute("width") || 300;
-      slider.value = w;
-      value.textContent = w + "px";
+      resizer.style.top = (window.scrollY + rect.top - 70) + "px";
+      resizer.style.left = (window.scrollX + rect.left) + "px";
+      
+      const currentWidth = targetImg.getAttribute("width") || 300;
+      slider.value = currentWidth;
+      valueLabel.textContent = currentWidth + "px";
     } else {
       resizer.style.display = "none";
-      targetImg = null;
     }
   });
 
-  slider.oninput = e => {
-    if (!targetImg) return;
-    const w = e.target.value;
-    targetImg.setAttribute("width", w);
-    targetImg.style.width = w + "px";
-    value.textContent = w + "px";
+  slider.oninput = (e) => {
+    if (targetImg) {
+      const val = e.target.value;
+      targetImg.setAttribute("width", val);
+      targetImg.style.width = val + "px";
+      valueLabel.textContent = val + "px";
+    }
   };
 }
 
 /* ===============================
-   DOMContentLoaded
+   4. 게시글 등록 로직 (DB Insert)
 ================================ */
 window.addEventListener("DOMContentLoaded", async () => {
-  await supabaseService.waitForAuth();
+  statusEl.innerText = "사용자 인증 확인 중...";
+  
+  try {
+    await supabaseService.waitForAuth();
+    if (!supabaseService.isLoggedIn()) {
+      log("로그인이 필요합니다. 로그인 페이지로 이동하세요.", true);
+      document.getElementById("postBtn").disabled = true;
+    } else {
+      log("인증 완료. 작성자: " + (supabaseService.getCurrentUser().data?.nickname || "익명"));
+    }
+  } catch(e) {
+    log("인증 체크 오류: " + e.message, true);
+  }
 
   setupQuill();
 
   const postBtn = document.getElementById("postBtn");
-  const previewBtn = document.getElementById("previewBtn");
-  const cancelBtn = document.getElementById("cancelBtn");
-  const status = document.getElementById("postStatus");
-  const previewArea = document.getElementById("previewArea");
-
-  if (!supabaseService.isLoggedIn()) {
-    status.textContent = "로그인이 필요합니다.";
-    postBtn.disabled = true;
-  }
-
-  /* 글 등록 */
+  
   postBtn.onclick = async () => {
-    if (!quill) return;
-
-    postBtn.disabled = true;
-    status.textContent = "문서를 등록 중입니다...";
-
-    const session = supabaseService.getCurrentUser();
-    if (!session || !session.user) {
-      status.textContent = "로그인이 필요합니다.";
-      postBtn.disabled = false;
-      return;
-    }
-
     const title = document.getElementById("postTitle").value.trim();
     const content = quill.root.innerHTML;
 
-    if (!title) {
-      status.textContent = "제목을 입력하세요.";
-      postBtn.disabled = false;
+    if (!title || content === "<p><br></p>") {
+      alert("제목과 내용을 모두 입력해주세요.");
       return;
     }
 
-    if (content === "<p><br></p>") {
-      status.textContent = "내용을 입력하세요.";
+    log("데이터 등록 시작...");
+    postBtn.disabled = true;
+    postBtn.innerText = "등록 중...";
+
+    // 이미지 경로들만 따로 추출 (이미지 관리용)
+    const tempDiv = document.createElement("div");
+    tempDiv.innerHTML = content;
+    const imageUrls = [...tempDiv.querySelectorAll("img")].map(img => img.src);
+
+    try {
+      log("Supabase DB Insert 요청 전송...");
+      const res = await supabaseService.createPost(title, content, imageUrls);
+      
+      if (res.success) {
+        log("✅ 등록 성공! 상세 페이지로 이동합니다.");
+        setTimeout(() => {
+          location.href = `post.html?id=${res.data.id}`;
+        }, 800);
+      } else {
+        throw new Error(res.error);
+      }
+    } catch (err) {
+      log("❌ 등록 실패: " + err.message, true);
+      alert("등록 중 오류가 발생했습니다: " + err.message);
       postBtn.disabled = false;
-      return;
-    }
-
-    const temp = document.createElement("div");
-    temp.innerHTML = content;
-    const images = [...temp.querySelectorAll("img")].map(img => img.src);
-
-    const res = await supabaseService.createPost(title, content, images);
-
-    if (res.success) {
-      status.style.color = "#10b981";
-      status.textContent = "문서가 등록되었습니다!";
-      setTimeout(() => {
-        location.href = `post.html?id=${res.data.id}`;
-      }, 1000);
-    } else {
-      status.style.color = "#f87171";
-      status.textContent = "등록 실패: " + res.error;
-      postBtn.disabled = false;
+      postBtn.innerText = "등록하기";
     }
   };
 
-  /* 미리보기 */
-  previewBtn.onclick = () => {
-    if (!quill) return;
-    previewArea.style.display = "block";
-    previewArea.innerHTML =
-      `<h2>미리보기</h2><hr><div class="ql-editor">${quill.root.innerHTML}</div>`;
-    previewArea.scrollIntoView({ behavior: "smooth" });
+  // 미리보기 버튼
+  document.getElementById("previewBtn").onclick = () => {
+    const area = document.getElementById("previewArea");
+    area.style.display = "block";
+    area.innerHTML = `<h3>[미리보기] ${document.getElementById("postTitle").value}</h3><hr><div class="ql-editor">${quill.root.innerHTML}</div>`;
+    area.scrollIntoView({ behavior: "smooth" });
   };
 
-  /* 취소 */
-  cancelBtn.onclick = () => {
-    if (confirm("작성 중인 내용은 저장되지 않습니다.")) {
-      location.href = "index.html";
-    }
+  // 취소 버튼
+  document.getElementById("cancelBtn").onclick = () => {
+    if(confirm("작성 중인 내용을 버리고 돌아가시겠습니까?")) location.href="index.html";
   };
 });
 </script>
-
 </body>
 </html>
