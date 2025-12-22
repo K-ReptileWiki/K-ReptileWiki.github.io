@@ -1,9 +1,59 @@
+
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
 const SUPABASE_CONFIG = {
   url: "https://cpaikpjzlzzujwfgnanb.supabase.co",
   key: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwYWlrcGp6bHp6dWp3ZmduYW5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYxNDEwMzIsImV4cCI6MjA4MTcxNzAzMn0.u5diz_-p8Hh1FtkVO1CsDSUbz9fbSN2zXAIIP2637sc"
 };
+
+// 화면에 로그를 표시하는 유틸리티
+class VisualLogger {
+  constructor() {
+    this.logs = [];
+    this.maxLogs = 20;
+  }
+
+  log(message, type = 'info') {
+    const timestamp = new Date().toLocaleTimeString();
+    this.logs.push({ message, type, timestamp });
+    if (this.logs.length > this.maxLogs) this.logs.shift();
+    this.render();
+    console.log(message); // 콘솔에도 출력
+  }
+
+  render() {
+    let logDiv = document.getElementById('visual-debug-log');
+    if (!logDiv) {
+      logDiv = document.createElement('div');
+      logDiv.id = 'visual-debug-log';
+      logDiv.style.cssText = `
+        position: fixed; bottom: 10px; right: 10px; 
+        width: 400px; max-height: 300px; overflow-y: auto;
+        background: rgba(0,0,0,0.9); color: #0f0; 
+        font-family: monospace; font-size: 11px;
+        padding: 10px; border-radius: 5px; z-index: 9999;
+        box-shadow: 0 0 10px rgba(0,255,0,0.3);
+      `;
+      document.body.appendChild(logDiv);
+    }
+
+    logDiv.innerHTML = this.logs.map(log => {
+      const color = log.type === 'error' ? '#f00' : 
+                    log.type === 'success' ? '#0f0' : 
+                    log.type === 'warn' ? '#ff0' : '#0f0';
+      return `<div style="color: ${color}; margin: 2px 0;">[${log.timestamp}] ${log.message}</div>`;
+    }).join('');
+    
+    logDiv.scrollTop = logDiv.scrollHeight;
+  }
+
+  clear() {
+    this.logs = [];
+    this.render();
+  }
+}
+
+const vlog = new VisualLogger();
 
 class SupabaseService {
   constructor() {
@@ -14,16 +64,15 @@ class SupabaseService {
     this.userData = null;
     this._authResolved = false;
 
-    // 인증 완료 보장 Promise
     this._authPromise = new Promise((resolve) => {
       this._resolveAuth = resolve;
     });
 
-    console.log("🚀 [System] Supabase 서비스 초기화 중...");
+    vlog.log("🚀 Supabase 서비스 초기화 중...", 'info');
 
     // 초기 세션 확인
     this.client.auth.getSession().then(({ data: { session } }) => {
-      console.log("🔍 [Init] 초기 세션 확인:", session?.user?.email || "세션 없음");
+      vlog.log(`🔍 초기 세션: ${session?.user?.email || "세션 없음"}`, 'info');
       if (session?.user) {
         this.updateUserData(session.user);
       } else {
@@ -32,7 +81,7 @@ class SupabaseService {
     });
 
     this.client.auth.onAuthStateChange(async (event, session) => {
-      console.log(`🔑 [Auth Event] ${event}`, session?.user?.email || "세션 없음");
+      vlog.log(`🔑 Auth Event: ${event} (${session?.user?.email || "세션 없음"})`, 'info');
 
       if (event === 'SIGNED_IN' && session?.user) {
         await this.updateUserData(session.user);
@@ -48,32 +97,32 @@ class SupabaseService {
 
   _completeAuth() {
     if (this._authResolved) {
-      console.log("⚠️ [System] 인증이 이미 완료됨 (중복 호출)");
+      vlog.log("⚠️ 인증이 이미 완료됨 (중복 호출)", 'warn');
       return;
     }
     this._authResolved = true;
     if (this._resolveAuth) {
       this._resolveAuth();
-      console.log("✅ [System] _resolveAuth() 호출됨");
+      vlog.log("✅ _resolveAuth() 호출됨", 'success');
     }
-    console.log("🏁 [System] 인증 및 프로필 로드 완료");
+    vlog.log("🏁 인증 및 프로필 로드 완료", 'success');
   }
 
   async waitForAuth() {
-    console.log("⏳ [System] waitForAuth 호출됨, _authResolved:", this._authResolved);
+    vlog.log(`⏳ waitForAuth 호출, _authResolved: ${this._authResolved}`, 'info');
     if (this._authResolved) {
-      console.log("✅ [System] 이미 인증 완료, 즉시 반환");
+      vlog.log("✅ 이미 인증 완료, 즉시 반환", 'success');
       return Promise.resolve();
     }
-    console.log("⏳ [System] 인증 대기 중...");
+    vlog.log("⏳ 인증 대기 중...", 'warn');
     return this._authPromise;
   }
 
   async updateUserData(user) {
-    console.log("📝 [System] updateUserData 시작:", user.email);
+    vlog.log(`📝 updateUserData 시작: ${user.email}`, 'info');
     this.currentUser = user;
     try {
-      console.log("🔍 [System] 프로필 조회 중...");
+      vlog.log("🔍 프로필 조회 중...", 'info');
       const { data, error } = await this.client
         .from("profiles")
         .select("*")
@@ -81,32 +130,29 @@ class SupabaseService {
         .maybeSingle();
 
       if (error) {
-        console.error("⚠️ [DB Error]", error);
+        vlog.log(`⚠️ DB Error: ${error.message}`, 'error');
         throw error;
       }
       
       this.userData = data || { id: user.id, nickname: user.email.split("@")[0], role: "user" };
-      console.log("👤 [User] 데이터 로드 성공:", this.userData.nickname);
+      vlog.log(`👤 데이터 로드 성공: ${this.userData.nickname}`, 'success');
     } catch (err) {
-      console.error("❌ [User] 데이터 로드 실패:", err.message);
+      vlog.log(`❌ 데이터 로드 실패: ${err.message}`, 'error');
       this.userData = { id: user.id, nickname: user.email.split("@")[0], role: "user" };
     } finally {
-      console.log("🔚 [System] updateUserData finally 블록 실행");
+      vlog.log("🔚 updateUserData finally 블록 실행", 'info');
       this._completeAuth();
     }
   }
 
-  /* =========================
-     인증 기능
-  ========================== */
   async signIn(email, password) {
-    console.log("🔐 [Auth] 로그인 시도:", email);
+    vlog.log(`🔐 로그인 시도: ${email}`, 'info');
     const { data, error } = await this.client.auth.signInWithPassword({ email, password });
     if (error) {
-      console.error("❌ [Auth] 로그인 실패:", error.message);
+      vlog.log(`❌ 로그인 실패: ${error.message}`, 'error');
       return { success: false, error: error.message };
     }
-    console.log("✅ [Auth] 로그인 성공");
+    vlog.log("✅ 로그인 성공", 'success');
     return { success: true, data };
   }
 
@@ -126,9 +172,6 @@ class SupabaseService {
     return error ? { success: false, error: error.message } : { success: true };
   }
 
-  /* =========================
-     게시글 기능 (wiki_posts)
-  ========================== */
   async createPost(title, content, images = []) {
     if (!this.currentUser) return { success: false, error: "로그인 필요" };
     try {
@@ -159,9 +202,6 @@ class SupabaseService {
     return error ? { success: false, error: error.message } : { success: true };
   }
 
-  /* =========================
-     댓글 기능 (wiki_comments)
-  ========================== */
   async addComment(postId, content) {
     if (!this.currentUser) return { success: false, error: "로그인 필요" };
     try {
@@ -181,9 +221,6 @@ class SupabaseService {
     return error ? { success: false, error: error.message } : { success: true, data: data || [] };
   }
 
-  /* =========================
-     기여 및 좋아요 (wiki.js 호환)
-  ========================== */
   async addContribution(postId, content, summary) {
     if (!this.currentUser) return { success: false, error: "로그인 필요" };
     const { error } = await this.client.from("wiki_contributions").insert([{
@@ -194,9 +231,6 @@ class SupabaseService {
     return error ? { success: false, error: error.message } : { success: true };
   }
 
-  /* =========================
-     유틸리티
-  ========================== */
   isLoggedIn() { return !!this.currentUser; }
   isAdmin() { return this.userData?.role === "admin"; }
   getCurrentUser() {
