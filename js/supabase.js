@@ -1,4 +1,3 @@
-
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
 const SUPABASE_CONFIG = {
@@ -6,7 +5,6 @@ const SUPABASE_CONFIG = {
   key: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwYWlrcGp6bHp6dWp3ZmduYW5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYxNDEwMzIsImV4cCI6MjA4MTcxNzAzMn0.u5diz_-p8Hh1FtkVO1CsDSUbz9fbSN2zXAIIP2637sc"
 };
 
-// 화면에 로그를 표시하는 유틸리티
 class VisualLogger {
   constructor() {
     this.logs = [];
@@ -18,7 +16,7 @@ class VisualLogger {
     this.logs.push({ message, type, timestamp });
     if (this.logs.length > this.maxLogs) this.logs.shift();
     this.render();
-    console.log(message); // 콘솔에도 출력
+    console.log(message);
   }
 
   render() {
@@ -70,7 +68,6 @@ class SupabaseService {
 
     vlog.log("🚀 Supabase 서비스 초기화 중...", 'info');
 
-    // 초기 세션 확인
     this.client.auth.getSession().then(({ data: { session } }) => {
       vlog.log(`🔍 초기 세션: ${session?.user?.email || "세션 없음"}`, 'info');
       if (session?.user) {
@@ -121,27 +118,50 @@ class SupabaseService {
   async updateUserData(user) {
     vlog.log(`📝 updateUserData 시작: ${user.email}`, 'info');
     this.currentUser = user;
+    
+    // 프로필 조회를 백그라운드로 처리하고 즉시 완료 처리
+    vlog.log("💡 기본 데이터로 먼저 진행", 'info');
+    this.userData = { 
+      id: user.id, 
+      nickname: user.email.split("@")[0], 
+      role: "user" 
+    };
+    
+    // 즉시 인증 완료
+    this._completeAuth();
+    
+    // 프로필 조회는 백그라운드에서 시도
+    this.loadProfileInBackground(user.id);
+  }
+
+  async loadProfileInBackground(userId) {
     try {
-      vlog.log("🔍 프로필 조회 중...", 'info');
-      const { data, error } = await this.client
+      vlog.log("🔍 백그라운드 프로필 조회 시작...", 'info');
+      
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('타임아웃')), 3000)
+      );
+      
+      const queryPromise = this.client
         .from("profiles")
         .select("*")
-        .eq("id", user.id)
+        .eq("id", userId)
         .maybeSingle();
+      
+      const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
 
       if (error) {
-        vlog.log(`⚠️ DB Error: ${error.message}`, 'error');
-        throw error;
+        vlog.log(`⚠️ 프로필 조회 실패: ${error.message}`, 'warn');
+        return;
       }
       
-      this.userData = data || { id: user.id, nickname: user.email.split("@")[0], role: "user" };
-      vlog.log(`👤 데이터 로드 성공: ${this.userData.nickname}`, 'success');
+      if (data) {
+        this.userData = data;
+        vlog.log(`👤 프로필 업데이트 성공: ${data.nickname}`, 'success');
+      }
+      
     } catch (err) {
-      vlog.log(`❌ 데이터 로드 실패: ${err.message}`, 'error');
-      this.userData = { id: user.id, nickname: user.email.split("@")[0], role: "user" };
-    } finally {
-      vlog.log("🔚 updateUserData finally 블록 실행", 'info');
-      this._completeAuth();
+      vlog.log(`⚠️ 프로필 조회 생략: ${err.message}`, 'warn');
     }
   }
 
