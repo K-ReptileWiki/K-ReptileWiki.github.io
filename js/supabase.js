@@ -134,7 +134,7 @@ class SupabaseService {
         .insert({
           title, 
           content, 
-          images: images, // text[] 배열 그대로
+          image: image, // text[] 배열 그대로
           uid: this.currentUser.id,
           author: this.userData?.nickname || this.currentUser.email,
           time: new Date().toISOString(),
