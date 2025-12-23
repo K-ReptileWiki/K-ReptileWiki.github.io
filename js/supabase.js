@@ -126,31 +126,35 @@ class SupabaseService {
      게시글 기능 (wiki_posts)
   ========================== */
   async createPost(title, content, images = []) {
-    if (!this.currentUser) return { success: false, error: "로그인 필요" };
-    try {
-      // text[] 배열로 전송 (PostgreSQL 배열 타입)
-      const { data, error } = await this.client
-        .from("wiki_posts")
-        .insert({
-          title, 
-          content, 
-          image: image, // text[] 배열 그대로
-          uid: this.currentUser.id,
-          author: this.userData?.nickname || this.currentUser.email,
-          time: new Date().toISOString(),
-          deleted: false
-        })
-        .select()
-        .single();
-      
-      if (error) throw error;
-      console.log("✅ [Post] 등록 성공:", data.id);
-      return { success: true, data };
-    } catch (err) { 
-      console.error("❌ [Post] 등록 실패:", err);
-      return { success: false, error: err.message }; 
-    }
+  if (!this.currentUser) return { success: false, error: "로그인 필요" };
+
+  try {
+    console.log("📥 createPost images:", images, Array.isArray(images));
+
+    const { data, error } = await this.client
+      .from("wiki_posts")
+      .insert({
+        title,
+        content,
+        image: images, // ✅ 여기
+        uid: this.currentUser.id,
+        author: this.userData?.nickname || this.currentUser.email,
+        time: new Date().toISOString(),
+        deleted: false
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    console.log("✅ [Post] 등록 성공:", data.id);
+    return { success: true, data };
+
+  } catch (err) {
+    console.error("❌ [Post] 등록 실패:", err);
+    return { success: false, error: err.message };
   }
+}
 
   async getPosts() {
     const { data, error } = await this.client
