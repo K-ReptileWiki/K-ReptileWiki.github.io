@@ -126,35 +126,35 @@ class SupabaseService {
      게시글 기능 (wiki_posts)
   ========================== */
   async createPost(title, content, images = []) {
-  if (!this.currentUser) return { success: false, error: "로그인 필요" };
-
-  try {
-    console.log("📥 createPost images:", images, Array.isArray(images));
-
-    const { data, error } = await this.client
-      .from("wiki_posts")
-      .insert({
-        title,
-        content,
-        image: images, // ✅ 여기
-        uid: this.currentUser.id,
-        author: this.userData?.nickname || this.currentUser.email,
-        time: new Date().toISOString(),
-        deleted: false
-      })
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    console.log("✅ [Post] 등록 성공:", data.id);
-    return { success: true, data };
-
-  } catch (err) {
-    console.error("❌ [Post] 등록 실패:", err);
-    return { success: false, error: err.message };
+    if (!this.currentUser) return { success: false, error: "로그인 필요" };
+    
+    try {
+      console.log("📥 [Post] 생성 요청:", { title, imageCount: images.length });
+      
+      const { data, error } = await this.client
+        .from("wiki_posts")
+        .insert({
+          title,
+          content,
+          image: images, // text[] 타입, 컬럼명은 'image' (단수형)
+          uid: this.currentUser.id,
+          author: this.userData?.nickname || this.currentUser.email,
+          time: new Date().toISOString(),
+          deleted: false
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      console.log("✅ [Post] 등록 성공:", data.id);
+      return { success: true, data };
+      
+    } catch (err) {
+      console.error("❌ [Post] 등록 실패:", err);
+      return { success: false, error: err.message };
+    }
   }
-}
 
   async getPosts() {
     const { data, error } = await this.client
@@ -174,6 +174,30 @@ class SupabaseService {
     return error ? { success: false, error: error.message } : { success: true, data };
   }
 
+  async updatePost(id, title, content, images = []) {
+    if (!this.currentUser) return { success: false, error: "로그인 필요" };
+    
+    try {
+      const { data, error } = await this.client
+        .from("wiki_posts")
+        .update({
+          title,
+          content,
+          image: images,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return { success: true, data };
+      
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }
+
   async deletePost(id) {
     const { error } = await this.client
       .from("wiki_posts")
@@ -187,6 +211,7 @@ class SupabaseService {
   ========================== */
   async addComment(postId, content) {
     if (!this.currentUser) return { success: false, error: "로그인 필요" };
+    
     try {
       const { data, error } = await this.client
         .from("wiki_comments")
@@ -202,6 +227,7 @@ class SupabaseService {
       
       if (error) throw error;
       return { success: true, data };
+      
     } catch (err) { 
       return { success: false, error: err.message }; 
     }
@@ -216,11 +242,20 @@ class SupabaseService {
     return error ? { success: false, error: error.message } : { success: true, data: data || [] };
   }
 
+  async deleteComment(commentId) {
+    const { error } = await this.client
+      .from("wiki_comments")
+      .delete()
+      .eq("id", commentId);
+    return error ? { success: false, error: error.message } : { success: true };
+  }
+
   /* =========================
      기여 (wiki_contributions)
   ========================== */
   async addContribution(postId, content, summary) {
     if (!this.currentUser) return { success: false, error: "로그인 필요" };
+    
     const { error } = await this.client
       .from("wiki_contributions")
       .insert({
@@ -231,7 +266,96 @@ class SupabaseService {
         summary, 
         time: new Date().toISOString()
       });
+    
     return error ? { success: false, error: error.message } : { success: true };
+  }
+
+  async getContributions(postId) {
+    const { data, error } = await this.client
+      .from("wiki_contributions")
+      .select("*")
+      .eq("post_id", postId)
+      .order("time", { ascending: false });
+    
+    return error ? { success: false, error: error.message } : { success: true, data: data || [] };
+  }
+
+  /* =========================
+     좋아요 기능 (wiki_likes)
+  ========================== */
+  async toggleLike(postId) {
+    if (!this.currentUser) return { success: false, error: "로그인 필요" };
+    
+    try {
+      // 기존 좋아요 확인
+      const { data: existing } = await this.client
+        .from("wiki_likes")
+        .select("*")
+        .eq("post_id", postId)
+        .eq("uid", this.currentUser.id)
+        .maybeSingle();
+      
+      if (existing) {
+        // 좋아요 취소
+        const { error } = await this.client
+          .from("wiki_likes")
+          .delete()
+          .eq("id", existing.id);
+        
+        if (error) throw error;
+        return { success: true, liked: false };
+      } else {
+        // 좋아요 추가
+        const { error } = await this.client
+          .from("wiki_likes")
+          .insert({
+            post_id: postId,
+            uid: this.currentUser.id
+          });
+        
+        if (error) throw error;
+        return { success: true, liked: true };
+      }
+      
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }
+
+  async getLikeCount(postId) {
+    const { count, error } = await this.client
+      .from("wiki_likes")
+      .select("*", { count: 'exact', head: true })
+      .eq("post_id", postId);
+    
+    return error ? { success: false, error: error.message } : { success: true, count: count || 0 };
+  }
+
+  async isLiked(postId) {
+    if (!this.currentUser) return { success: true, liked: false };
+    
+    const { data, error } = await this.client
+      .from("wiki_likes")
+      .select("*")
+      .eq("post_id", postId)
+      .eq("uid", this.currentUser.id)
+      .maybeSingle();
+    
+    return error ? { success: false, error: error.message } : { success: true, liked: !!data };
+  }
+
+  /* =========================
+     검색 기능
+  ========================== */
+  async searchPosts(keyword) {
+    const { data, error } = await this.client
+      .from("wiki_posts")
+      .select("*")
+      .eq("deleted", false)
+      .or(`title.ilike.%${keyword}%,content.ilike.%${keyword}%`)
+      .order("time", { ascending: false });
+    
+    return error ? { success: false, error: error.message } : { success: true, data: data || [] };
   }
 
   /* =========================
