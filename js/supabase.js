@@ -141,15 +141,27 @@ class SupabaseService {
 
     debugLog.log("🚀 Supabase 서비스 초기화 중...", 'info');
 
-    this.client.auth.getSession().then(({ data: { session } }) => {
+    // 초기화를 즉시 실행
+    this.initialize();
+
+    SupabaseService.instance = this;
+  }
+
+  async initialize() {
+    try {
+      const { data: { session } } = await this.client.auth.getSession();
       debugLog.log(`🔍 초기 세션: ${session?.user?.email || "세션 없음"}`, 'info');
+      
       if (session?.user) {
-        this.updateUserData(session.user);
+        await this.updateUserData(session.user);
       } else {
         debugLog.log("🔓 비로그인 상태, 인증 완료 처리", 'info');
         this._completeAuth();
       }
-    });
+    } catch (err) {
+      debugLog.log(`❌ 세션 조회 실패: ${err.message}`, 'error');
+      this._completeAuth();
+    }
 
     this.client.auth.onAuthStateChange(async (event, session) => {
       debugLog.log(`🔑 Auth Event: ${event} (${session?.user?.email || "없음"})`, 'info');
@@ -159,11 +171,9 @@ class SupabaseService {
       } else if (event === 'SIGNED_OUT') {
         this.currentUser = null;
         this.userData = null;
-        this._completeAuth();
+        // SIGNED_OUT 이벤트에서는 _completeAuth 호출 안 함 (이미 완료됨)
       }
     });
-
-    SupabaseService.instance = this;
   }
 
   _completeAuth() {
