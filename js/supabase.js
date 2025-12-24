@@ -5,7 +5,7 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 ========================== */
 const SUPABASE_CONFIG = {
   url: "https://cpaikpjzlzzujwfgnanb.supabase.co",
-  key: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
+  key: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwYWlrcGp6bHp6dWp3ZmduYW5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYxNDEwMzIsImV4cCI6MjA4MTcxNzAzMn0.u5diz_-p8Hh1FtkVO1CsDSUbz9fbSN2zXAIIP2637sc"
 };
 
 /* =========================
@@ -14,39 +14,39 @@ const SUPABASE_CONFIG = {
 class DebugLogger {
   constructor() {
     this.logs = [];
-    this.maxLogs = 30;
-    this.visible = true;
+    this.maxLogs = 40;
     this.createUI();
   }
 
   createUI() {
-    const container = document.createElement("div");
-    container.style.cssText = `
+    const box = document.createElement("div");
+    box.style.cssText = `
       position:fixed; bottom:10px; right:10px;
-      width:450px; max-height:400px;
+      width:420px; max-height:380px;
       background:#000; color:#0f0;
-      border:2px solid #0f0; z-index:99999;
-      font-family:monospace; font-size:11px;
+      border:2px solid #0f0;
+      z-index:99999; font-family:monospace;
+      font-size:11px;
     `;
 
-    container.innerHTML = `
+    box.innerHTML = `
       <div style="background:#0f0;color:#000;padding:6px;font-weight:bold">
         Debug Log
         <button id="dbgClear" style="float:right">Clear</button>
       </div>
-      <div id="dbgBody" style="padding:8px;overflow:auto;max-height:350px"></div>
+      <div id="dbgBody" style="padding:6px;overflow:auto;max-height:340px"></div>
     `;
 
-    document.body.appendChild(container);
+    document.body.appendChild(box);
     document.getElementById("dbgClear").onclick = () => {
       this.logs = [];
       this.render();
     };
   }
 
-  log(msg, type = "info") {
-    const time = new Date().toLocaleTimeString();
-    this.logs.push(`[${time}] ${msg}`);
+  log(msg) {
+    const t = new Date().toLocaleTimeString();
+    this.logs.push(`[${t}] ${msg}`);
     if (this.logs.length > this.maxLogs) this.logs.shift();
     console.log(msg);
     this.render();
@@ -76,8 +76,8 @@ class SupabaseService {
 
     this.currentUser = null;
     this.userData = null;
-    this._authResolved = false;
 
+    this._authResolved = false;
     this._authPromise = new Promise(res => {
       this._resolveAuth = res;
     });
@@ -86,13 +86,21 @@ class SupabaseService {
     SupabaseService.instance = this;
   }
 
+  /* =========================
+     인증 초기화
+  ========================== */
   async init() {
     debugLog.log("🚀 Supabase 초기화");
 
-    const { data } = await this.client.auth.getSession();
-    if (data?.session?.user) {
-      await this._setUser(data.session.user);
-    } else {
+    try {
+      const { data } = await this.client.auth.getSession();
+      if (data?.session?.user) {
+        await this._setUser(data.session.user);
+      } else {
+        this._completeAuth();
+      }
+    } catch (e) {
+      debugLog.log("❌ 세션 확인 실패");
       this._completeAuth();
     }
 
@@ -121,13 +129,15 @@ class SupabaseService {
   }
 
   async _setUser(user) {
-    debugLog.log(`👤 로그인 사용자: ${user.email}`);
+    debugLog.log(`👤 로그인: ${user.email}`);
     this.currentUser = user;
+
     this.userData = {
       id: user.id,
       nickname: user.email.split("@")[0],
       role: "user"
     };
+
     this._completeAuth();
     this._loadProfile(user.id);
   }
@@ -146,10 +156,29 @@ class SupabaseService {
   }
 
   /* =========================
+     상태 확인 (🔥 누락됐던 부분)
+  ========================== */
+  isLoggedIn() {
+    return !!this.currentUser;
+  }
+
+  isAdmin() {
+    return this.userData?.role === "admin";
+  }
+
+  getCurrentUser() {
+    return {
+      user: this.currentUser,
+      data: this.userData,
+      profile: this.userData
+    };
+  }
+
+  /* =========================
      게시글
   ========================== */
   async createPost(title, content, imageUrls = []) {
-    if (!this.currentUser) {
+    if (!this.isLoggedIn()) {
       return { success: false, error: "로그인 필요" };
     }
 
@@ -160,10 +189,10 @@ class SupabaseService {
       author: this.userData.nickname,
       time: new Date().toISOString(),
       deleted: false,
-      images: imageUrls.length ? imageUrls : [] // ⭐ 핵심 수정
+      images: imageUrls || []
     };
 
-    debugLog.log(`📝 게시글 등록 데이터`);
+    debugLog.log("📝 게시글 등록 시도");
     debugLog.log(JSON.stringify(postData, null, 2));
 
     const { data, error } = await this.client
@@ -182,16 +211,14 @@ class SupabaseService {
   }
 
   async updatePost(id, title, content, imageUrls = []) {
-    const updateData = {
-      title,
-      content,
-      images: imageUrls.length ? imageUrls : [],
-      updated_at: new Date().toISOString()
-    };
-
     const { data, error } = await this.client
       .from("wiki_posts")
-      .update(updateData)
+      .update({
+        title,
+        content,
+        images: imageUrls || [],
+        updated_at: new Date().toISOString()
+      })
       .eq("id", id)
       .select()
       .single();
@@ -212,6 +239,10 @@ class SupabaseService {
      댓글
   ========================== */
   async addComment(postId, content) {
+    if (!this.isLoggedIn()) {
+      return { success: false, error: "로그인 필요" };
+    }
+
     const { data, error } = await this.client
       .from("wiki_comments")
       .insert({
@@ -240,6 +271,10 @@ class SupabaseService {
      좋아요
   ========================== */
   async toggleLike(postId) {
+    if (!this.isLoggedIn()) {
+      return { success: false, error: "로그인 필요" };
+    }
+
     const { data } = await this.client
       .from("wiki_likes")
       .select("*")
@@ -249,16 +284,19 @@ class SupabaseService {
 
     if (data) {
       await this.client.from("wiki_likes").delete().eq("id", data.id);
-      return { liked: false };
+      return { success: true, liked: false };
     } else {
       await this.client.from("wiki_likes").insert({
         post_id: postId,
         uid: this.currentUser.id
       });
-      return { liked: true };
+      return { success: true, liked: true };
     }
   }
 }
 
+/* =========================
+   Export
+========================== */
 export const supabaseService = new SupabaseService();
 export const supabase = supabaseService.client;
