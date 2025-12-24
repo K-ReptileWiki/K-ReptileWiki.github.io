@@ -89,32 +89,43 @@ class SupabaseService {
   /* =========================
      인증 초기화
   ========================== */
-  async init() {
-    debugLog.log("🚀 Supabase 초기화");
+async init() {
+  debugLog.log("🚀 Supabase 초기화");
 
-    try {
-      const { data } = await this.client.auth.getSession();
-      if (data?.session?.user) {
-        await this._setUser(data.session.user);
-      } else {
-        this._completeAuth();
-      }
-    } catch (e) {
-      debugLog.log("❌ 세션 확인 실패");
+  try {
+    // 🔥 먼저 세션을 확인하고, 유효하지 않으면 클리어
+    const { data, error } = await this.client.auth.getSession();
+    
+    if (error) {
+      debugLog.log("⚠️ 세션 오류 발생, 로컬 스토리지 클리어");
+      await this.client.auth.signOut(); // 세션 완전 삭제
+      this._completeAuth();
+      return;
+    }
+    
+    if (data?.session?.user) {
+      await this._setUser(data.session.user);
+    } else {
       this._completeAuth();
     }
-
-    this.client.auth.onAuthStateChange(async (event, session) => {
-      debugLog.log(`🔑 Auth 이벤트: ${event}`);
-      if (event === "SIGNED_IN" && session?.user) {
-        await this._setUser(session.user);
-      }
-      if (event === "SIGNED_OUT") {
-        this.currentUser = null;
-        this.userData = null;
-      }
-    });
+  } catch (e) {
+    debugLog.log(`❌ 세션 확인 실패: ${e.message}`);
+    // catch에서도 세션 클리어
+    await this.client.auth.signOut();
+    this._completeAuth();
   }
+
+  this.client.auth.onAuthStateChange(async (event, session) => {
+    debugLog.log(`🔑 Auth 이벤트: ${event}`);
+    if (event === "SIGNED_IN" && session?.user) {
+      await this._setUser(session.user);
+    }
+    if (event === "SIGNED_OUT") {
+      this.currentUser = null;
+      this.userData = null;
+    }
+  });
+}
 
   _completeAuth() {
     if (this._authResolved) return;
