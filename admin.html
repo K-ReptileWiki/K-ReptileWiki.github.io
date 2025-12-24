@@ -1,185 +1,39 @@
-import { supabaseService, supabase } from "./supabaseService.js";
-
-/* =========================
-   Admin Guard
-========================== */
-async function requireAdmin() {
-  await supabaseService.waitForAuth();
-
-  if (!supabaseService.isLoggedIn()) {
-    throw new Error("로그인 필요");
-  }
-
-  if (!supabaseService.isAdmin()) {
-    throw new Error("관리자 권한 없음");
-  }
-}
-
-/* =========================
-   Admin Service
-========================== */
-export const adminService = {
-  /* =========================
-     게시글 관리
-  ========================== */
-
-  async getAllPosts(includeDeleted = true) {
-    await requireAdmin();
-
-    let query = supabase
-      .from("wiki_posts")
-      .select("*")
-      .order("time", { ascending: false });
-
-    if (!includeDeleted) {
-      query = query.eq("deleted", false);
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Panel</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    h2 { margin-top: 30px; }
+    .card {
+      background: #222;
+      padding: 8px;
+      margin-bottom: 6px;
+      border: 1px solid #333;
     }
+    .log {
+      font-size: 12px;
+      color: #0f0;
+    }
+  </style>
+</head>
+<body>
 
-    const { data, error } = await query;
-    if (error) throw error;
-    return data;
-  },
+<h1>🛠 관리자 패널</h1>
 
-  async deletePost(postId) {
-    await requireAdmin();
+<h2>👤 유저 / 차단</h2>
+<div id="users"></div>
 
-    const { error } = await supabase
-      .from("wiki_posts")
-      .update({ deleted: true })
-      .eq("id", postId);
+<h2>📝 게시글</h2>
+<div id="posts"></div>
 
-    if (error) throw error;
-    return true;
-  },
+<h2>💬 댓글</h2>
+<div id="comments"></div>
 
-  async restorePost(postId) {
-    await requireAdmin();
+<h2>📜 관리자 로그</h2>
+<div id="logs"></div>
 
-    const { error } = await supabase
-      .from("wiki_posts")
-      .update({ deleted: false })
-      .eq("id", postId);
-
-    if (error) throw error;
-    return true;
-  },
-
-  async forceUpdatePost(postId, payload) {
-    await requireAdmin();
-
-    const { data, error } = await supabase
-      .from("wiki_posts")
-      .update({
-        ...payload,
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", postId)
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data;
-  },
-
-  /* =========================
-     댓글 관리
-  ========================== */
-
-  async getCommentsByPost(postId) {
-    await requireAdmin();
-
-    const { data, error } = await supabase
-      .from("wiki_comments")
-      .select("*")
-      .eq("post_id", postId)
-      .order("time", { ascending: false });
-
-    if (error) throw error;
-    return data;
-  },
-
-  async updateComment(commentId, content) {
-    await requireAdmin();
-
-    const { data, error } = await supabase
-      .from("wiki_comments")
-      .update({
-        content,
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", commentId)
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data;
-  },
-
-  async deleteComment(commentId) {
-    await requireAdmin();
-
-    const { error } = await supabase
-      .from("wiki_comments")
-      .delete()
-      .eq("id", commentId);
-
-    if (error) throw error;
-    return true;
-  },
-
-  /* =========================
-     유저 관리
-  ========================== */
-
-  async getAllUsers() {
-    await requireAdmin();
-
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) throw error;
-    return data;
-  },
-
-  async setUserRole(userId, role) {
-    await requireAdmin();
-
-    const { error } = await supabase
-      .from("profiles")
-      .update({ role })
-      .eq("id", userId);
-
-    if (error) throw error;
-    return true;
-  },
-
-  async deleteUserProfile(userId) {
-    await requireAdmin();
-
-    const { error } = await supabase
-      .from("profiles")
-      .delete()
-      .eq("id", userId);
-
-    if (error) throw error;
-    return true;
-  },
-
-  /* =========================
-     좋아요 관리
-  ========================== */
-
-  async removeAllLikesOfPost(postId) {
-    await requireAdmin();
-
-    const { error } = await supabase
-      .from("wiki_likes")
-      .delete()
-      .eq("post_id", postId);
-
-    if (error) throw error;
-    return true;
-  }
-};
+<script type="module" src="js/admin.js"></script>
+</body>
+</html>
