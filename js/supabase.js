@@ -17,7 +17,6 @@ class DebugLogger {
   }
 
   createUI() {
-    // 로그 컨테이너
     const container = document.createElement('div');
     container.id = 'debug-logger';
     container.style.cssText = `
@@ -35,7 +34,6 @@ class DebugLogger {
       box-shadow: 0 4px 20px rgba(0, 255, 0, 0.3);
     `;
 
-    // 헤더
     const header = document.createElement('div');
     header.style.cssText = `
       background: #0f0;
@@ -55,7 +53,6 @@ class DebugLogger {
       </div>
     `;
 
-    // 로그 영역
     const logArea = document.createElement('div');
     logArea.id = 'debug-log-area';
     logArea.style.cssText = `
@@ -70,7 +67,6 @@ class DebugLogger {
     container.appendChild(logArea);
     document.body.appendChild(container);
 
-    // 이벤트 리스너
     document.getElementById('debug-close').onclick = () => {
       container.style.display = 'none';
       this.visible = false;
@@ -81,7 +77,6 @@ class DebugLogger {
       this.render();
     };
 
-    // 더블클릭으로 다시 보이기
     document.addEventListener('dblclick', (e) => {
       if (e.ctrlKey && !this.visible) {
         container.style.display = 'block';
@@ -140,8 +135,6 @@ class SupabaseService {
     });
 
     debugLog.log("🚀 Supabase 서비스 초기화 중...", 'info');
-
-    // 초기화를 즉시 실행
     this.initialize();
 
     SupabaseService.instance = this;
@@ -171,7 +164,6 @@ class SupabaseService {
       } else if (event === 'SIGNED_OUT') {
         this.currentUser = null;
         this.userData = null;
-        // SIGNED_OUT 이벤트에서는 _completeAuth 호출 안 함 (이미 완료됨)
       }
     });
   }
@@ -290,27 +282,41 @@ class SupabaseService {
   /* =========================
      게시글 기능
   ========================== */
-  async createPost(title, content, images = []) {
+  async createPost(title, content, imageUrls = []) {
     if (!this.currentUser) return { success: false, error: "로그인 필요" };
     
     try {
-      debugLog.log(`📝 게시글 생성: "${title}" (이미지 ${images.length}개)`, 'info');
+      debugLog.log(`📝 게시글 생성 시작: "${title}"`, 'info');
+      debugLog.log(`🔍 이미지 개수: ${imageUrls.length}`, 'info');
+      debugLog.log(`🔍 이미지 배열: ${JSON.stringify(imageUrls)}`, 'info');
+      
+      // PostgreSQL text[] 배열 처리
+      const postData = {
+        title,
+        content,
+        uid: this.currentUser.id,
+        author: this.userData?.nickname || this.currentUser.email,
+        time: new Date().toISOString(),
+        deleted: false
+      };
+      
+      // 이미지가 있을 때만 추가
+      if (imageUrls && imageUrls.length > 0) {
+        postData.image = imageUrls;
+      }
+      
+      debugLog.log(`🔍 전송 데이터: ${JSON.stringify(postData, null, 2)}`, 'info');
       
       const { data, error } = await this.client
         .from("wiki_posts")
-        .insert({
-          title,
-          content,
-          image: images,
-          uid: this.currentUser.id,
-          author: this.userData?.nickname || this.currentUser.email,
-          time: new Date().toISOString(),
-          deleted: false
-        })
+        .insert(postData)
         .select()
         .single();
       
-      if (error) throw error;
+      if (error) {
+        debugLog.log(`⚠️ Supabase Error: ${JSON.stringify(error)}`, 'error');
+        throw error;
+      }
       
       debugLog.log(`✅ 게시글 등록 성공: ID ${data.id}`, 'success');
       return { success: true, data };
@@ -339,18 +345,23 @@ class SupabaseService {
     return error ? { success: false, error: error.message } : { success: true, data };
   }
 
-  async updatePost(id, title, content, images = []) {
+  async updatePost(id, title, content, imageUrls = []) {
     if (!this.currentUser) return { success: false, error: "로그인 필요" };
     
     try {
+      const updateData = {
+        title,
+        content,
+        updated_at: new Date().toISOString()
+      };
+      
+      if (imageUrls && imageUrls.length > 0) {
+        updateData.image = imageUrls;
+      }
+      
       const { data, error } = await this.client
         .from("wiki_posts")
-        .update({
-          title,
-          content,
-          image: images,
-          updated_at: new Date().toISOString()
-        })
+        .update(updateData)
         .eq("id", id)
         .select()
         .single();
