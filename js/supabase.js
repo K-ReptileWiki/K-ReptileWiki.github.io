@@ -263,7 +263,7 @@ class SupabaseService {
       author: this.userData.nickname,
       time: new Date().toISOString(),
       deleted: false,
-      images: imageUrls || []
+      images: JSON.stringify(imageUrls || []) // 🔥 JSON 문자열로 변환
     };
 
     debugLog.log("📝 게시글 등록 시도");
@@ -290,7 +290,7 @@ class SupabaseService {
       .update({
         title,
         content,
-        images: imageUrls || [],
+        images: JSON.stringify(imageUrls || []), // 🔥 JSON 문자열로 변환
         updated_at: new Date().toISOString()
       })
       .eq("id", id)
