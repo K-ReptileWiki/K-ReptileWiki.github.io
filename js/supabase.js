@@ -256,6 +256,14 @@ class SupabaseService {
       return { success: false, error: "로그인 필요" };
     }
 
+    // 🔥 URL 정리 (따옴표 제거)
+    const cleanUrls = imageUrls.map(url => {
+      if (typeof url === 'string') {
+        return url.replace(/^["']|["']$/g, '').trim();
+      }
+      return url;
+    }).filter(url => url);
+
     const postData = {
       title,
       content,
@@ -263,7 +271,7 @@ class SupabaseService {
       author: this.userData.nickname,
       time: new Date().toISOString(),
       deleted: false,
-      images: imageUrls // 🔥 배열 그대로 전송 (Supabase가 자동 변환)
+      images: cleanUrls // 🔥 정리된 URL 배열
     };
 
     debugLog.log("📝 게시글 등록 시도");
@@ -285,12 +293,20 @@ class SupabaseService {
   }
 
   async updatePost(id, title, content, imageUrls = []) {
+    // 🔥 URL 정리
+    const cleanUrls = imageUrls.map(url => {
+      if (typeof url === 'string') {
+        return url.replace(/^["']|["']$/g, '').trim();
+      }
+      return url;
+    }).filter(url => url);
+
     const { data, error } = await this.client
       .from("wiki_posts")
       .update({
         title,
         content,
-        images: imageUrls, // 🔥 배열 그대로 전송
+        images: cleanUrls,
         updated_at: new Date().toISOString()
       })
       .eq("id", id)
@@ -302,11 +318,21 @@ class SupabaseService {
   }
 
   async getPosts() {
-    return await this.client
+    debugLog.log("📋 게시글 목록 조회");
+    
+    const { data, error } = await this.client
       .from("wiki_posts")
       .select("*")
       .eq("deleted", false)
       .order("time", { ascending: false });
+
+    if (error) {
+      debugLog.log(`❌ 게시글 조회 실패: ${error.message}`);
+      return { success: false, error: error.message, data: [] };
+    }
+
+    debugLog.log(`✅ 게시글 ${data?.length || 0}개 조회`);
+    return { success: true, data: data || [] };
   }
 
   /* =========================
@@ -334,11 +360,21 @@ class SupabaseService {
   }
 
   async getComments(postId) {
-    return await this.client
+    debugLog.log(`💬 댓글 조회: Post ID ${postId}`);
+    
+    const { data, error } = await this.client
       .from("wiki_comments")
       .select("*")
       .eq("post_id", postId)
       .order("time", { ascending: false });
+
+    if (error) {
+      debugLog.log(`❌ 댓글 조회 실패: ${error.message}`);
+      return { success: false, error: error.message, data: [] };
+    }
+
+    debugLog.log(`✅ 댓글 ${data?.length || 0}개 조회`);
+    return { success: true, data: data || [] };
   }
 
   /* =========================
