@@ -29,31 +29,33 @@ class SupabaseService {
   /* =========================
      인증 초기화
   =========================== */
-  async init() {
-    let resolved = false;
+async init() {
+  this.client.auth.onAuthStateChange(async (event, session) => {
+    console.log("🔐 auth event:", event);
 
-    const finish = () => {
-      if (!resolved) {
-        resolved = true;
-        this._completeAuth();
-      }
-    };
+    if (session?.user) {
+      await this._setUser(session.user);
+    } else {
+      this.currentUser = null;
+      this.userData = null;
+      this._completeAuth();
+    }
+  });
 
-    // 1️⃣ auth 상태 변화 리스너
-    this.client.auth.onAuthStateChange(async (event, session) => {
-      console.log("🔐 auth event:", event);
-      try {
-        if (session?.user) await this._setUser(session.user);
-        else {
-          this.currentUser = null;
-          this.userData = null;
-        }
-      } catch (e) {
-        console.error("auth 처리 실패:", e);
-      } finally {
-        finish();
-      }
-    });
+  // 새로고침 시 현재 세션 확인
+  try {
+    const { data, error } = await this.client.auth.getSession();
+    if (data?.session?.user) {
+      await this._setUser(data.session.user);
+    } else {
+      this._completeAuth();
+    }
+  } catch (e) {
+    console.error("세션 확인 실패:", e);
+    this._completeAuth();
+  }
+}
+
 
     // 2️⃣ 새로고침 시 현재 세션 확인
     try {
@@ -72,45 +74,38 @@ class SupabaseService {
     }
   }
 
-  /* =========================
-     사용자 정보 설정 (_setUser)
-     - 중복 호출 방지
-  =========================== */
-  async _setUser(user) {
-    if (this.currentUser?.id === user.id) {
-      console.log("⚡ _setUser: 이미 로그인된 유저입니다.", user.id);
-      return;
-    }
+async _setUser(user) {
+  console.log("⚡ _setUser 시작", user);
+  this.currentUser = user;
 
-    console.log("⚡ _setUser 시작", user);
-    this.currentUser = user;
+  try {
+    let { data, error } = await this.client
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .single();
 
-    try {
-      let { data, error } = await this.client
+    if (error || !data) {
+      console.warn("프로필 정보 없음, 새로 생성:", error?.message);
+      const nickname = user.email.split("@")[0];
+      const { data: insertData, error: insertError } = await this.client
         .from("profiles")
-        .select("*")
-        .eq("id", user.id)
+        .insert({ id: user.id, nickname, role: "user" })
+        .select()
         .single();
-
-      if (error || !data) {
-        console.warn("프로필 정보 없음, 새로 생성:", error?.message);
-        const nickname = user.email.split("@")[0];
-        const insertResult = await this.client
-          .from("profiles")
-          .insert({ id: user.id, nickname, role: "user" })
-          .select()
-          .single();
-        data = insertResult.data;
-      }
-
-      this.userData = data;
-    } catch (e) {
-      console.error("프로필 정보 로딩 에러:", e);
-      this.userData = { nickname: user.email.split("@")[0], role: "user" };
+      data = insertData;
+      if (insertError) console.error("프로필 생성 실패:", insertError.message);
     }
 
-    console.log("⚡ _setUser 완료", this.userData);
+    this.userData = data || { nickname: user.email.split("@")[0], role: "user" };
+  } catch (e) {
+    console.error("프로필 정보 로딩 에러:", e);
+    this.userData = { nickname: user.email.split("@")[0], role: "user" };
   }
+
+  console.log("⚡ _setUser 완료", this.userData);
+  this._completeAuth(); // 여기서 무조건 완료 처리
+}
 
   /* =========================
      Auth 완료 처리
