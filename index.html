@@ -129,42 +129,60 @@
       }
     }
 
-    // 글 목록 로드
-    async function loadPosts() {
-      const listDiv = document.getElementById("postList");
-      const result = await supabaseService.getPosts();
+// 글 목록 로드
+async function loadPosts() {
+  const listDiv = document.getElementById("postList");
+  const result = await supabaseService.getPosts(true); // ← 삭제글도 가져오기
 
-      if (!result.success) {
-        listDiv.textContent = "글을 불러오는 중 오류가 발생했습니다: " + result.error;
-        return;
-      }
+  if (!result.success) {
+    listDiv.textContent = "글을 불러오는 중 오류가 발생했습니다: " + result.error;
+    return;
+  }
 
-      if (!result.data || result.data.length === 0) {
-        listDiv.textContent = "아직 작성된 글이 없습니다.";
-        return;
-      }
+  if (!result.data || result.data.length === 0) {
+    listDiv.textContent = "아직 작성된 글이 없습니다.";
+    return;
+  }
 
-      listDiv.innerHTML = "";
-      result.data.forEach(post => {
-        const plainText = post.content?.replace(/<[^>]+>/g, "") ?? "";
-        const shortText = plainText.length > 100 ? plainText.substring(0, 100) + "..." : plainText;
+  listDiv.innerHTML = "";
 
-        let imgHtml = "";
-        if (post.images && Array.isArray(post.images) && post.images.length > 0) {
-          imgHtml = post.images.slice(0, 3).map(url => `<img src="${url}" alt="첨부 이미지">`).join("");
-        }
+  result.data.forEach(post => {
+    const div = document.createElement("div");
+    div.className = "post-card";
 
-        const div = document.createElement("div");
-        div.className = "post-card";
-        div.innerHTML = `
-          <h3><a href="post.html?id=${post.id}">${post.title}</a></h3>
-          <p>${shortText}</p>
-          ${imgHtml}
-          <small>작성자: ${post.author ?? "익명"} | ${new Date(post.time).toLocaleString()}</small>
-        `;
-        listDiv.appendChild(div);
-      });
+    // 🔴 삭제된 글 처리
+    if (post.deleted) {
+      div.innerHTML = `
+        <h3>삭제된 글</h3>
+        <p style="color:#888;">삭제된 글입니다.</p>
+      `;
+      listDiv.appendChild(div);
+      return;
     }
+
+    // 🟢 정상 글
+    const plainText = post.content?.replace(/<[^>]+>/g, "") ?? "";
+    const shortText =
+      plainText.length > 100 ? plainText.substring(0, 100) + "..." : plainText;
+
+    let imgHtml = "";
+    if (post.images && Array.isArray(post.images) && post.images.length > 0) {
+      imgHtml = post.images
+        .slice(0, 3)
+        .map(url => `<img src="${url}" alt="첨부 이미지">`)
+        .join("");
+    }
+
+    div.innerHTML = `
+      <h3><a href="post.html?id=${post.id}">${post.title}</a></h3>
+      <p>${shortText}</p>
+      ${imgHtml}
+      <small>작성자: ${post.author ?? "익명"} | ${new Date(post.time).toLocaleString()}</small>
+    `;
+
+    listDiv.appendChild(div);
+  });
+}
 
     // 검색 기능
     async function searchPosts() {
