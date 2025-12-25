@@ -1,308 +1,226 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8">
-<title>K-ReptileWiki 완전판</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<style>
-body { font-family: Arial, sans-serif; background:#f9fafb; margin:0; padding:0;}
-.container { max-width:800px; margin:50px auto; padding:30px; background:white; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.1);}
-h1,h2,h3 { margin:0 0 10px 0;}
-h1 { text-align:center; color:#2563eb;}
-form { display:flex; flex-direction:column; margin-bottom:20px; }
-.form-group { margin-bottom:10px; }
-.form-group label { font-weight:bold; display:block; margin-bottom:5px; }
-.form-group input, .form-group textarea { width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; }
-.form-group textarea { resize:vertical; height:60px; }
-.btn { padding:8px 12px; margin:5px 0; border:none; border-radius:6px; cursor:pointer; font-weight:bold; }
-.btn-primary { background:#2563eb; color:white; }
-.btn-success { background:#10b981; color:white; }
-.btn-secondary { background:#6b7280; color:white; }
-.btn-danger { background:#f87171; color:white; }
-.btn-warning { background:#fbbf24; color:white; }
-.btn:disabled { background:#ccc; cursor:not-allowed; }
-.user-info { padding:15px; background:#f3f4f6; border-radius:6px; margin-bottom:15px; text-align:center; }
-.post { padding:15px; border-bottom:1px solid #ddd; margin-bottom:10px; }
-.post h3 { margin-bottom:5px; }
-.comments { margin-top:10px; padding-left:15px; }
-.comment { margin-bottom:5px; border-bottom:1px dashed #ccc; padding-bottom:3px; }
-.hidden { display:none; }
-.deleted { opacity:0.6; }
-.version { font-size:0.85em; color:#555; margin-top:5px; }
-.version-btn { font-size:0.75em; margin-left:3px; padding:2px 4px; }
-</style>
+  <meta charset="UTF-8">
+  <title>K-ReptileWiki 로그인</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body { font-family: Arial, sans-serif; background:#f9fafb; }
+    .container { max-width:400px; margin:50px auto; padding:30px; background:white; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.1); }
+    h1 { text-align:center; color:#2563eb; }
+    form { display: flex; flex-direction: column; }
+    .form-group { margin-bottom:15px; }
+    .form-group label { display:block; margin-bottom:5px; font-weight:bold; }
+    .form-group input { width:100%; padding:10px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; }
+    .btn { width:100%; padding:12px; border:none; border-radius:6px; cursor:pointer; font-weight:bold; margin-bottom:10px; }
+    .btn-primary { background:#2563eb; color:white; }
+    .btn-success { background:#10b981; color:white; }
+    .btn-danger { background:#f87171; color:white; }
+    .btn-secondary { background:#6b7280; color:white; }
+    .user-info { padding:15px; background:#f3f4f6; border-radius:6px; margin-bottom:15px; text-align:center; }
+    .btn:disabled { background: #ccc; cursor: not-allowed; }
+    #postFormContainer { display:none; margin-top:20px; }
+  </style>
 </head>
 <body>
-<div class="container">
-<h1>🦎 K-ReptileWiki 완전판</h1>
+  <div class="container">
+    <h1>🦎 K-ReptileWiki</h1>
 
-<div id="userInfo" class="user-info">로그인 상태 확인 중...</div>
+    <div id="userInfo" class="user-info">로그인 상태 확인 중...</div>
 
-<form id="loginForm">
-<div class="form-group">
-<label>이메일</label>
-<input type="email" id="email" placeholder="example@email.com">
-</div>
-<div class="form-group">
-<label>비밀번호</label>
-<input type="password" id="password" placeholder="비밀번호">
-</div>
-<div id="signupFields" class="hidden">
-<div class="form-group">
-<label>닉네임 (선택)</label>
-<input type="text" id="nickname" placeholder="닉네임 (비워두면 이메일 사용)">
-</div>
-<div class="form-group">
-<label>비밀번호 확인</label>
-<input type="password" id="confirmPassword" placeholder="비밀번호 확인">
-</div>
-</div>
+    <!-- 로그인/회원가입 폼 -->
+    <form id="loginForm">
+      <div class="form-group">
+        <label>이메일</label>
+        <input type="email" id="email" placeholder="example@email.com">
+      </div>
+      <div class="form-group">
+        <label>비밀번호</label>
+        <input type="password" id="password" placeholder="비밀번호">
+      </div>
 
-<button type="button" id="loginBtn" class="btn btn-primary">로그인</button>
-<button type="button" id="signupBtn" class="btn btn-success hidden">회원가입</button>
-<button type="button" id="toggleBtn" class="btn btn-secondary">회원가입 모드로 전환</button>
-</form>
+      <div id="signupFields" style="display:none;">
+        <div class="form-group">
+          <label>닉네임 (선택)</label>
+          <input type="text" id="nickname" placeholder="닉네임 (비워두면 이메일 사용)">
+        </div>
+        <div class="form-group">
+          <label>비밀번호 확인</label>
+          <input type="password" id="confirmPassword" placeholder="비밀번호 확인">
+        </div>
+      </div>
 
-<div id="logoutSection" class="hidden">
-<button id="logoutBtn" class="btn btn-danger">로그아웃</button>
-</div>
+      <button type="button" id="loginBtn" class="btn btn-primary">로그인</button>
+      <button type="button" id="signupBtn" class="btn btn-success" style="display:none;">회원가입</button>
+      <button type="button" id="toggleBtn" class="btn btn-secondary">회원가입 모드로 전환</button>
+    </form>
 
-<div id="postFormContainer" class="hidden">
-<h2>게시글 작성</h2>
-<form id="postForm">
-<div class="form-group">
-<label>제목</label>
-<input type="text" id="postTitle" placeholder="제목">
-</div>
-<div class="form-group">
-<label>내용</label>
-<textarea id="postContent" placeholder="내용"></textarea>
-</div>
-<button type="button" id="createPostBtn" class="btn btn-primary">작성</button>
-</form>
-</div>
+    <div id="logoutSection" style="display:none;">
+      <button id="logoutBtn" class="btn btn-danger">로그아웃</button>
+    </div>
 
-<div id="postsContainer" class="hidden">
-<h2>게시글 목록</h2>
-<div id="posts"></div>
-</div>
-</div>
+    <button id="cancelBtn" class="btn btn-secondary">메인으로</button>
+    <button id="showPostFormBtn" class="btn btn-primary" style="display:none;">글쓰기</button>
 
-<script type="module">
-import { supabaseService } from "./js/supabase.js";
-
-const userInfoDiv = document.getElementById("userInfo");
-const loginForm = document.getElementById("loginForm");
-const logoutSection = document.getElementById("logoutSection");
-const signupFields = document.getElementById("signupFields");
-const toggleBtn = document.getElementById("toggleBtn");
-const postsContainer = document.getElementById("postsContainer");
-const postsDiv = document.getElementById("posts");
-const postFormContainer = document.getElementById("postFormContainer");
-let isSignupMode = false;
-
-function updateUI(){
-  const {user,data} = supabaseService.getCurrentUser();
-  if(user){
-    const nickname = data?.nickname||user.email.split("@")[0];
-    const role = data?.role||"user";
-    userInfoDiv.innerHTML = `현재 로그인: <strong>${nickname}</strong><br>권한: ${role==="admin"?"관리자":"일반 사용자"}`;
-    loginForm.classList.add("hidden");
-    logoutSection.classList.remove("hidden");
-    postsContainer.classList.remove("hidden");
-    postFormContainer.classList.remove("hidden");
-    loadPosts();
-  }else{
-    userInfoDiv.textContent="로그인되지 않음";
-    loginForm.classList.remove("hidden");
-    logoutSection.classList.add("hidden");
-    postsContainer.classList.add("hidden");
-    postFormContainer.classList.add("hidden");
-  }
-}
-
-async function loadPosts(){
-  postsDiv.innerHTML="로딩 중...";
-  const result = await supabaseService.getPosts(true);
-  if(result.success){
-    postsDiv.innerHTML="";
-    for(const post of result.data){
-      const div = document.createElement("div");
-      div.className="post"+(post.deleted?" deleted":"");
-      div.innerHTML=`<h3>${post.title}</h3><p>${post.content}</p>
-      <button class="btn btn-secondary likeBtn" data-id="${post.id}">좋아요</button>
-      <span class="likeCount" id="like-${post.id}">0</span>
-      <div class="comments" id="comments-${post.id}"></div>
-      <form class="commentForm" data-id="${post.id}">
-      <input type="text" placeholder="댓글 입력" class="commentInput">
-      <button type="button" class="btn btn-primary commentSubmit">댓글</button>
+    <!-- 글쓰기 폼 -->
+    <div id="postFormContainer">
+      <h3>글쓰기</h3>
+      <form id="postForm">
+        <div class="form-group">
+          <label>제목</label>
+          <input type="text" id="postTitle" placeholder="제목">
+        </div>
+        <div class="form-group">
+          <label>내용</label>
+          <textarea id="postContent" rows="5" placeholder="내용"></textarea>
+        </div>
+        <button type="button" id="submitPostBtn" class="btn btn-success">작성 완료</button>
       </form>
-      <div class="version" id="versions-${post.id}"></div>
-      `;
-      postsDiv.appendChild(div);
+    </div>
+  </div>
 
-      await updateLikeCount(post.id);
-      await loadComments(post.id);
-      await loadVersions(post.id);
+  <script type="module">
+    import { supabaseService } from "./js/supabase.js";
 
-      // 좋아요
-      div.querySelector(".likeBtn").addEventListener("click", async()=>{
-        await supabaseService.toggleLike(post.id);
-        await updateLikeCount(post.id);
-      });
+    let isSignupMode = false;
 
-      // 댓글
-      div.querySelector(".commentSubmit").addEventListener("click", async(e)=>{
-        const input = div.querySelector(".commentInput");
-        const content = input.value.trim();
-        if(!content) return;
-        await supabaseService.addComment(post.id, content);
-        input.value="";
-        await loadComments(post.id);
-      });
+    const userInfoDiv = document.getElementById("userInfo");
+    const loginForm = document.getElementById("loginForm");
+    const logoutSection = document.getElementById("logoutSection");
+    const signupFields = document.getElementById("signupFields");
+    const toggleBtn = document.getElementById("toggleBtn");
+    const showPostFormBtn = document.getElementById("showPostFormBtn");
+    const postFormContainer = document.getElementById("postFormContainer");
 
-      // 관리자 기능
-      if(supabaseService.isAdmin()){
-        const adminDiv = document.createElement("div");
-        adminDiv.style.marginTop="5px";
-        adminDiv.innerHTML=post.deleted
-          ? `<button class="btn btn-warning restorePostBtn" data-id="${post.id}">복원</button>`
-          : `<button class="btn btn-danger deletePostBtn" data-id="${post.id}">삭제</button>
-             <button class="btn btn-success editPostBtn" data-id="${post.id}">수정</button>`;
-        div.appendChild(adminDiv);
+    // UI 업데이트
+    function updateUI() {
+      const { user, data } = supabaseService.getCurrentUser();
 
-        adminDiv.querySelector(".deletePostBtn")?.addEventListener("click", async()=>{
-          await supabaseService.deletePost(post.id); loadPosts();
-        });
-        adminDiv.querySelector(".restorePostBtn")?.addEventListener("click", async()=>{
-          await supabaseService.restorePost(post.id); loadPosts();
-        });
-        adminDiv.querySelector(".editPostBtn")?.addEventListener("click", async()=>{
-          const newTitle = prompt("새 제목:", post.title);
-          const newContent = prompt("새 내용:", post.content);
-          if(newTitle && newContent){
-            await supabaseService.updatePost(post.id,newTitle,newContent);
-            loadPosts();
-          }
-        });
+      if (user) {
+        const nickname = data?.nickname || user.email.split("@")[0];
+        const role = data?.role || "user";
+
+        userInfoDiv.innerHTML = `
+          현재 로그인: <strong>${nickname}</strong><br>
+          권한: ${role === "admin" ? "관리자" : "일반 사용자"}
+        `;
+
+        loginForm.style.display = "none";
+        logoutSection.style.display = "block";
+        showPostFormBtn.style.display = "block"; // 글쓰기 버튼만 표시
+        postFormContainer.style.display = "none"; // 글쓰기 폼 자동 표시 X
+      } else {
+        userInfoDiv.textContent = "로그인되지 않음";
+        loginForm.style.display = "block";
+        logoutSection.style.display = "none";
+        showPostFormBtn.style.display = "none";
+        postFormContainer.style.display = "none";
       }
     }
-  }else postsDiv.textContent="게시글 로딩 실패: "+result.error;
-}
 
-async function loadComments(postId){
-  const commentsDiv = document.getElementById("comments-"+postId);
-  const res = await supabaseService.getComments(postId);
-  if(res.success){
-    commentsDiv.innerHTML="";
-    res.data.forEach(c=>{
-      const div=document.createElement("div");
-      div.className="comment";
-      div.textContent=`${c.author}: ${c.content}`;
-      if(supabaseService.isAdmin()){
-        const delBtn = document.createElement("button");
-        delBtn.className="btn btn-danger btn-sm";
-        delBtn.style.marginLeft="5px";
-        delBtn.textContent="삭제";
-        delBtn.addEventListener("click", async()=>{
-          await supabaseService.deleteComment(c.id);
-          loadComments(postId);
-        });
-        div.appendChild(delBtn);
-      }
-      commentsDiv.appendChild(div);
-    });
-  }
-}
+    window.addEventListener("load", async () => {
+      console.log("⏳ 인증 상태 확인 중...");
 
-async function updateLikeCount(postId){
-  const count = await supabaseService.getLikeCount(postId);
-  const span = document.getElementById("like-"+postId);
-  span.textContent=count;
-}
+      try {
+        await supabaseService.waitForAuth(); // 인증 대기
+        const { data } = await supabaseService.client.auth.getSession();
 
-// 게시글 버전 관리
-async function loadVersions(postId){
-  const versionDiv = document.getElementById("versions-"+postId);
-  const {data,error} = await supabaseService.client
-    .from("wiki_posts_versions")
-    .select("*")
-    .eq("post_id",postId)
-    .order("updated_at",{ascending:false});
-  if(!error && data.length){
-    versionDiv.innerHTML="버전: ";
-    data.forEach(v=>{
-      const btn = document.createElement("button");
-      btn.className="btn btn-secondary version-btn";
-      btn.textContent=v.updated_at.split("T")[0];
-      btn.addEventListener("click", async()=>{
-        if(confirm("이 버전으로 복원하시겠습니까?")){
-          await supabaseService.updatePost(postId,v.title,v.content);
-          loadPosts();
+        if (data?.session?.user) {
+          await supabaseService._setUser(data.session.user);
         }
-      });
-      versionDiv.appendChild(btn);
+      } catch(e) {
+        console.error("세션 확인 실패:", e);
+      }
+
+      updateUI();
     });
-  }
-}
 
-// 로드 시 인증 확인
-window.addEventListener("load", async()=>{
-  try{
-    await supabaseService.waitForAuth();
-    const {data} = await supabaseService.client.auth.getSession();
-    if(data?.session?.user) await supabaseService._setUser(data.session.user);
-  }catch(e){ console.error(e); }
-  updateUI();
-});
+    // 회원가입 모드 전환
+    toggleBtn.addEventListener("click", () => {
+      isSignupMode = !isSignupMode;
+      signupFields.style.display = isSignupMode ? "block" : "none";
+      toggleBtn.textContent = isSignupMode ? "로그인 모드로 전환" : "회원가입 모드로 전환";
+      document.getElementById("loginBtn").style.display = isSignupMode ? "none" : "block";
+      document.getElementById("signupBtn").style.display = isSignupMode ? "block" : "none";
+    });
 
-// 로그인/회원가입 토글
-toggleBtn.addEventListener("click", ()=>{
-  isSignupMode=!isSignupMode;
-  signupFields.classList.toggle("hidden",!isSignupMode);
-  toggleBtn.textContent = isSignupMode?"로그인 모드로 전환":"회원가입 모드로 전환";
-  document.getElementById("loginBtn").classList.toggle("hidden",isSignupMode);
-  document.getElementById("signupBtn").classList.toggle("hidden",!isSignupMode);
-});
+    // 로그인
+    document.getElementById("loginBtn").addEventListener("click", async (e) => {
+      const btn = e.target;
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value.trim();
 
-// 로그인
-document.getElementById("loginBtn").addEventListener("click", async()=>{
-  const email = document.getElementById("email").value.trim();
-  const password = document.getElementById("password").value.trim();
-  if(!email||!password){ alert("이메일과 비밀번호를 입력하세요"); return; }
-  const res = await supabaseService.signIn(email,password);
-  if(res.success){ alert("로그인 성공"); await supabaseService.waitForAuth(); updateUI();}
-  else alert("로그인 실패: "+res.error);
-});
+      if (!email || !password) { alert("이메일과 비밀번호를 입력하세요"); return; }
 
-// 회원가입
-document.getElementById("signupBtn").addEventListener("click", async()=>{
-  const email = document.getElementById("email").value.trim();
-  const password = document.getElementById("password").value.trim();
-  const confirmPassword = document.getElementById("confirmPassword").value.trim();
-  const nickname = document.getElementById("nickname").value.trim();
-  if(!email||!password){ alert("이메일과 비밀번호를 입력하세요"); return; }
-  if(password!==confirmPassword){ alert("비밀번호가 일치하지 않습니다"); return; }
-  const res = await supabaseService.signUp(email,password,nickname);
-  if(res.success){ alert("회원가입 성공! 로그인해주세요."); location.reload();}
-  else alert("회원가입 실패: "+res.error);
-});
+      btn.disabled = true;
+      btn.textContent = "로그인 중...";
 
-// 로그아웃
-document.getElementById("logoutBtn").addEventListener("click", async()=>{
-  const res = await supabaseService.signOut();
-  if(res.success){ alert("로그아웃됨"); updateUI();}
-});
+      const result = await supabaseService.signIn(email, password);
 
-// 게시글 작성
-document.getElementById("createPostBtn").addEventListener("click", async()=>{
-  const title=document.getElementById("postTitle").value.trim();
-  const content=document.getElementById("postContent").value.trim();
-  if(!title||!content){ alert("제목과 내용을 입력하세요"); return;}
-  const res = await supabaseService.createPost(title,content);
-  if(res.success){ document.getElementById("postTitle").value=""; document.getElementById("postContent").value=""; loadPosts();}
-  else alert("게시글 작성 실패: "+res.error);
-});
-</script>
+      if (result.success) {
+        alert("로그인 성공!");
+        await supabaseService.waitForAuth();
+        updateUI(); // 화면 갱신
+      } else {
+        alert("로그인 실패: " + result.error);
+        btn.disabled = false;
+        btn.textContent = "로그인";
+      }
+    });
+
+    // 회원가입
+    document.getElementById("signupBtn").addEventListener("click", async () => {
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value.trim();
+      const confirmPassword = document.getElementById("confirmPassword").value.trim();
+      const nickname = document.getElementById("nickname").value.trim();
+
+      if (!email || !password) { alert("이메일과 비밀번호를 입력하세요"); return; }
+      if (password !== confirmPassword) { alert("비밀번호가 일치하지 않습니다"); return; }
+
+      const result = await supabaseService.signUp(email, password, nickname);
+      if (result.success) {
+        alert("회원가입 성공! 로그인해주세요.");
+        location.reload();
+      } else {
+        alert("회원가입 실패: " + result.error);
+      }
+    });
+
+    // 로그아웃
+    document.getElementById("logoutBtn").addEventListener("click", async () => {
+      const result = await supabaseService.signOut();
+      if (result.success) { alert("로그아웃됨"); updateUI(); }
+    });
+
+    // 메인 이동
+    document.getElementById("cancelBtn").addEventListener("click", () => {
+      location.href = "index.html";
+    });
+
+    // 글쓰기 버튼 클릭
+    showPostFormBtn.addEventListener("click", () => {
+      postFormContainer.style.display = "block";
+      postFormContainer.scrollIntoView({ behavior: "smooth" });
+    });
+
+    // 글쓰기 완료
+    document.getElementById("submitPostBtn").addEventListener("click", async () => {
+      const title = document.getElementById("postTitle").value.trim();
+      const content = document.getElementById("postContent").value.trim();
+
+      if (!title || !content) { alert("제목과 내용을 입력하세요"); return; }
+
+      const result = await supabaseService.createPost(title, content);
+      if (result.success) {
+        alert("글 작성 완료!");
+        postFormContainer.style.display = "none";
+      } else {
+        alert("글 작성 실패: " + result.error);
+      }
+    });
+
+  </script>
 </body>
 </html>
