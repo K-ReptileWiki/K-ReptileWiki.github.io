@@ -28,12 +28,37 @@ class SupabaseService {
 /* =========================
    인증 초기화
 ========================== */
+/* =========================
+   인증 초기화 (최종본)
+========================== */
 async init() {
+  // ✅ 1. auth 상태 변화 리스너를 먼저 등록
+  this.client.auth.onAuthStateChange(async (event, session) => {
+    console.log("🔐 auth event:", event);
+
+    try {
+      if (session?.user) {
+        // 로그인 / 새로고침 / 토큰 갱신 포함
+        await this._setUser(session.user);
+        return;
+      }
+
+      // 로그아웃 or 세션 없음
+      this.currentUser = null;
+      this.userData = null;
+      this._completeAuth();
+    } catch (e) {
+      console.error("auth state 처리 실패:", e);
+      this._completeAuth();
+    }
+  });
+
+  // ✅ 2. 현재 세션 즉시 확인 (새로고침 대응)
   try {
     const { data, error } = await this.client.auth.getSession();
 
     if (error) {
-      console.warn("세션 오류, 로그아웃 처리");
+      console.warn("세션 오류:", error.message);
       await this.client.auth.signOut();
       this._completeAuth();
       return;
@@ -42,58 +67,16 @@ async init() {
     if (data?.session?.user) {
       await this._setUser(data.session.user);
     } else {
-      this._completeAuth(); // ✅ 로그인 안 된 상태도 완료 처리
+      // 로그인 안 된 상태도 정상 종료
+      this._completeAuth();
     }
   } catch (e) {
-    console.error("세션 확인 실패:", e.message);
+    console.error("세션 확인 실패:", e);
     await this.client.auth.signOut();
     this._completeAuth();
   }
-
-  // ⭐⭐ 이 부분이 제일 중요 ⭐⭐
-  this.client.auth.onAuthStateChange(async (event, session) => {
-    if (event === "SIGNED_IN" && session?.user) {
-      await this._setUser(session.user);
-      return;
-    }
-
-    if (event === "SIGNED_OUT") {
-      this.currentUser = null;
-      this.userData = null;
-      this._completeAuth(); // ✅ 무한 로딩 방지 핵심
-    }
-  });
 }
 
-
-  _completeAuth() {
-    if (this._authResolved) return;
-    this._authResolved = true;
-    this._resolveAuth();
-  }
-
-  async waitForAuth() {
-    if (this._authResolved) return;
-    return this._authPromise;
-  }
-
-  async _setUser(user) {
-    this.currentUser = user;
-
-    const { data } = await this.client
-      .from("profiles")
-      .select("*")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    this.userData = data || {
-      id: user.id,
-      nickname: user.email.split("@")[0],
-      role: "user"
-    };
-
-    this._completeAuth();
-  }
 
   /* =========================
      상태 확인
