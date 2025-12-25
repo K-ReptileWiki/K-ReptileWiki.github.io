@@ -26,9 +26,6 @@ class SupabaseService {
   }
 
 /* =========================
-   인증 초기화
-========================== */
-/* =========================
    인증 초기화 (최종본)
 ========================== */
 async init() {
@@ -80,6 +77,24 @@ async init() {
     finish();
   }
 }
+
+/* =========================
+   Auth 완료 처리 (중요)
+========================== */
+_completeAuth() {
+  if (this._authResolved) return;
+  this._authResolved = true;
+  this._resolveAuth();
+}
+
+/* =========================
+   Auth 대기 (index.html에서 사용)
+========================== */
+async waitForAuth() {
+  if (this._authResolved) return;
+  return this._authPromise;
+}
+
 
   /* =========================
      상태 확인
