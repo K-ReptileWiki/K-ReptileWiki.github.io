@@ -20,16 +20,15 @@
     .btn-secondary { background:#6b7280; color:white; }
     .user-info { padding:15px; background:#f3f4f6; border-radius:6px; margin-bottom:15px; text-align:center; }
     .btn:disabled { background: #ccc; cursor: not-allowed; }
-    #postFormContainer { display:none; margin-top:20px; }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>🦎 K-ReptileWiki</h1>
 
-    <div id="userInfo" class="user-info">로그인 상태 확인 중...</div>
+    <div id="userInfo" class="user-info">사용자 인증 확인중…</div>
 
-    <!-- 로그인/회원가입 폼 -->
+    <!-- 로그인 폼 -->
     <form id="loginForm">
       <div class="form-group">
         <label>이메일</label>
@@ -61,40 +60,19 @@
     </div>
 
     <button id="cancelBtn" class="btn btn-secondary">메인으로</button>
-    <button id="showPostFormBtn" class="btn btn-primary" style="display:none;">글쓰기</button>
-
-    <!-- 글쓰기 폼 -->
-    <div id="postFormContainer">
-      <h3>글쓰기</h3>
-      <form id="postForm">
-        <div class="form-group">
-          <label>제목</label>
-          <input type="text" id="postTitle" placeholder="제목">
-        </div>
-        <div class="form-group">
-          <label>내용</label>
-          <textarea id="postContent" rows="5" placeholder="내용"></textarea>
-        </div>
-        <button type="button" id="submitPostBtn" class="btn btn-success">작성 완료</button>
-      </form>
-    </div>
   </div>
 
   <script type="module">
     import { supabaseService } from "./js/supabase.js";
 
     let isSignupMode = false;
-
     const userInfoDiv = document.getElementById("userInfo");
     const loginForm = document.getElementById("loginForm");
     const logoutSection = document.getElementById("logoutSection");
     const signupFields = document.getElementById("signupFields");
     const toggleBtn = document.getElementById("toggleBtn");
-    const showPostFormBtn = document.getElementById("showPostFormBtn");
-    const postFormContainer = document.getElementById("postFormContainer");
 
-    // UI 업데이트
-    function updateUI() {
+    window.updateUI = function() {
       const { user, data } = supabaseService.getCurrentUser();
 
       if (user) {
@@ -105,30 +83,24 @@
           현재 로그인: <strong>${nickname}</strong><br>
           권한: ${role === "admin" ? "관리자" : "일반 사용자"}
         `;
-
         loginForm.style.display = "none";
         logoutSection.style.display = "block";
-        showPostFormBtn.style.display = "block"; // 글쓰기 버튼만 표시
-        postFormContainer.style.display = "none"; // 글쓰기 폼 자동 표시 X
       } else {
         userInfoDiv.textContent = "로그인되지 않음";
         loginForm.style.display = "block";
         logoutSection.style.display = "none";
-        showPostFormBtn.style.display = "none";
-        postFormContainer.style.display = "none";
       }
     }
 
     window.addEventListener("load", async () => {
-      console.log("⏳ 인증 상태 확인 중...");
+      console.log("⏳ 인증 상태 확인 중…");
+      loginForm.style.display = "block";
+      logoutSection.style.display = "none";
 
       try {
-        await supabaseService.waitForAuth(); // 인증 대기
+        await supabaseService.waitForAuth();
         const { data } = await supabaseService.client.auth.getSession();
-
-        if (data?.session?.user) {
-          await supabaseService._setUser(data.session.user);
-        }
+        if (data?.session?.user) await supabaseService._setUser(data.session.user);
       } catch(e) {
         console.error("세션 확인 실패:", e);
       }
@@ -136,7 +108,6 @@
       updateUI();
     });
 
-    // 회원가입 모드 전환
     toggleBtn.addEventListener("click", () => {
       isSignupMode = !isSignupMode;
       signupFields.style.display = isSignupMode ? "block" : "none";
@@ -145,7 +116,6 @@
       document.getElementById("signupBtn").style.display = isSignupMode ? "block" : "none";
     });
 
-    // 로그인
     document.getElementById("loginBtn").addEventListener("click", async (e) => {
       const btn = e.target;
       const email = document.getElementById("email").value.trim();
@@ -154,14 +124,12 @@
       if (!email || !password) { alert("이메일과 비밀번호를 입력하세요"); return; }
 
       btn.disabled = true;
-      btn.textContent = "로그인 중...";
+      btn.textContent = "로그인 중…";
 
       const result = await supabaseService.signIn(email, password);
-
       if (result.success) {
         alert("로그인 성공!");
-        await supabaseService.waitForAuth();
-        updateUI(); // 화면 갱신
+        updateUI();
       } else {
         alert("로그인 실패: " + result.error);
         btn.disabled = false;
@@ -169,7 +137,6 @@
       }
     });
 
-    // 회원가입
     document.getElementById("signupBtn").addEventListener("click", async () => {
       const email = document.getElementById("email").value.trim();
       const password = document.getElementById("password").value.trim();
@@ -188,39 +155,17 @@
       }
     });
 
-    // 로그아웃
     document.getElementById("logoutBtn").addEventListener("click", async () => {
       const result = await supabaseService.signOut();
-      if (result.success) { alert("로그아웃됨"); updateUI(); }
-    });
-
-    // 메인 이동
-    document.getElementById("cancelBtn").addEventListener("click", () => {
-      location.href = "index.html";
-    });
-
-    // 글쓰기 버튼 클릭
-    showPostFormBtn.addEventListener("click", () => {
-      postFormContainer.style.display = "block";
-      postFormContainer.scrollIntoView({ behavior: "smooth" });
-    });
-
-    // 글쓰기 완료
-    document.getElementById("submitPostBtn").addEventListener("click", async () => {
-      const title = document.getElementById("postTitle").value.trim();
-      const content = document.getElementById("postContent").value.trim();
-
-      if (!title || !content) { alert("제목과 내용을 입력하세요"); return; }
-
-      const result = await supabaseService.createPost(title, content);
-      if (result.success) {
-        alert("글 작성 완료!");
-        postFormContainer.style.display = "none";
-      } else {
-        alert("글 작성 실패: " + result.error);
+      if (result.success) { 
+        alert("로그아웃됨"); 
+        updateUI(); 
       }
     });
 
+    document.getElementById("cancelBtn").addEventListener("click", () => {
+      location.href = "index.html";
+    });
   </script>
 </body>
 </html>
