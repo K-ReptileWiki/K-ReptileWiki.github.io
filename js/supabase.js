@@ -25,41 +25,46 @@ class SupabaseService {
     SupabaseService.instance = this;
   }
 
-  /* =========================
-     인증 초기화
-  ========================== */
-  async init() {
-    try {
-      const { data, error } = await this.client.auth.getSession();
-      
-      if (error) {
-        console.warn("세션 오류, 로컬 스토리지 클리어");
-        await this.client.auth.signOut();
-        this._completeAuth();
-        return;
-      }
-      
-      if (data?.session?.user) {
-        await this._setUser(data.session.user);
-      } else {
-        this._completeAuth();
-      }
-    } catch (e) {
-      console.error("세션 확인 실패:", e.message);
+/* =========================
+   인증 초기화
+========================== */
+async init() {
+  try {
+    const { data, error } = await this.client.auth.getSession();
+
+    if (error) {
+      console.warn("세션 오류, 로그아웃 처리");
       await this.client.auth.signOut();
       this._completeAuth();
+      return;
     }
 
-    this.client.auth.onAuthStateChange(async (event, session) => {
-      if (event === "SIGNED_IN" && session?.user) {
-        await this._setUser(session.user);
-      }
-      if (event === "SIGNED_OUT") {
-        this.currentUser = null;
-        this.userData = null;
-      }
-    });
+    if (data?.session?.user) {
+      await this._setUser(data.session.user);
+    } else {
+      this._completeAuth(); // ✅ 로그인 안 된 상태도 완료 처리
+    }
+  } catch (e) {
+    console.error("세션 확인 실패:", e.message);
+    await this.client.auth.signOut();
+    this._completeAuth();
   }
+
+  // ⭐⭐ 이 부분이 제일 중요 ⭐⭐
+  this.client.auth.onAuthStateChange(async (event, session) => {
+    if (event === "SIGNED_IN" && session?.user) {
+      await this._setUser(session.user);
+      return;
+    }
+
+    if (event === "SIGNED_OUT") {
+      this.currentUser = null;
+      this.userData = null;
+      this._completeAuth(); // ✅ 무한 로딩 방지 핵심
+    }
+  });
+}
+
 
   _completeAuth() {
     if (this._authResolved) return;
