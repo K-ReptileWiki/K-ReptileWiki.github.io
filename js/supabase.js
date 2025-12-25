@@ -157,32 +157,25 @@ class SupabaseService {
   /* =========================
      게시글 CRUD
   ========================== */
-  async createPost(title, content, imageUrls = []) {
-    if (!this.isLoggedIn()) {
-      return { success: false, error: "로그인 필요" };
-    }
+const { data, error } = await this.client
+  .from("wiki_posts")
+  .insert({
+    title,
+    content,
+    images: cleanUrls,
+    uid: this.currentUser.id,
+    author: this.userData.nickname,
+    deleted: false,
+    time: new Date().toISOString()
+  })
+  .select("id");
 
-    const cleanUrls = imageUrls
-      .map(u => typeof u === "string" ? u.replace(/^["']|["']$/g, "").trim() : u)
-      .filter(Boolean);
+if (error) {
+  return { success: false, error: error.message };
+}
 
-    const { data, error } = await this.client
-      .from("wiki_posts")
-      .insert({
-        title,
-        content,
-        images: cleanUrls,
-        uid: this.currentUser.id,
-        author: this.userData.nickname,
-        deleted: false,
-        time: new Date().toISOString()
-      })
-      .select()
-      .single();
+return { success: true, data: data[0] };
 
-    if (error) return { success: false, error: error.message };
-    return { success: true, data };
-  }
 
   async getPost(postId) {
     const { data, error } = await this.client
