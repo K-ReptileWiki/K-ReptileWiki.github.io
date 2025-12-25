@@ -7,24 +7,16 @@ async function requireAdmin() {
   await supabaseService.waitForAuth();
 
   if (!supabaseService.isLoggedIn()) {
-    alert("로그인 필요");
+    alert("로그인이 필요합니다");
     location.href = "login.html";
     throw new Error("로그인 필요");
   }
 
   if (!supabaseService.isAdmin()) {
-    alert("관리자 권한 없음");
+    alert("관리자 권한이 필요합니다");
     location.href = "index.html";
     throw new Error("권한 없음");
   }
-}
-
-async function log(action, target) {
-  await supabase.from("admin_logs").insert({
-    admin_id: supabaseService.currentUser.id,
-    action,
-    target_id: target
-  });
 }
 
 /* =========================
@@ -34,176 +26,287 @@ export const adminService = {
   /* ---------- USERS ---------- */
   async getUsers() {
     await requireAdmin();
-    const { data } = await supabase.from("profiles").select("*");
-    return data;
-  },
-
-  async getBlocks() {
-    const { data } = await supabase.from("user_blocks").select("*");
+    const { data, error } = await supabase.from("profiles").select("*");
+    if (error) {
+      console.error("사용자 조회 실패:", error);
+      return [];
+    }
     return data || [];
   },
 
-  async blockUser(uid, reason, days) {
-    let until = null;
-    if (days) {
-      until = new Date(Date.now() + days * 86400000).toISOString();
-    }
-
-    await supabase.from("user_blocks").upsert({
-      user_id: uid,
-      reason,
-      blocked_until: until
-    });
-
-    await log("BLOCK_USER", uid);
+  async makeAdmin(uid) {
+    const { error } = await supabase
+      .from("profiles")
+      .update({ role: "admin" })
+      .eq("id", uid);
+    
+    if (error) throw new Error(error.message);
   },
 
-  async unblockUser(uid) {
-    await supabase.from("user_blocks").delete().eq("user_id", uid);
-    await log("UNBLOCK_USER", uid);
+  async removeAdmin(uid) {
+    const { error } = await supabase
+      .from("profiles")
+      .update({ role: "user" })
+      .eq("id", uid);
+    
+    if (error) throw new Error(error.message);
   },
 
   /* ---------- POSTS ---------- */
   async getPosts() {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("wiki_posts")
       .select("*")
       .order("time", { ascending: false });
-    return data;
+    
+    if (error) {
+      console.error("게시글 조회 실패:", error);
+      return [];
+    }
+    return data || [];
   },
 
   async deletePost(id) {
-    await supabase.from("wiki_posts").update({ deleted: true }).eq("id", id);
-    await log("DELETE_POST", id);
+    const { error } = await supabase
+      .from("wiki_posts")
+      .update({ deleted: true })
+      .eq("id", id);
+    
+    if (error) throw new Error(error.message);
+  },
+
+  async restorePost(id) {
+    const { error } = await supabase
+      .from("wiki_posts")
+      .update({ deleted: false })
+      .eq("id", id);
+    
+    if (error) throw new Error(error.message);
   },
 
   /* ---------- COMMENTS ---------- */
   async getComments() {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("wiki_comments")
       .select("*")
       .order("time", { ascending: false });
-    return data;
+    
+    if (error) {
+      console.error("댓글 조회 실패:", error);
+      return [];
+    }
+    return data || [];
   },
 
   async deleteComment(id) {
-    await supabase.from("wiki_comments").delete().eq("id", id);
-    await log("DELETE_COMMENT", id);
-  },
-
-  /* ---------- LOGS ---------- */
-  async getLogs() {
-    const { data } = await supabase
-      .from("admin_logs")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(100);
-    return data;
+    const { error } = await supabase
+      .from("wiki_comments")
+      .delete()
+      .eq("id", id);
+    
+    if (error) throw new Error(error.message);
   }
 };
 
 /* =========================
    UI LOADERS
 ========================== */
-window.onload = async () => {
-  await requireAdmin();
-  loadUsers();
-  loadPosts();
-  loadComments();
-  loadLogs();
-};
+window.addEventListener("DOMContentLoaded", async () => {
+  try {
+    await requireAdmin();
+    await Promise.all([
+      loadUsers(),
+      loadPosts(),
+      loadComments(),
+      loadLogs()
+    ]);
+  } catch (err) {
+    console.error("초기화 실패:", err);
+  }
+});
 
 /* ---------- USERS ---------- */
 async function loadUsers() {
-  const users = await adminService.getUsers();
-  const blocks = await adminService.getBlocks();
-  const map = {};
-  blocks.forEach(b => map[b.user_id] = b);
-
   const box = document.getElementById("users");
-  box.innerHTML = "";
+  
+  try {
+    const users = await adminService.getUsers();
+    
+    if (!users || users.length === 0) {
+      box.innerHTML = '<div class="empty">등록된 사용자가 없습니다</div>';
+      return;
+    }
 
-  users.forEach(u => {
-    const block = map[u.id];
-    const status = block
-      ? `⛔ ${block.blocked_until ? "임시" : "영구"}`
-      : "정상";
-
-    const div = document.createElement("div");
-    div.className = "card";
-    div.innerHTML = `
-      <b>${u.nickname}</b> (${u.role}) - ${status}<br>
-      <button onclick="ban('${u.id}')">차단</button>
-      <button onclick="unban('${u.id}')">해제</button>
-    `;
-    box.appendChild(div);
-  });
+    box.innerHTML = "";
+    
+    users.forEach(u => {
+      const isAdmin = u.role === "admin";
+      const roleClass = isAdmin ? "badge-admin" : "badge-user";
+      
+      const div = document.createElement("div");
+      div.className = "card";
+      div.innerHTML = `
+        <div class="card-content">
+          <strong>${u.nickname || u.email || "익명"}</strong>
+          <span class="badge ${roleClass}">${u.role || "user"}</span>
+          <small>UID: ${u.id}</small>
+        </div>
+        <div class="card-actions">
+          ${!isAdmin 
+            ? `<button class="btn btn-warning" onclick="makeAdmin('${u.id}')">관리자 승격</button>` 
+            : `<button class="btn btn-secondary" onclick="removeAdmin('${u.id}')">관리자 해제</button>`
+          }
+        </div>
+      `;
+      box.appendChild(div);
+    });
+  } catch (err) {
+    box.innerHTML = `<div class="empty">오류: ${err.message}</div>`;
+  }
 }
 
 /* ---------- POSTS ---------- */
 async function loadPosts() {
-  const posts = await adminService.getPosts();
   const box = document.getElementById("posts");
-  box.innerHTML = "";
+  
+  try {
+    const posts = await adminService.getPosts();
+    
+    if (!posts || posts.length === 0) {
+      box.innerHTML = '<div class="empty">게시글이 없습니다</div>';
+      return;
+    }
 
-  posts.forEach(p => {
-    box.innerHTML += `
-      <div class="card">
-        <b>${p.title}</b>
-        <button onclick="delPost(${p.id})">삭제</button>
-      </div>
-    `;
-  });
+    box.innerHTML = "";
+    
+    posts.forEach(p => {
+      const isDeleted = p.deleted;
+      const statusClass = isDeleted ? "badge-blocked" : "badge-active";
+      const statusText = isDeleted ? "삭제됨" : "활성";
+      
+      const div = document.createElement("div");
+      div.className = "card";
+      div.innerHTML = `
+        <div class="card-content">
+          <strong>${p.title}</strong>
+          <span class="badge ${statusClass}">${statusText}</span>
+          <small>작성자: ${p.author || "익명"} | ${new Date(p.time).toLocaleString()}</small>
+        </div>
+        <div class="card-actions">
+          <button class="btn btn-secondary" onclick="viewPost(${p.id})">보기</button>
+          ${!isDeleted 
+            ? `<button class="btn btn-danger" onclick="deletePost(${p.id})">삭제</button>`
+            : `<button class="btn btn-success" onclick="restorePost(${p.id})">복원</button>`
+          }
+        </div>
+      `;
+      box.appendChild(div);
+    });
+  } catch (err) {
+    box.innerHTML = `<div class="empty">오류: ${err.message}</div>`;
+  }
 }
 
 /* ---------- COMMENTS ---------- */
 async function loadComments() {
-  const comments = await adminService.getComments();
   const box = document.getElementById("comments");
-  box.innerHTML = "";
+  
+  try {
+    const comments = await adminService.getComments();
+    
+    if (!comments || comments.length === 0) {
+      box.innerHTML = '<div class="empty">댓글이 없습니다</div>';
+      return;
+    }
 
-  comments.forEach(c => {
-    box.innerHTML += `
-      <div class="card">
-        ${c.content}
-        <button onclick="delComment(${c.id})">삭제</button>
-      </div>
-    `;
-  });
+    box.innerHTML = "";
+    
+    comments.forEach(c => {
+      const div = document.createElement("div");
+      div.className = "card";
+      div.innerHTML = `
+        <div class="card-content">
+          <strong>${c.content}</strong>
+          <small>작성자: ${c.author || "익명"} | ${new Date(c.time).toLocaleString()}</small>
+        </div>
+        <div class="card-actions">
+          <button class="btn btn-danger" onclick="deleteComment(${c.id})">삭제</button>
+        </div>
+      `;
+      box.appendChild(div);
+    });
+  } catch (err) {
+    box.innerHTML = `<div class="empty">오류: ${err.message}</div>`;
+  }
 }
 
 /* ---------- LOGS ---------- */
 async function loadLogs() {
-  const logs = await adminService.getLogs();
   const box = document.getElementById("logs");
-  box.innerHTML = logs.map(l =>
-    `<div class="log">${l.action} → ${l.target_id}</div>`
-  ).join("");
+  box.innerHTML = '<div class="empty">활동 로그 기능은 준비 중입니다</div>';
 }
 
-/* ---------- ACTIONS ---------- */
-window.ban = async (id) => {
-  const reason = prompt("사유");
-  const days = prompt("기간 (일, 비우면 영구)");
-  await adminService.blockUser(id, reason, days ? Number(days) : null);
-  loadUsers();
-};
-
-window.unban = async (id) => {
-  await adminService.unblockUser(id);
-  loadUsers();
-};
-
-window.delPost = async (id) => {
-  if (confirm("게시글 삭제?")) {
-    await adminService.deletePost(id);
-    loadPosts();
+/* ---------- GLOBAL ACTIONS ---------- */
+window.makeAdmin = async (uid) => {
+  if (!confirm("이 사용자를 관리자로 승격하시겠습니까?")) return;
+  
+  try {
+    await adminService.makeAdmin(uid);
+    alert("관리자로 승격되었습니다");
+    await loadUsers();
+  } catch (err) {
+    alert("승격 실패: " + err.message);
   }
 };
 
-window.delComment = async (id) => {
-  if (confirm("댓글 삭제?")) {
+window.removeAdmin = async (uid) => {
+  if (!confirm("이 사용자의 관리자 권한을 해제하시겠습니까?")) return;
+  
+  try {
+    await adminService.removeAdmin(uid);
+    alert("관리자 권한이 해제되었습니다");
+    await loadUsers();
+  } catch (err) {
+    alert("해제 실패: " + err.message);
+  }
+};
+
+window.viewPost = (id) => {
+  window.open(`post.html?id=${id}`, "_blank");
+};
+
+window.deletePost = async (id) => {
+  if (!confirm("이 게시글을 삭제하시겠습니까?")) return;
+  
+  try {
+    await adminService.deletePost(id);
+    alert("게시글이 삭제되었습니다");
+    await loadPosts();
+  } catch (err) {
+    alert("삭제 실패: " + err.message);
+  }
+};
+
+window.restorePost = async (id) => {
+  if (!confirm("이 게시글을 복원하시겠습니까?")) return;
+  
+  try {
+    await adminService.restorePost(id);
+    alert("게시글이 복원되었습니다");
+    await loadPosts();
+  } catch (err) {
+    alert("복원 실패: " + err.message);
+  }
+};
+
+window.deleteComment = async (id) => {
+  if (!confirm("이 댓글을 삭제하시겠습니까?")) return;
+  
+  try {
     await adminService.deleteComment(id);
-    loadComments();
+    alert("댓글이 삭제되었습니다");
+    await loadComments();
+  } catch (err) {
+    alert("삭제 실패: " + err.message);
   }
 };
