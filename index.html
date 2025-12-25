@@ -18,17 +18,8 @@
       border-radius:8px;
       box-shadow:0 1px 4px rgba(0,0,0,0.1);
     }
-    .post-card img {
-      max-width:200px;
-      border-radius:6px;
-      margin-top:8px;
-    }
-    #userInfo {
-      position:absolute;
-      right:20px;
-      top:15px;
-      font-size:14px;
-    }
+    .post-card img { max-width:200px; border-radius:6px; margin-top:8px; }
+    #userInfo { position:absolute; right:20px; top:15px; font-size:14px; }
     .btn { margin:10px; padding:8px 14px; border:none; border-radius:6px; cursor:pointer; font-weight:bold; }
     .btn-primary { background:#10b981; color:white; }
     .btn-danger { background:#f87171; color:white; }
@@ -73,9 +64,8 @@
       // 사용자 정보 표시
       // ------------------------
       async function updateUserInfo() {
-        const userInfoDiv = document.getElementById("userInfo");
         const { user, profile } = supabaseService.getCurrentUser();
-
+        const userInfoDiv = document.getElementById("userInfo");
         const writeLink = document.getElementById("writeLink");
 
         if (user) {
@@ -86,22 +76,20 @@
             ${profile?.role === "admin" ? '<button id="adminBtn" class="btn btn-danger" style="padding:4px 8px;">관리자</button>' : ''}
           `;
 
-          document.getElementById("logoutBtn")?.addEventListener("click", async () => {
-            const result = await supabaseService.signOut();
-            if (result.success) location.reload();
+          document.getElementById("logoutBtn").addEventListener("click", async () => {
+            await supabaseService.signOut();
+            location.reload();
           });
 
           const adminBtn = document.getElementById("adminBtn");
-          if (adminBtn) adminBtn.addEventListener("click", () => location.href = "admin.html");
+          if (adminBtn) adminBtn.addEventListener("click", () => location.href="admin.html");
 
-          if (writeLink) writeLink.style.display = "block";
+          if (writeLink) writeLink.style.display="block";
 
         } else {
           userInfoDiv.innerHTML = `<button id="loginBtn" class="btn btn-primary">로그인</button>`;
-          const loginBtn = document.getElementById("loginBtn");
-          if (loginBtn) loginBtn.addEventListener("click", () => location.href = "login.html");
-
-          if (writeLink) writeLink.style.display = "none"; // 로그인 안하면 글쓰기 숨김
+          document.getElementById("loginBtn")?.addEventListener("click", () => location.href="login.html");
+          if (writeLink) writeLink.style.display="none";
         }
       }
 
@@ -110,7 +98,7 @@
       // ------------------------
       async function loadPosts() {
         const listDiv = document.getElementById("postList");
-        const result = await supabaseService.getPosts(true);
+        const result = await supabaseService.getPosts(true); // 삭제글 포함
 
         if (!result.success) {
           listDiv.textContent = "글을 불러오는 중 오류가 발생했습니다: " + result.error;
@@ -201,15 +189,17 @@
         });
       }
 
-      const searchBtn = document.getElementById("searchBtn");
-      if (searchBtn) searchBtn.addEventListener("click", searchPosts);
+      // ------------------------
+      // 이벤트 연결
+      // ------------------------
+      document.getElementById("searchBtn")?.addEventListener("click", searchPosts);
 
       // ------------------------
       // 초기화
       // ------------------------
-      await supabaseService.waitForAuth();
-      await updateUserInfo();
-      await loadPosts();
+      await supabaseService.waitForAuth(); // 인증 완료까지 대기
+      await updateUserInfo();              // 로그인 상태 UI 갱신
+      await loadPosts();                   // 글 목록 로딩
     });
   </script>
 </body>
