@@ -86,18 +86,25 @@ async _setUser(user) {
   this.currentUser = user;
 
   try {
-    const { data, error } = await this.client
+    let { data, error } = await this.client
       .from("profiles")
       .select("*")
       .eq("id", user.id)
       .single();
 
     if (error || !data) {
-      console.warn("프로필 정보 로딩 실패:", error?.message);
-      this.userData = { nickname: user.email.split("@")[0], role: "user" };
-    } else {
-      this.userData = data;
+      console.warn("프로필 정보 없음, 새로 생성:", error?.message);
+      // 없으면 기본 프로필 생성
+      const nickname = user.email.split("@")[0];
+      const insertResult = await this.client
+        .from("profiles")
+        .insert({ id: user.id, nickname, role: "user" })
+        .select()
+        .single();
+      data = insertResult.data;
     }
+
+    this.userData = data;
   } catch (e) {
     console.error("프로필 정보 로딩 에러:", e);
     this.userData = { nickname: user.email.split("@")[0], role: "user" };
@@ -166,20 +173,11 @@ async _setUser(user) {
     return { success: true, data };
   }
 
-  async signIn(email, password) {
-    const { data, error } = await this.client.auth.signInWithPassword({
-      email,
-      password
-    });
-
-    if (error) return { success: false, error: error.message };
-
-    if (data.user) {
-      await this._setUser(data.user);
-    }
-
-    return { success: true, data };
-  }
+const result = await supabaseService.signIn(email, password);
+if (result.success) {
+  await supabaseService.waitForAuth(); // 인증 완료 대기
+  updateUI(); // UI 갱신
+}
 
   async signOut() {
     const { error } = await this.client.auth.signOut();
