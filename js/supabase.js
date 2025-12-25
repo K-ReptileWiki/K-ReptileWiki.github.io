@@ -154,53 +154,38 @@ class SupabaseService {
     return { success: true };
   }
 
-  /* =========================
-     게시글 CRUD
-  ========================== */
-const { data, error } = await this.client
-  .from("wiki_posts")
-  .insert({
-    title,
-    content,
-    images: cleanUrls,
-    uid: this.currentUser.id,
-    author: this.userData.nickname,
-    deleted: false,
-    time: new Date().toISOString()
-  })
-  .select("id");
+/* =========================
+   게시글 CRUD
+========================== */
 
-if (error) {
-  return { success: false, error: error.message };
+async createPost(title, content, imageUrls = []) {
+  if (!this.isLoggedIn()) {
+    return { success: false, error: "로그인 필요" };
+  }
+
+  const cleanUrls = imageUrls
+    .map(u => typeof u === "string" ? u.replace(/^["']|["']$/g, "").trim() : u)
+    .filter(Boolean);
+
+  const { data, error } = await this.client
+    .from("wiki_posts")
+    .insert({
+      title,
+      content,
+      images: cleanUrls,
+      uid: this.currentUser.id,
+      author: this.userData.nickname,
+      deleted: false,
+      time: new Date().toISOString()
+    })
+    .select("id"); // ⚠️ SELECT RLS 있어야 안전
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  return { success: true, data: data[0] };
 }
-
-return { success: true, data: data[0] };
-
-
-  async getPost(postId) {
-    const { data, error } = await this.client
-      .from("wiki_posts")
-      .select("*")
-      .eq("id", postId)
-      .single();
-
-    if (error) return { success: false, error: error.message };
-    return { success: true, data };
-  }
-
-  async getPosts(includeDeleted = false) {
-    let query = this.client
-      .from("wiki_posts")
-      .select("*")
-      .order("time", { ascending: false });
-
-    if (!includeDeleted) query = query.eq("deleted", false);
-
-    const { data, error } = await query;
-    
-    if (error) return { success: false, error: error.message, data: [] };
-    return { success: true, data: data || [] };
-  }
 
   async updatePost(id, title, content, imageUrls = []) {
     const cleanUrls = imageUrls
