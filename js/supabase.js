@@ -18,6 +18,7 @@ class SupabaseService {
     this.client = createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.key);
     this.currentUser = null;
     this.userData = null;
+
     this._authResolved = false;
     this._authPromise = new Promise(res => { this._resolveAuth = res; });
 
@@ -30,6 +31,7 @@ class SupabaseService {
   =========================== */
   async init() {
     let resolved = false;
+
     const finish = () => {
       if (!resolved) {
         resolved = true;
@@ -37,6 +39,7 @@ class SupabaseService {
       }
     };
 
+    // 1️⃣ auth 상태 변화 리스너
     this.client.auth.onAuthStateChange(async (event, session) => {
       console.log("🔐 auth event:", event);
       try {
@@ -52,6 +55,7 @@ class SupabaseService {
       }
     });
 
+    // 2️⃣ 새로고침 시 현재 세션 확인
     try {
       const { data, error } = await this.client.auth.getSession();
       if (error) {
@@ -69,9 +73,15 @@ class SupabaseService {
   }
 
   /* =========================
-     사용자 정보 설정
+     사용자 정보 설정 (_setUser)
+     - 중복 호출 방지
   =========================== */
   async _setUser(user) {
+    if (this.currentUser?.id === user.id) {
+      console.log("⚡ _setUser: 이미 로그인된 유저입니다.", user.id);
+      return;
+    }
+
     console.log("⚡ _setUser 시작", user);
     this.currentUser = user;
 
@@ -122,13 +132,8 @@ class SupabaseService {
   /* =========================
      상태 확인
   =========================== */
-  isLoggedIn() {
-    return !!this.currentUser;
-  }
-
-  isAdmin() {
-    return this.userData?.role === "admin";
-  }
+  isLoggedIn() { return !!this.currentUser; }
+  isAdmin() { return this.userData?.role === "admin"; }
 
   getCurrentUser() {
     return { user: this.currentUser, data: this.userData, profile: this.userData };
@@ -143,7 +148,6 @@ class SupabaseService {
       password,
       options: { data: { nickname: nickname || email.split("@")[0] } }
     });
-
     if (error) return { success: false, error: error.message };
 
     if (data.user) {
@@ -161,13 +165,14 @@ class SupabaseService {
     const { data, error } = await this.client.auth.signInWithPassword({ email, password });
     if (error) return { success: false, error: error.message };
 
-    if (data.user) await this._setUser(data.user);
+    if (data.user) await this._setUser(data.user); // 로그인 시 상태 설정
     return { success: true, data };
   }
 
   async signOut() {
     const { error } = await this.client.auth.signOut();
     if (error) return { success: false, error: error.message };
+
     this.currentUser = null;
     this.userData = null;
     return { success: true };
@@ -178,7 +183,9 @@ class SupabaseService {
   =========================== */
   async createPost(title, content, imageUrls = []) {
     if (!this.isLoggedIn()) return { success: false, error: "로그인 필요" };
+
     const cleanUrls = imageUrls.map(u => typeof u === "string" ? u.replace(/^["']|["']$/g, "").trim() : u).filter(Boolean);
+
     const { data, error } = await this.client.from("wiki_posts").insert({
       title, content, images: cleanUrls, uid: this.currentUser.id,
       author: this.userData.nickname, deleted: false, time: new Date().toISOString()
@@ -204,19 +211,31 @@ class SupabaseService {
 
   async updatePost(id, title, content, imageUrls = []) {
     const cleanUrls = imageUrls.map(u => typeof u === "string" ? u.replace(/^["']|["']$/g, "").trim() : u).filter(Boolean);
-    const { data, error } = await this.client.from("wiki_posts").update({ title, content, images: cleanUrls, updated_at: new Date().toISOString() }).eq("id", id).select().single();
+    const { data, error } = await this.client.from("wiki_posts")
+      .update({ title, content, images: cleanUrls, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select()
+      .single();
     if (error) return { success: false, error: error.message };
     return { success: true, data };
   }
 
   async deletePost(postId) {
-    const { data, error } = await this.client.from("wiki_posts").update({ deleted: true, deleted_at: new Date().toISOString() }).eq("id", postId).select().single();
+    const { data, error } = await this.client.from("wiki_posts")
+      .update({ deleted: true, deleted_at: new Date().toISOString() })
+      .eq("id", postId)
+      .select()
+      .single();
     if (error) return { success: false, error: error.message };
     return { success: true, data };
   }
 
   async restorePost(postId) {
-    const { data, error } = await this.client.from("wiki_posts").update({ deleted: false, deleted_at: null }).eq("id", postId).select().single();
+    const { data, error } = await this.client.from("wiki_posts")
+      .update({ deleted: false, deleted_at: null })
+      .eq("id", postId)
+      .select()
+      .single();
     if (error) return { success: false, error: error.message };
     return { success: true, data };
   }
@@ -227,7 +246,8 @@ class SupabaseService {
   async addComment(postId, content) {
     if (!this.isLoggedIn()) return { success: false, error: "로그인 필요" };
     const { data, error } = await this.client.from("wiki_comments").insert({
-      post_id: postId, content, uid: this.currentUser.id, author: this.userData.nickname, time: new Date().toISOString()
+      post_id: postId, content, uid: this.currentUser.id,
+      author: this.userData.nickname, time: new Date().toISOString()
     }).select().single();
     if (error) return { success: false, error: error.message };
     return { success: true, data };
@@ -256,11 +276,13 @@ class SupabaseService {
   =========================== */
   async toggleLike(postId) {
     if (!this.isLoggedIn()) return { success: false, error: "로그인 필요" };
+
     const { data } = await this.client.from("wiki_likes").select("*").eq("post_id", postId).eq("uid", this.currentUser.id).maybeSingle();
     if (data) {
       await this.client.from("wiki_likes").delete().eq("id", data.id);
       return { success: true, liked: false };
     }
+
     await this.client.from("wiki_likes").insert({ post_id: postId, uid: this.currentUser.id });
     return { success: true, liked: true };
   }
@@ -269,6 +291,35 @@ class SupabaseService {
     const { data, error } = await this.client.from("wiki_likes").select("*", { count: 'exact', head: false }).eq("post_id", postId);
     if (error) return 0;
     return data?.length || 0;
+  }
+
+  /* =========================
+     버전 관리
+  =========================== */
+  async getPostVersions(postId) {
+    const { data, error } = await this.client.from("wiki_versions").select("*").eq("post_id", postId).order("version_number", { ascending: false });
+    if (error) return { success: false, error: error.message, data: [] };
+    return { success: true, data: data || [] };
+  }
+
+  async getPostVersion(postId, versionNumber) {
+    const { data, error } = await this.client.from("wiki_versions").select("*").eq("post_id", postId).eq("version_number", versionNumber).single();
+    if (error) return { success: false, error: error.message };
+    return { success: true, data };
+  }
+
+  async restorePostVersion(postId, versionNumber) {
+    const versionResult = await this.getPostVersion(postId, versionNumber);
+    if (!versionResult.success) return { success: false, error: "복원할 버전을 찾을 수 없습니다" };
+
+    const version = versionResult.data;
+    const { data, error } = await this.client.from("wiki_posts")
+      .update({ title: version.title, content: version.content, images: version.images, updated_at: new Date().toISOString() })
+      .eq("id", postId)
+      .select()
+      .single();
+    if (error) return { success: false, error: error.message };
+    return { success: true, data };
   }
 }
 
