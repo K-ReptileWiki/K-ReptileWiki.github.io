@@ -5,7 +5,8 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 ========================== */
 const SUPABASE_CONFIG = {
   url: "https://cpaikpjzlzzujwfgnanb.supabase.co",
-  key: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwYWlrcGp6bHp6dWp3ZmduYW5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYxNDEwMzIsImV4cCI6MjA4MTcxNzAzMn0.u5diz_-p8Hh1FtkVO1CsDSUbz9fbSN2zXAIIP2637sc"};
+  key: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwYWlrcGp6bHp6dWp3ZmduYW5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYxNDEwMzIsImV4cCI6MjA4MTcxNzAzMn0.u5diz_-p8Hh1FtkVO1CsDSUbz9fbSN2zXAIIP2637sc"
+};
 
 /* =========================
    Supabase Service
@@ -14,32 +15,38 @@ class SupabaseService {
   constructor() {
     if (SupabaseService.instance) return SupabaseService.instance;
 
-    this.client = createClient(
-      SUPABASE_CONFIG.url,
-      SUPABASE_CONFIG.key
-    );
-
+    this.client = createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.key);
     this.currentUser = null;
     this.userData = null;
-
     this._authResolved = false;
-    this._authPromise = new Promise(res => {
-      this._resolveAuth = res;
-    });
+    this._authPromise = new Promise(res => { this._resolveAuth = res; });
 
     this.init();
     SupabaseService.instance = this;
   }
 
   /* =========================
-     Auth Init
+     인증 초기화
   ========================== */
   async init() {
-    const { data } = await this.client.auth.getSession();
-
-    if (data?.session?.user) {
-      await this._setUser(data.session.user);
-    } else {
+    try {
+      const { data, error } = await this.client.auth.getSession();
+      
+      if (error) {
+        console.warn("세션 오류, 로컬 스토리지 클리어");
+        await this.client.auth.signOut();
+        this._completeAuth();
+        return;
+      }
+      
+      if (data?.session?.user) {
+        await this._setUser(data.session.user);
+      } else {
+        this._completeAuth();
+      }
+    } catch (e) {
+      console.error("세션 확인 실패:", e.message);
+      await this.client.auth.signOut();
       this._completeAuth();
     }
 
@@ -47,7 +54,6 @@ class SupabaseService {
       if (event === "SIGNED_IN" && session?.user) {
         await this._setUser(session.user);
       }
-
       if (event === "SIGNED_OUT") {
         this.currentUser = null;
         this.userData = null;
@@ -66,9 +72,6 @@ class SupabaseService {
     return this._authPromise;
   }
 
-  /* =========================
-     User / Profile
-  ========================== */
   async _setUser(user) {
     this.currentUser = user;
 
@@ -87,6 +90,9 @@ class SupabaseService {
     this._completeAuth();
   }
 
+  /* =========================
+     상태 확인
+  ========================== */
   isLoggedIn() {
     return !!this.currentUser;
   }
@@ -98,46 +104,58 @@ class SupabaseService {
   getCurrentUser() {
     return {
       user: this.currentUser,
+      data: this.userData,
       profile: this.userData
     };
   }
 
   /* =========================
-     Auth APIs
+     인증 API
   ========================== */
   async signUp(email, password, nickname) {
     const { data, error } = await this.client.auth.signUp({
       email,
-      password
+      password,
+      options: {
+        data: { nickname: nickname || email.split("@")[0] }
+      }
     });
 
     if (error) return { success: false, error: error.message };
 
-    await this.client.from("profiles").insert({
-      id: data.user.id,
-      nickname: nickname || email.split("@")[0],
-      role: "user"
-    });
+    if (data.user) {
+      await this.client.from("profiles").insert({
+        id: data.user.id,
+        nickname: nickname || email.split("@")[0],
+        role: "user"
+      });
+    }
 
     return { success: true, data };
   }
 
   async signIn(email, password) {
-    const { data, error } =
-      await this.client.auth.signInWithPassword({ email, password });
+    const { data, error } = await this.client.auth.signInWithPassword({
+      email,
+      password
+    });
 
     if (error) return { success: false, error: error.message };
     return { success: true, data };
   }
 
   async signOut() {
-    await this.client.auth.signOut();
+    const { error } = await this.client.auth.signOut();
+    
+    if (error) return { success: false, error: error.message };
+    
     this.currentUser = null;
     this.userData = null;
+    return { success: true };
   }
 
   /* =========================
-     Posts
+     게시글 CRUD
   ========================== */
   async createPost(title, content, imageUrls = []) {
     if (!this.isLoggedIn()) {
@@ -166,6 +184,31 @@ class SupabaseService {
     return { success: true, data };
   }
 
+  async getPost(postId) {
+    const { data, error } = await this.client
+      .from("wiki_posts")
+      .select("*")
+      .eq("id", postId)
+      .single();
+
+    if (error) return { success: false, error: error.message };
+    return { success: true, data };
+  }
+
+  async getPosts(includeDeleted = false) {
+    let query = this.client
+      .from("wiki_posts")
+      .select("*")
+      .order("time", { ascending: false });
+
+    if (!includeDeleted) query = query.eq("deleted", false);
+
+    const { data, error } = await query;
+    
+    if (error) return { success: false, error: error.message, data: [] };
+    return { success: true, data: data || [] };
+  }
+
   async updatePost(id, title, content, imageUrls = []) {
     const cleanUrls = imageUrls
       .map(u => typeof u === "string" ? u.replace(/^["']|["']$/g, "").trim() : u)
@@ -187,37 +230,95 @@ class SupabaseService {
     return { success: true, data };
   }
 
-  async getPosts(includeDeleted = false) {
-    let q = this.client
+  async deletePost(postId) {
+    const { data, error } = await this.client
       .from("wiki_posts")
-      .select("*")
-      .order("time", { ascending: false });
+      .update({ 
+        deleted: true,
+        deleted_at: new Date().toISOString()
+      })
+      .eq("id", postId)
+      .select()
+      .single();
 
-    if (!includeDeleted) q = q.eq("deleted", false);
-
-    const { data, error } = await q;
     if (error) return { success: false, error: error.message };
     return { success: true, data };
   }
 
-  async deletePost(id) {
-    await this.client
+  async restorePost(postId) {
+    const { data, error } = await this.client
       .from("wiki_posts")
-      .update({ deleted: true })
-      .eq("id", id);
-  }
+      .update({ 
+        deleted: false,
+        deleted_at: null
+      })
+      .eq("id", postId)
+      .select()
+      .single();
 
-  async restorePost(id) {
-    await this.client
-      .from("wiki_posts")
-      .update({ deleted: false })
-      .eq("id", id);
+    if (error) return { success: false, error: error.message };
+    return { success: true, data };
   }
 
   /* =========================
-     Comments
+     버전 관리
+  ========================== */
+  async getPostVersions(postId) {
+    const { data, error } = await this.client
+      .from("wiki_versions")
+      .select("*")
+      .eq("post_id", postId)
+      .order("version_number", { ascending: false });
+
+    if (error) return { success: false, error: error.message, data: [] };
+    return { success: true, data: data || [] };
+  }
+
+  async getPostVersion(postId, versionNumber) {
+    const { data, error } = await this.client
+      .from("wiki_versions")
+      .select("*")
+      .eq("post_id", postId)
+      .eq("version_number", versionNumber)
+      .single();
+
+    if (error) return { success: false, error: error.message };
+    return { success: true, data };
+  }
+
+  async restorePostVersion(postId, versionNumber) {
+    const versionResult = await this.getPostVersion(postId, versionNumber);
+    
+    if (!versionResult.success) {
+      return { success: false, error: "복원할 버전을 찾을 수 없습니다" };
+    }
+
+    const version = versionResult.data;
+
+    const { data, error } = await this.client
+      .from("wiki_posts")
+      .update({
+        title: version.title,
+        content: version.content,
+        images: version.images,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", postId)
+      .select()
+      .single();
+
+    if (error) return { success: false, error: error.message };
+    return { success: true, data };
+  }
+
+  /* =========================
+     댓글
   ========================== */
   async addComment(postId, content) {
+    if (!this.isLoggedIn()) {
+      return { success: false, error: "로그인 필요" };
+    }
+
     const { data, error } = await this.client
       .from("wiki_comments")
       .insert({
@@ -241,8 +342,8 @@ class SupabaseService {
       .eq("post_id", postId)
       .order("time", { ascending: false });
 
-    if (error) return { success: false, error: error.message };
-    return { success: true, data };
+    if (error) return { success: false, error: error.message, data: [] };
+    return { success: true, data: data || [] };
   }
 
   async updateComment(id, content) {
@@ -261,16 +362,23 @@ class SupabaseService {
   }
 
   async deleteComment(id) {
-    await this.client
+    const { error } = await this.client
       .from("wiki_comments")
       .delete()
       .eq("id", id);
+
+    if (error) return { success: false, error: error.message };
+    return { success: true };
   }
 
   /* =========================
-     Likes
+     좋아요
   ========================== */
   async toggleLike(postId) {
+    if (!this.isLoggedIn()) {
+      return { success: false, error: "로그인 필요" };
+    }
+
     const { data } = await this.client
       .from("wiki_likes")
       .select("*")
@@ -280,7 +388,7 @@ class SupabaseService {
 
     if (data) {
       await this.client.from("wiki_likes").delete().eq("id", data.id);
-      return { liked: false };
+      return { success: true, liked: false };
     }
 
     await this.client.from("wiki_likes").insert({
@@ -288,7 +396,17 @@ class SupabaseService {
       uid: this.currentUser.id
     });
 
-    return { liked: true };
+    return { success: true, liked: true };
+  }
+
+  async getLikeCount(postId) {
+    const { data, error } = await this.client
+      .from("wiki_likes")
+      .select("*", { count: 'exact', head: false })
+      .eq("post_id", postId);
+
+    if (error) return 0;
+    return data?.length || 0;
   }
 }
 
