@@ -32,51 +32,54 @@ class SupabaseService {
    인증 초기화 (최종본)
 ========================== */
 async init() {
-  // ✅ 1. auth 상태 변화 리스너를 먼저 등록
+  let resolved = false;
+
+  const finish = () => {
+    if (!resolved) {
+      resolved = true;
+      this._completeAuth();
+    }
+  };
+
+  // 1️⃣ auth 상태 변화 리스너
   this.client.auth.onAuthStateChange(async (event, session) => {
     console.log("🔐 auth event:", event);
 
     try {
       if (session?.user) {
-        // 로그인 / 새로고침 / 토큰 갱신 포함
         await this._setUser(session.user);
-        return;
+      } else {
+        this.currentUser = null;
+        this.userData = null;
       }
-
-      // 로그아웃 or 세션 없음
-      this.currentUser = null;
-      this.userData = null;
-      this._completeAuth();
     } catch (e) {
-      console.error("auth state 처리 실패:", e);
-      this._completeAuth();
+      console.error("auth 처리 실패:", e);
+    } finally {
+      finish();
     }
   });
 
-  // ✅ 2. 현재 세션 즉시 확인 (새로고침 대응)
+  // 2️⃣ 새로고침 시 현재 세션 확인
   try {
     const { data, error } = await this.client.auth.getSession();
 
     if (error) {
       console.warn("세션 오류:", error.message);
       await this.client.auth.signOut();
-      this._completeAuth();
+      finish();
       return;
     }
 
     if (data?.session?.user) {
       await this._setUser(data.session.user);
-    } else {
-      // 로그인 안 된 상태도 정상 종료
-      this._completeAuth();
     }
+
+    finish();
   } catch (e) {
     console.error("세션 확인 실패:", e);
-    await this.client.auth.signOut();
-    this._completeAuth();
+    finish();
   }
 }
-
 
   /* =========================
      상태 확인
