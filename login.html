@@ -45,7 +45,7 @@
     <div id="userInfo" class="user-info">로그인 상태 확인 중...</div>
 
     <!-- 로그인/회원가입 폼 -->
-    <form id="loginForm">
+    <form id="authForm">
       <div class="form-group">
         <label>이메일</label>
         <input type="email" id="email" placeholder="example@email.com">
@@ -58,7 +58,7 @@
       <div id="signupFields" style="display:none;">
         <div class="form-group">
           <label>닉네임 (선택)</label>
-          <input type="text" id="nickname" placeholder="닉네임 (비워두면 이메일 사용)">
+          <input type="text" id="nickname" placeholder="닉네임 (비워두면 이메일 앞부분 사용)">
         </div>
         <div class="form-group">
           <label>비밀번호 확인</label>
@@ -82,11 +82,14 @@
     import { supabaseService } from "./js/supabase.js";
 
     let isSignupMode = false;
+
     const userInfoDiv = document.getElementById("userInfo");
-    const loginForm = document.getElementById("loginForm");
+    const authForm = document.getElementById("authForm");
     const logoutSection = document.getElementById("logoutSection");
     const signupFields = document.getElementById("signupFields");
     const toggleBtn = document.getElementById("toggleBtn");
+    const loginBtn = document.getElementById("loginBtn");
+    const signupBtn = document.getElementById("signupBtn");
 
     function updateUI() {
       const { user, data } = supabaseService.getCurrentUser();
@@ -99,22 +102,19 @@
           현재 로그인: <strong>${nickname}</strong><br>
           권한: ${role === "admin" ? "관리자" : "일반 사용자"}
         `;
-        loginForm.style.display = "none";
+        authForm.style.display = "none";
         logoutSection.style.display = "block";
       } else {
         userInfoDiv.textContent = "로그인되지 않음";
-        loginForm.style.display = "block";
+        authForm.style.display = "block";
         logoutSection.style.display = "none";
       }
     }
 
+    // 초기화: 세션 확인
     window.addEventListener("load", async () => {
-      console.log("⏳ 인증 상태 확인 중...");
-      loginForm.style.display = "block"; // 폼 항상 표시
-      logoutSection.style.display = "none";
-
       try {
-        await supabaseService.waitForAuth(); // 인증 대기
+        await supabaseService.waitForAuth();
         const { data } = await supabaseService.client.auth.getSession();
 
         if (data?.session?.user) {
@@ -123,41 +123,44 @@
       } catch(e) {
         console.error("세션 확인 실패:", e);
       }
-
       updateUI();
     });
 
+    // 로그인 / 회원가입 모드 토글
     toggleBtn.addEventListener("click", () => {
       isSignupMode = !isSignupMode;
       signupFields.style.display = isSignupMode ? "block" : "none";
       toggleBtn.textContent = isSignupMode ? "로그인 모드로 전환" : "회원가입 모드로 전환";
-      document.getElementById("loginBtn").style.display = isSignupMode ? "none" : "block";
-      document.getElementById("signupBtn").style.display = isSignupMode ? "block" : "none";
+      loginBtn.style.display = isSignupMode ? "none" : "block";
+      signupBtn.style.display = isSignupMode ? "block" : "none";
     });
 
-    document.getElementById("loginBtn").addEventListener("click", async (e) => {
-      const btn = e.target;
+    // 로그인
+    loginBtn.addEventListener("click", async () => {
       const email = document.getElementById("email").value.trim();
       const password = document.getElementById("password").value.trim();
 
       if (!email || !password) { alert("이메일과 비밀번호를 입력하세요"); return; }
 
-      btn.disabled = true;
-      btn.textContent = "로그인 중...";
+      loginBtn.disabled = true;
+      loginBtn.textContent = "로그인 중...";
 
       const result = await supabaseService.signIn(email, password);
 
       if (result.success) {
+        await supabaseService.waitForAuth();
         alert("로그인 성공!");
-        location.href = "index.html";
+        updateUI();
       } else {
         alert("로그인 실패: " + result.error);
-        btn.disabled = false;
-        btn.textContent = "로그인";
       }
+
+      loginBtn.disabled = false;
+      loginBtn.textContent = "로그인";
     });
 
-    document.getElementById("signupBtn").addEventListener("click", async () => {
+    // 회원가입
+    signupBtn.addEventListener("click", async () => {
       const email = document.getElementById("email").value.trim();
       const password = document.getElementById("password").value.trim();
       const confirmPassword = document.getElementById("confirmPassword").value.trim();
@@ -166,20 +169,34 @@
       if (!email || !password) { alert("이메일과 비밀번호를 입력하세요"); return; }
       if (password !== confirmPassword) { alert("비밀번호가 일치하지 않습니다"); return; }
 
+      signupBtn.disabled = true;
+      signupBtn.textContent = "회원가입 중...";
+
       const result = await supabaseService.signUp(email, password, nickname);
+
       if (result.success) {
         alert("회원가입 성공! 로그인해주세요.");
-        location.reload();
+        toggleBtn.click(); // 로그인 모드로 전환
       } else {
         alert("회원가입 실패: " + result.error);
       }
+
+      signupBtn.disabled = false;
+      signupBtn.textContent = "회원가입";
     });
 
+    // 로그아웃
     document.getElementById("logoutBtn").addEventListener("click", async () => {
       const result = await supabaseService.signOut();
-      if (result.success) { alert("로그아웃됨"); location.reload(); }
+      if (result.success) {
+        alert("로그아웃되었습니다");
+        updateUI();
+      } else {
+        alert("로그아웃 실패: " + result.error);
+      }
     });
 
+    // 취소 버튼
     document.getElementById("cancelBtn").addEventListener("click", () => {
       location.href = "index.html";
     });
