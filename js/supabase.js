@@ -77,7 +77,6 @@ class SupabaseService {
       if (error || !data) {
         console.warn("프로필 정보 없음, 새로 생성:", error?.message);
         const nickname = user.email.split("@")[0];
-
         const insertResp = await this.client
           .from("profiles")
           .insert({ id: user.id, nickname, role: "user" })
@@ -160,38 +159,6 @@ class SupabaseService {
     this.userData = null;
     return { success: true };
   }
-
-  /* =========================
-     게시글 CRUD
-  =========================== */
-  async createPost(title, content, imageUrls = []) {
-    if (!this.isLoggedIn()) return { success: false, error: "로그인 필요" };
-
-    const cleanUrls = imageUrls.map(u => typeof u === "string" ? u.replace(/^["']|["']$/g, "").trim() : u).filter(Boolean);
-
-    const { data, error } = await this.client.from("wiki_posts").insert({
-      title, content, images: cleanUrls, uid: this.currentUser.id,
-      author: this.userData.nickname, deleted: false, time: new Date().toISOString()
-    }).select("id");
-
-    if (error) return { success: false, error: error.message };
-    return { success: true, data: data[0] };
-  }
-
-  async getPosts(includeDeleted = false) {
-    let query = this.client.from("wiki_posts").select("*").order("time", { ascending: false });
-    if (!includeDeleted) query = query.eq("deleted", false);
-    const { data, error } = await query;
-    if (error) return { success: false, error: error.message, data: [] };
-    return { success: true, data: data || [] };
-  }
-
-  // 이후 CRUD, 댓글, 좋아요, 버전관리 함수들도 동일하게 유지
-}
-
-export const supabaseService = new SupabaseService();
-export const supabase = supabaseService.client;
-
 
   /* =========================
      게시글 CRUD
