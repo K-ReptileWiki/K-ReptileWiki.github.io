@@ -81,27 +81,31 @@ class SupabaseService {
   /* =========================
      사용자 정보 설정 (_setUser)
   =========================== */
-  async _setUser(user) {
-    this.currentUser = user;
+async _setUser(user) {
+  console.log("⚡ _setUser 시작", user);
+  this.currentUser = user;
 
-    try {
-      const { data, error } = await this.client
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single();
+  try {
+    const { data, error } = await this.client
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .single();
 
-      if (error || !data) {
-        console.warn("프로필 정보 로딩 실패:", error?.message);
-        this.userData = { nickname: user.email.split("@")[0], role: "user" };
-      } else {
-        this.userData = data;
-      }
-    } catch (e) {
-      console.error("프로필 정보 로딩 에러:", e);
+    if (error || !data) {
+      console.warn("프로필 정보 로딩 실패:", error?.message);
       this.userData = { nickname: user.email.split("@")[0], role: "user" };
+    } else {
+      this.userData = data;
     }
+  } catch (e) {
+    console.error("프로필 정보 로딩 에러:", e);
+    this.userData = { nickname: user.email.split("@")[0], role: "user" };
   }
+
+  console.log("⚡ _setUser 완료", this.userData);
+}
+
 
   /* =========================
      Auth 완료 처리
