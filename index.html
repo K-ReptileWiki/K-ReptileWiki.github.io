@@ -230,15 +230,13 @@ async function loadPosts() {
 
     document.getElementById("searchBtn").addEventListener("click", searchPosts);
 
-    // 초기화
-    async function init() {
-      // 로그인 상태 로드 완료 대기
-      await supabaseService.waitForAuth();
-      await updateUserInfo();
-      await loadPosts();
-    }
+async function init() {
+  await updateUserInfo();
+  await loadPosts();
+}
 
-    init();
+init();
+
   </script>
 </body>
 </html>
