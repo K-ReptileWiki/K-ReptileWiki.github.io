@@ -1,138 +1,44 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-  <meta charset="UTF-8">
-  <title>K-ReptileWiki</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="style.css">
-  <style>
-    body { font-family: Arial, sans-serif; background:#f9fafb; margin:0; padding:0; }
-    header { background:#2563eb; color:white; padding:15px; text-align:center; position:relative; }
-    nav { margin:15px; }
-    nav a { display:block; margin:5px 0; color:#2563eb; text-decoration:none; }
-    nav a:hover { text-decoration:underline; }
-    .post-card {
-      background:#fff;
-      padding:15px;
-      margin-bottom:15px;
-      border-radius:8px;
-      box-shadow:0 1px 4px rgba(0,0,0,0.1);
-    }
-    .post-card img {
-      max-width:200px;
-      border-radius:6px;
-      margin-top:8px;
-    }
-    .post-card h3 a {
-      color:#2563eb;
-      text-decoration:none;
-    }
-    .post-card h3 a:hover {
-      text-decoration:underline;
-    }
-    #userInfo {
-      position:absolute;
-      right:20px;
-      top:15px;
-      font-size:14px;
-    }
-    .btn {
-      margin:10px;
-      padding:8px 14px;
-      border:none;
-      border-radius:6px;
-      cursor:pointer;
-      font-weight:bold;
-    }
-    .btn-primary { background:#10b981; color:white; }
-    .btn-danger { background:#f87171; color:white; }
-    .search-box {
-      margin:15px;
-      padding:15px;
-      background:white;
-      border-radius:8px;
-      box-shadow:0 1px 4px rgba(0,0,0,0.1);
-    }
-    .search-box input {
-      width:calc(100% - 100px);
-      padding:8px;
-      border:1px solid #ddd;
-      border-radius:4px;
-    }
-    .search-box button {
-      padding:8px 16px;
-      margin-left:5px;
-    }
-  </style>
-</head>
-<body>
-  <header>
-    <h1>🦎 K-ReptileWiki</h1>
-    <div id="userInfo">로딩 중...</div>
-  </header>
+<script type="module">
+import { supabaseService } from "./js/supabase.js";
 
-  <nav>
-    <a href="write.html">✏️ 글쓰기</a>
-    <a href="index.html">🏠 메인</a>
-    <a href="species/crested_gecko.html">크레스티드 게코</a>
-    <a href="species/leopard_gecko.html">레오파드 게코</a>
-  </nav>
+// ----------------------------
+// 사용자 정보 표시
+// ----------------------------
+async function updateUserInfo() {
+  const userInfoDiv = document.getElementById("userInfo");
+  const { user, profile } = supabaseService.getCurrentUser();
 
-  <!-- 검색 -->
-  <div class="search-box">
-    <input id="searchInput" placeholder="검색어 입력">
-    <button id="searchBtn" class="btn btn-primary">검색</button>
-  </div>
+  if (user) {
+    const nickname = profile?.nickname || user.email.split("@")[0];
+    userInfoDiv.innerHTML = `
+      ${nickname}님
+      <button id="logoutBtn" class="btn btn-danger" style="margin-left:10px;padding:4px 8px;">로그아웃</button>
+      ${profile?.role === "admin" ? '<button id="adminBtn" class="btn btn-danger" style="padding:4px 8px;">관리자</button>' : ''}
+    `;
 
-  <!-- 글 목록 -->
-  <div style="margin:15px;">
-    <h2>최신 글</h2>
-    <div id="postList">로딩 중...</div>
-  </div>
+    document.getElementById("logoutBtn")?.addEventListener("click", async () => {
+      const result = await supabaseService.signOut();
+      if (result.success) location.reload();
+    });
 
-  <div id="searchResults" style="margin:15px;"></div>
+    document.getElementById("adminBtn")?.addEventListener("click", () => {
+      location.href = "admin.html";
+    });
 
-  <script type="module">
-    import { supabaseService } from "./js/supabase.js";
+  } else {
+    userInfoDiv.innerHTML = `<button id="loginBtn" class="btn btn-primary">로그인</button>`;
+    document.getElementById("loginBtn")?.addEventListener("click", () => {
+      location.href = "login.html";
+    });
+  }
+}
 
-    // 사용자 정보 표시
-    async function updateUserInfo() {
-      const userInfoDiv = document.getElementById("userInfo");
-      const { user, profile } = supabaseService.getCurrentUser();
-
-      if (user) {
-        const nickname = profile?.nickname || user.email.split("@")[0];
-
-        userInfoDiv.innerHTML = `
-          ${nickname}님
-          <button id="logoutBtn" class="btn btn-danger" style="margin-left:10px;padding:4px 8px;">로그아웃</button>
-          ${profile?.role === "admin" ? '<button id="adminBtn" class="btn btn-danger" style="padding:4px 8px;">관리자</button>' : ''}
-        `;
-
-        document.getElementById("logoutBtn")?.addEventListener("click", async () => {
-          const result = await supabaseService.signOut();
-          if (result.success) {
-            alert("로그아웃되었습니다");
-            location.reload();
-          }
-        });
-
-        document.getElementById("adminBtn")?.addEventListener("click", () => {
-          location.href = "admin.html";
-        });
-
-      } else {
-        userInfoDiv.innerHTML = `<button id="loginBtn" class="btn btn-primary">로그인</button>`;
-        document.getElementById("loginBtn")?.addEventListener("click", () => {
-          location.href = "login.html";
-        });
-      }
-    }
-
+// ----------------------------
 // 글 목록 로드
+// ----------------------------
 async function loadPosts() {
   const listDiv = document.getElementById("postList");
-  const result = await supabaseService.getPosts(true); // ← 삭제글도 가져오기
+  const result = await supabaseService.getPosts(true); // 삭제글도 포함
 
   if (!result.success) {
     listDiv.textContent = "글을 불러오는 중 오류가 발생했습니다: " + result.error;
@@ -150,7 +56,6 @@ async function loadPosts() {
     const div = document.createElement("div");
     div.className = "post-card";
 
-    // 🔴 삭제된 글 처리
     if (post.deleted) {
       div.innerHTML = `
         <h3>삭제된 글</h3>
@@ -160,17 +65,12 @@ async function loadPosts() {
       return;
     }
 
-    // 🟢 정상 글
     const plainText = post.content?.replace(/<[^>]+>/g, "") ?? "";
-    const shortText =
-      plainText.length > 100 ? plainText.substring(0, 100) + "..." : plainText;
+    const shortText = plainText.length > 100 ? plainText.substring(0,100) + "..." : plainText;
 
     let imgHtml = "";
     if (post.images && Array.isArray(post.images) && post.images.length > 0) {
-      imgHtml = post.images
-        .slice(0, 3)
-        .map(url => `<img src="${url}" alt="첨부 이미지">`)
-        .join("");
+      imgHtml = post.images.slice(0,3).map(url => `<img src="${url}" alt="첨부 이미지">`).join("");
     }
 
     div.innerHTML = `
@@ -179,64 +79,71 @@ async function loadPosts() {
       ${imgHtml}
       <small>작성자: ${post.author ?? "익명"} | ${new Date(post.time).toLocaleString()}</small>
     `;
-
     listDiv.appendChild(div);
   });
 }
 
-    // 검색 기능
-    async function searchPosts() {
-      const keyword = document.getElementById("searchInput").value.trim().toLowerCase();
-      const resultsDiv = document.getElementById("searchResults");
-      resultsDiv.innerHTML = "";
+// ----------------------------
+// 검색 기능
+// ----------------------------
+async function searchPosts() {
+  const keyword = document.getElementById("searchInput").value.trim().toLowerCase();
+  const resultsDiv = document.getElementById("searchResults");
+  resultsDiv.innerHTML = "";
 
-      if (!keyword) {
-        alert("검색어를 입력하세요");
-        return;
-      }
+  if (!keyword) {
+    alert("검색어를 입력하세요");
+    return;
+  }
 
-      const result = await supabaseService.getPosts();
-      if (!result.success) {
-        resultsDiv.textContent = "검색 중 오류가 발생했습니다: " + result.error;
-        return;
-      }
+  const result = await supabaseService.getPosts();
+  if (!result.success) {
+    resultsDiv.textContent = "검색 중 오류가 발생했습니다: " + result.error;
+    return;
+  }
 
-      const matched = result.data.filter(post => {
-        const title = post.title?.toLowerCase() ?? "";
-        const content = post.content?.toLowerCase() ?? "";
-        return title.includes(keyword) || content.includes(keyword);
-      });
+  const matched = result.data.filter(post => {
+    const title = post.title?.toLowerCase() ?? "";
+    const content = post.content?.toLowerCase() ?? "";
+    return title.includes(keyword) || content.includes(keyword);
+  });
 
-      if (matched.length === 0) {
-        resultsDiv.innerHTML = "<h3>검색 결과</h3><p>검색 결과가 없습니다.</p>";
-        return;
-      }
+  if (matched.length === 0) {
+    resultsDiv.innerHTML = "<h3>검색 결과</h3><p>검색 결과가 없습니다.</p>";
+    return;
+  }
 
-      resultsDiv.innerHTML = `<h3>검색 결과 (${matched.length}개)</h3>`;
-      matched.forEach(post => {
-        const plainText = post.content?.replace(/<[^>]+>/g, "") ?? "";
-        const shortText = plainText.length > 100 ? plainText.substring(0, 100) + "..." : plainText;
+  resultsDiv.innerHTML = `<h3>검색 결과 (${matched.length}개)</h3>`;
+  matched.forEach(post => {
+    const plainText = post.content?.replace(/<[^>]+>/g,"") ?? "";
+    const shortText = plainText.length > 100 ? plainText.substring(0,100) + "..." : plainText;
 
-        const div = document.createElement("div");
-        div.className = "post-card";
-        div.innerHTML = `
-          <h3><a href="post.html?id=${post.id}">${post.title}</a></h3>
-          <p>${shortText}</p>
-          <small>작성자: ${post.author ?? "익명"} | ${new Date(post.time).toLocaleString()}</small>
-        `;
-        resultsDiv.appendChild(div);
-      });
-    }
+    const div = document.createElement("div");
+    div.className = "post-card";
+    div.innerHTML = `
+      <h3><a href="post.html?id=${post.id}">${post.title}</a></h3>
+      <p>${shortText}</p>
+      <small>작성자: ${post.author ?? "익명"} | ${new Date(post.time).toLocaleString()}</small>
+    `;
+    resultsDiv.appendChild(div);
+  });
+}
 
-    document.getElementById("searchBtn").addEventListener("click", searchPosts);
+document.getElementById("searchBtn").addEventListener("click", searchPosts);
 
+// ----------------------------
+// 초기화
+// ----------------------------
 async function init() {
+  // 🔑 인증 완료까지 기다림
+  await supabaseService.waitForAuth();
+
+  // UI 갱신
   await updateUserInfo();
+
+  // 글 목록 불러오기
   await loadPosts();
 }
 
 init();
-
-  </script>
-</body>
-</html>
+</script>
