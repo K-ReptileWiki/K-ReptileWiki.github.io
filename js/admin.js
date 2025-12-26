@@ -1,152 +1,217 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
-// 🔑 Supabase 설정
+/* =========================
+   Supabase 설정
+========================= */
 const SUPABASE_URL = "https://cpaikpjzlzzujwfgnanb.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwYWlrcGp6bHp6dWp3ZmduYW5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYxNDEwMzIsImV4cCI6MjA4MTcxNzAzMn0.u5diz_-p8Hh1FtkVO1CsDSUbz9fbSN2zXAIIP2637sc";
+const SUPABASE_ANON_KEY = "YOUR_ANON_KEY"; // 그대로 두되 RLS 필수
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+export const supabase = createClient(
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY
+);
 
-// DOM
+/* =========================
+   DOM
+========================= */
 const usersDiv = document.getElementById("users");
 const postsDiv = document.getElementById("posts");
 const commentsDiv = document.getElementById("comments");
 const logsDiv = document.getElementById("logs");
+const statsDiv = document.getElementById("stats");
 
-// 공통 에러 출력
+/* =========================
+   Utils
+========================= */
 function showError(el, msg) {
   el.innerHTML = `<div class="empty">❌ ${msg}</div>`;
 }
 
-// 🔐 로그인 + 권한 확인
-async function checkAdmin() {
-  const { data: { user }, error } = await supabase.auth.getUser();
+function roleBadge(role) {
+  if (role === "owner") return "badge-owner";
+  if (role === "admin") return "badge-mod";
+  return "badge-user";
+}
 
-  if (error || !user) {
-    alert("로그인이 필요합니다.");
+/* =========================
+   AUTH / ROLE
+========================= */
+let currentUser = null;
+let currentProfile = null;
+
+async function requireAdmin() {
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    alert("로그인이 필요합니다");
     location.href = "login.html";
-    return null;
+    throw new Error("로그인 필요");
   }
 
-  const { data: profile, error: profileError } = await supabase
+  const { data: profile, error } = await supabase
     .from("profiles")
-    .select("role, nickname")
+    .select("id, nickname, role")
     .eq("id", user.id)
     .single();
 
-  if (profileError) {
-    alert("프로필 정보를 불러올 수 없습니다.");
-    return null;
+  if (error || !profile) {
+    alert("프로필 조회 실패");
+    throw new Error("프로필 오류");
   }
 
-  if (profile.role !== "owner") {
-    alert("최고 관리자만 접근 가능합니다.");
+  if (!["owner", "admin"].includes(profile.role)) {
+    alert("관리자 권한이 없습니다");
     location.href = "index.html";
-    return null;
+    throw new Error("권한 없음");
   }
 
-  return user;
+  currentUser = user;
+  currentProfile = profile;
 }
 
-// 👥 사용자 로드
+/* =========================
+   STATS
+========================= */
+async function loadStats() {
+  const [{ count: users }, { count: posts }, { count: comments }] =
+    await Promise.all([
+      supabase.from("profiles").select("*", { count: "exact", head: true }),
+      supabase.from("wiki_posts").select("*", { count: "exact", head: true }),
+      supabase.from("wiki_comments").select("*", { count: "exact", head: true })
+    ]);
+
+  statsDiv.innerHTML = `
+    <div class="stat-box"><strong>${users ?? 0}</strong>사용자</div>
+    <div class="stat-box"><strong>${posts ?? 0}</strong>게시글</div>
+    <div class="stat-box"><strong>${comments ?? 0}</strong>댓글</div>
+  `;
+}
+
+/* =========================
+   USERS
+========================= */
 async function loadUsers() {
   const { data, error } = await supabase
     .from("profiles")
     .select("id, nickname, role, created_at")
     .order("created_at", { ascending: false });
 
-  if (error) {
-    showError(usersDiv, "사용자 로딩 실패");
-    return;
-  }
-
+  if (error) return showError(usersDiv, "사용자 로딩 실패");
   if (!data.length) {
     usersDiv.innerHTML = `<div class="empty">사용자 없음</div>`;
     return;
   }
 
-  usersDiv.innerHTML = data.map(u => `
-    <div class="card">
+  usersDiv.innerHTML = "";
+  data.forEach(u => {
+    const canPromote =
+      currentProfile.role === "owner" &&
+      u.role !== "owner";
+
+    const div = document.createElement("div");
+    div.className = "card";
+    div.innerHTML = `
       <div class="card-content">
-        <strong>${u.nickname}</strong>
-        <span class="badge ${u.role === "owner" ? "badge-admin" : "badge-user"}">
-          ${u.role}
-        </span>
+        <strong>${u.nickname || "익명"}</strong>
+        <span class="badge ${roleBadge(u.role)}">${u.role}</span>
         <small>${new Date(u.created_at).toLocaleString()}</small>
       </div>
-    </div>
-  `).join("");
+      <div class="card-actions">
+        ${
+          canPromote
+            ? `<button class="btn btn-warning"
+                 onclick="promoteUser('${u.id}')">관리자</button>`
+            : ""
+        }
+      </div>
+    `;
+    usersDiv.appendChild(div);
+  });
 }
 
-// 📝 게시글 로드
+window.promoteUser = async (uid) => {
+  if (!confirm("이 사용자를 admin으로 승급할까요?")) return;
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ role: "admin" })
+    .eq("id", uid);
+
+  if (error) return alert("승급 실패");
+  await logAction(`ROLE → admin (${uid})`);
+  loadUsers();
+};
+
+/* =========================
+   POSTS
+========================= */
 async function loadPosts() {
   const { data, error } = await supabase
-    .from("posts")
-    .select("id, title, created_at")
-    .order("created_at", { ascending: false })
+    .from("wiki_posts")
+    .select("id, title, time")
+    .order("time", { ascending: false })
     .limit(20);
 
-  if (error) {
-    showError(postsDiv, "게시글 로딩 실패");
-    return;
-  }
-
-  if (!data.length) {
-    postsDiv.innerHTML = `<div class="empty">게시글 없음</div>`;
-    return;
-  }
+  if (error) return showError(postsDiv, "게시글 로딩 실패");
 
   postsDiv.innerHTML = data.map(p => `
     <div class="card">
       <div class="card-content">
         <strong>${p.title}</strong>
-        <small>${new Date(p.created_at).toLocaleString()}</small>
+        <small>${new Date(p.time).toLocaleString()}</small>
       </div>
     </div>
   `).join("");
 }
 
-// 💬 댓글 로드
+/* =========================
+   COMMENTS
+========================= */
 async function loadComments() {
   const { data, error } = await supabase
-    .from("comments")
-    .select("id, content, created_at")
-    .order("created_at", { ascending: false })
+    .from("wiki_comments")
+    .select("id, content, time")
+    .order("time", { ascending: false })
     .limit(20);
 
-  if (error) {
-    showError(commentsDiv, "댓글 로딩 실패");
-    return;
-  }
-
-  if (!data.length) {
-    commentsDiv.innerHTML = `<div class="empty">댓글 없음</div>`;
-    return;
-  }
+  if (error) return showError(commentsDiv, "댓글 로딩 실패");
 
   commentsDiv.innerHTML = data.map(c => `
     <div class="card">
       <div class="card-content">
         ${c.content}
-        <small>${new Date(c.created_at).toLocaleString()}</small>
+        <small>${new Date(c.time).toLocaleString()}</small>
+      </div>
+      <div class="card-actions">
+        <button class="btn btn-danger"
+          onclick="deleteComment(${c.id})">삭제</button>
       </div>
     </div>
   `).join("");
 }
 
-// 📜 로그 로드
-async function loadLogs() {
-  const { data, error } = await supabase
+window.deleteComment = async (id) => {
+  if (!confirm("댓글을 삭제할까요?")) return;
+
+  await supabase.from("wiki_comments").delete().eq("id", id);
+  await logAction(`DELETE COMMENT (${id})`);
+  loadComments();
+};
+
+/* =========================
+   LOGS
+========================= */
+async function loadLogs(keyword = "") {
+  let q = supabase
     .from("admin_logs")
     .select("action, created_at")
     .order("created_at", { ascending: false })
-    .limit(30);
+    .limit(50);
 
-  if (error) {
-    showError(logsDiv, "로그 로딩 실패");
-    return;
-  }
+  if (keyword) q = q.ilike("action", `%${keyword}%`);
 
-  if (!data.length) {
+  const { data, error } = await q;
+  if (error || !data.length) {
     logsDiv.innerHTML = `<div class="empty">로그 없음</div>`;
     return;
   }
@@ -158,15 +223,32 @@ async function loadLogs() {
   `).join("");
 }
 
-// 🚀 초기 실행
-(async () => {
-  const user = await checkAdmin();
-  if (!user) return;
+window.searchLogs = () => {
+  const q = document.getElementById("logSearch").value;
+  loadLogs(q);
+};
 
-  await Promise.all([
-    loadUsers(),
-    loadPosts(),
-    loadComments(),
-    loadLogs()
-  ]);
-})();
+async function logAction(action) {
+  await supabase.from("admin_logs").insert({
+    action,
+    actor: currentUser.id
+  });
+}
+
+/* =========================
+   INIT
+========================= */
+window.addEventListener("DOMContentLoaded", async () => {
+  try {
+    await requireAdmin();
+    await Promise.all([
+      loadStats(),
+      loadUsers(),
+      loadPosts(),
+      loadComments(),
+      loadLogs()
+    ]);
+  } catch (e) {
+    console.error(e);
+  }
+});
