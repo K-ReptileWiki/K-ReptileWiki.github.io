@@ -32,7 +32,6 @@ class SupabaseService {
   async init() {
     console.log("🔧 Supabase 초기화 시작");
 
-    // ✅ 먼저 현재 세션 확인 (초기 로드 시 한 번만)
     try {
       const { data } = await this.client.auth.getSession();
       console.log("📦 초기 세션:", data?.session ? "있음" : "없음");
@@ -50,11 +49,9 @@ class SupabaseService {
       this._initialCheckDone = true;
     }
 
-    // ✅ 인증 상태 변경 리스너 (초기 체크 후에만 동작)
     this.client.auth.onAuthStateChange(async (event, session) => {
       console.log("🔔 Auth 이벤트:", event);
       
-      // 초기 로드가 완료된 후에만 처리
       if (!this._initialCheckDone) return;
 
       if (event === 'SIGNED_IN' && session?.user) {
@@ -79,14 +76,12 @@ class SupabaseService {
     try {
       this.currentUser = user;
 
-      // 프로필 정보 가져오기
       let { data, error } = await this.client
         .from("profiles")
         .select("*")
         .eq("id", user.id)
         .single();
 
-      // 프로필이 없으면 생성
       if (error || !data) {
         console.log("📝 프로필 생성 중...");
         const nickname = user.email.split("@")[0];
@@ -151,7 +146,6 @@ class SupabaseService {
       if (error) throw error;
       
       if (data.user) {
-        // 프로필 생성
         await this.client
           .from("profiles")
           .insert({ 
@@ -181,7 +175,6 @@ class SupabaseService {
       
       console.log("✅ Supabase 인증 성공");
       
-      // 사용자 정보 설정
       if (data.user) {
         await this._setUser(data.user);
       }
@@ -302,6 +295,65 @@ class SupabaseService {
     const { data, error } = await this.client.from("wiki_likes").select("*",{count:'exact'}).eq("post_id",postId);
     if (error) return 0;
     return data?.length || 0;
+  }
+
+  // =========================
+  // 조회수 👀 NEW!
+  // =========================
+  async recordView(postId) {
+    try {
+      // 로그인하지 않은 경우 조회수 증가 안 함
+      if (!this.isLoggedIn()) {
+        console.log("👀 비로그인 사용자 - 조회수 미기록");
+        return { success: false, error: "로그인 필요" };
+      }
+
+      // 이미 본 게시글인지 확인
+      const { data: existingView } = await this.client
+        .from("wiki_views")
+        .select("*")
+        .eq("post_id", postId)
+        .eq("uid", this.currentUser.id)
+        .maybeSingle();
+
+      if (existingView) {
+        console.log("👀 이미 조회한 게시글");
+        return { success: true, alreadyViewed: true };
+      }
+
+      // 새로운 조회 기록 추가
+      const { error } = await this.client
+        .from("wiki_views")
+        .insert({
+          post_id: postId,
+          uid: this.currentUser.id
+        });
+
+      if (error) throw error;
+
+      console.log("👀 조회수 +1");
+      return { success: true, alreadyViewed: false };
+
+    } catch(error) {
+      console.error("조회수 기록 실패:", error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async getViewCount(postId) {
+    try {
+      const { data, error } = await this.client
+        .from("wiki_views")
+        .select("*", { count: 'exact' })
+        .eq("post_id", postId);
+
+      if (error) throw error;
+
+      return data?.length || 0;
+    } catch(error) {
+      console.error("조회수 조회 실패:", error);
+      return 0;
+    }
   }
 
   // =========================
