@@ -20,6 +20,7 @@
     .btn-secondary { background:#6b7280; color:white; }
     .user-info { padding:15px; background:#f3f4f6; border-radius:6px; margin-bottom:15px; text-align:center; }
     .btn:disabled { background: #ccc; cursor: not-allowed; }
+    .debug-log { margin-top: 20px; padding: 10px; background: #f1f5f9; border-radius: 4px; font-size: 12px; font-family: monospace; max-height: 200px; overflow-y: auto; }
   </style>
 </head>
 <body>
@@ -29,7 +30,7 @@
     <div id="userInfo" class="user-info">사용자 인증 확인중…</div>
 
     <!-- 로그인 폼 -->
-    <form id="loginForm">
+    <form id="loginForm" style="display:none;">
       <div class="form-group">
         <label>이메일</label>
         <input type="email" id="email" placeholder="example@email.com">
@@ -60,6 +61,9 @@
     </div>
 
     <button id="cancelBtn" class="btn btn-secondary">메인으로</button>
+
+    <!-- 디버그 로그 -->
+    <div id="debugLog" class="debug-log"></div>
   </div>
 
   <script type="module">
@@ -71,8 +75,16 @@
     const logoutSection = document.getElementById("logoutSection");
     const signupFields = document.getElementById("signupFields");
     const toggleBtn = document.getElementById("toggleBtn");
+    const debugLog = document.getElementById("debugLog");
 
-    window.updateUI = function() {
+    function log(msg) {
+      const timestamp = new Date().toLocaleTimeString();
+      console.log(msg);
+      debugLog.innerHTML += `[${timestamp}] ${msg}<br>`;
+      debugLog.scrollTop = debugLog.scrollHeight;
+    }
+
+    function updateUI() {
       const { user, data } = supabaseService.getCurrentUser();
 
       if (user) {
@@ -85,29 +97,40 @@
         `;
         loginForm.style.display = "none";
         logoutSection.style.display = "block";
+        
+        log(`✅ UI 업데이트 완료: ${nickname} (${role})`);
       } else {
         userInfoDiv.textContent = "로그인되지 않음";
         loginForm.style.display = "block";
         logoutSection.style.display = "none";
+        
+        log("❌ 로그인되지 않은 상태");
       }
     }
 
+    // ✅ 페이지 로드 시 초기화
     window.addEventListener("load", async () => {
-      console.log("⏳ 인증 상태 확인 중…");
-      loginForm.style.display = "block";
-      logoutSection.style.display = "none";
-
+      log("🚀 페이지 로드 시작");
+      
       try {
+        // 인증 완료 대기
+        log("⏳ 인증 상태 확인 중...");
         await supabaseService.waitForAuth();
-        const { data } = await supabaseService.client.auth.getSession();
-        if (data?.session?.user) await supabaseService._setUser(data.session.user);
+        
+        log("✅ 인증 초기화 완료");
+        
+        // UI 업데이트
+        updateUI();
+        
       } catch(e) {
-        console.error("세션 확인 실패:", e);
+        log(`❌ 초기화 실패: ${e.message}`);
+        console.error("초기화 오류:", e);
+        userInfoDiv.textContent = "초기화 실패";
+        loginForm.style.display = "block";
       }
-
-      updateUI();
     });
 
+    // 회원가입/로그인 모드 전환
     toggleBtn.addEventListener("click", () => {
       isSignupMode = !isSignupMode;
       signupFields.style.display = isSignupMode ? "block" : "none";
@@ -116,53 +139,91 @@
       document.getElementById("signupBtn").style.display = isSignupMode ? "block" : "none";
     });
 
+    // ✅ 로그인 버튼
     document.getElementById("loginBtn").addEventListener("click", async (e) => {
       const btn = e.target;
       const email = document.getElementById("email").value.trim();
       const password = document.getElementById("password").value.trim();
 
-      if (!email || !password) { alert("이메일과 비밀번호를 입력하세요"); return; }
+      if (!email || !password) { 
+        alert("이메일과 비밀번호를 입력하세요"); 
+        return; 
+      }
 
       btn.disabled = true;
       btn.textContent = "로그인 중…";
+      log(`🔐 로그인 시도: ${email}`);
 
-      const result = await supabaseService.signIn(email, password);
-      if (result.success) {
-        alert("로그인 성공!");
-        updateUI();
-      } else {
-        alert("로그인 실패: " + result.error);
+      try {
+        const result = await supabaseService.signIn(email, password);
+        
+        if (result.success) {
+          log("✅ 로그인 성공!");
+          
+          // ✅ 사용자 정보 설정 완료까지 대기
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // UI 업데이트
+          updateUI();
+          
+          // 메인 페이지로 이동
+          setTimeout(() => {
+            log("🏠 메인 페이지로 이동");
+            location.href = "index.html";
+          }, 1000);
+          
+        } else {
+          throw new Error(result.error);
+        }
+      } catch (error) {
+        log(`❌ 로그인 실패: ${error.message}`);
+        alert("로그인 실패: " + error.message);
         btn.disabled = false;
         btn.textContent = "로그인";
       }
     });
 
+    // 회원가입 버튼
     document.getElementById("signupBtn").addEventListener("click", async () => {
       const email = document.getElementById("email").value.trim();
       const password = document.getElementById("password").value.trim();
       const confirmPassword = document.getElementById("confirmPassword").value.trim();
       const nickname = document.getElementById("nickname").value.trim();
 
-      if (!email || !password) { alert("이메일과 비밀번호를 입력하세요"); return; }
-      if (password !== confirmPassword) { alert("비밀번호가 일치하지 않습니다"); return; }
+      if (!email || !password) { 
+        alert("이메일과 비밀번호를 입력하세요"); 
+        return; 
+      }
+      if (password !== confirmPassword) { 
+        alert("비밀번호가 일치하지 않습니다"); 
+        return; 
+      }
+
+      log(`📝 회원가입 시도: ${email}`);
 
       const result = await supabaseService.signUp(email, password, nickname);
       if (result.success) {
+        log("✅ 회원가입 성공!");
         alert("회원가입 성공! 로그인해주세요.");
         location.reload();
       } else {
+        log(`❌ 회원가입 실패: ${result.error}`);
         alert("회원가입 실패: " + result.error);
       }
     });
 
+    // 로그아웃 버튼
     document.getElementById("logoutBtn").addEventListener("click", async () => {
+      log("👋 로그아웃 시도");
       const result = await supabaseService.signOut();
       if (result.success) { 
+        log("✅ 로그아웃 완료");
         alert("로그아웃됨"); 
         updateUI(); 
       }
     });
 
+    // 메인으로 버튼
     document.getElementById("cancelBtn").addEventListener("click", () => {
       location.href = "index.html";
     });
