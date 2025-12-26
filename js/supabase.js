@@ -10,18 +10,23 @@ class SupabaseService {
   constructor() {
     if (SupabaseService.instance) return SupabaseService.instance;
 
-    this.client = createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.key, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true
+    this.client = createClient(
+      SUPABASE_CONFIG.url,
+      SUPABASE_CONFIG.key,
+      {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true
+        }
       }
-    });
-    
+    );
+
     this.currentUser = null;
     this.userData = null;
+
     this._authResolved = false;
-    this._authPromise = new Promise(res => { this._resolveAuth = res; });
+    this._authPromise = new Promise(res => (this._resolveAuth = res));
     this._settingUser = false;
     this._initialCheckDone = false;
 
@@ -29,34 +34,39 @@ class SupabaseService {
     SupabaseService.instance = this;
   }
 
+  // =========================
+  // 초기화
+  // =========================
   async init() {
     console.log("🔧 Supabase 초기화 시작");
 
     try {
       const { data } = await this.client.auth.getSession();
       console.log("📦 초기 세션:", data?.session ? "있음" : "없음");
-      
+
       if (data?.session?.user) {
         await this._setUser(data.session.user);
       } else {
         this._completeAuth();
       }
-      
+
       this._initialCheckDone = true;
-    } catch(e) {
-      console.error("❌ 세션 확인 실패:", e);
+    } catch (err) {
+      console.error("❌ 세션 확인 실패:", err);
       this._completeAuth();
       this._initialCheckDone = true;
     }
 
     this.client.auth.onAuthStateChange(async (event, session) => {
       console.log("🔔 Auth 이벤트:", event);
-      
+
       if (!this._initialCheckDone) return;
 
-      if (event === 'SIGNED_IN' && session?.user) {
+      if (event === "SIGNED_IN" && session?.user) {
         await this._setUser(session.user);
-      } else if (event === 'SIGNED_OUT') {
+      }
+
+      if (event === "SIGNED_OUT") {
         this.currentUser = null;
         this.userData = null;
         this._completeAuth();
@@ -64,42 +74,42 @@ class SupabaseService {
     });
   }
 
-async _setUser(user) {
-  if (this._settingUser) return;
-  this._settingUser = true;
+  // =========================
+  // 사용자 설정 (중요)
+  // =========================
+  async _setUser(user) {
+    if (this._settingUser) return;
+    this._settingUser = true;
 
-  console.log("👤 사용자 설정 중:", user.email);
+    console.log("👤 사용자 설정 중:", user.email);
 
-  try {
-    this.currentUser = user;
+    try {
+      this.currentUser = user;
 
-    const { data, error } = await this.client
-      .from("profiles")
-      .select("id, nickname, role")
-      .eq("id", user.id)
-      .single();
+      const { data, error } = await this.client
+        .from("profiles")
+        .select("id, nickname, role")
+        .eq("id", user.id)
+        .single();
 
-    if (error) {
-      console.error("❌ profiles 조회 실패", error);
-      alert("프로필 정보를 불러올 수 없습니다.\n관리자에게 문의하세요.");
-      throw error;
+      if (error || !data) {
+        console.error("❌ profiles 조회 실패", error);
+        alert(
+          "프로필 정보를 불러올 수 없습니다.\n관리자에게 문의하세요."
+        );
+        throw error || new Error("profile not found");
+      }
+
+      this.userData = data;
+
+      console.log(
+        `✅ 사용자 설정 완료: ${data.nickname} (${data.role})`
+      );
+    } finally {
+      this._settingUser = false;
+      this._completeAuth();
     }
-
-    if (!data) {
-      throw new Error("프로필이 존재하지 않습니다.");
-    }
-
-    this.userData = data;
-
-    console.log(
-      `✅ 사용자 설정 완료: ${data.nickname} (${data.role})`
-    );
-
-  } finally {
-    this._settingUser = false;
-    this._completeAuth();
   }
-}
 
   _completeAuth() {
     if (!this._authResolved) {
@@ -115,14 +125,27 @@ async _setUser(user) {
     return this._authPromise;
   }
 
-  isLoggedIn() { return !!this.currentUser; }
-  isAdmin() { return this.userData?.role === "admin"; }
-  getCurrentUser() { 
-    return { 
-      user: this.currentUser, 
-      profile: this.userData, 
-      data: this.userData 
-    }; 
+  // =========================
+  // 상태 체크
+  // =========================
+  isLoggedIn() {
+    return !!this.currentUser;
+  }
+
+  isAdmin() {
+    return ["admin", "owner"].includes(this.userData?.role);
+  }
+
+  isOwner() {
+    return this.userData?.role === "owner";
+  }
+
+  getCurrentUser() {
+    return {
+      user: this.currentUser,
+      profile: this.userData,
+      data: this.userData
+    };
   }
 
   // =========================
@@ -130,52 +153,43 @@ async _setUser(user) {
   // =========================
   async signUp(email, password, nickname) {
     try {
-      const { data, error } = await this.client.auth.signUp({ 
-        email, 
-        password, 
+      const { data, error } = await this.client.auth.signUp({
+        email,
+        password,
         options: { data: { nickname } }
       });
-      
+
       if (error) throw error;
-      
-      if (data.user) {
-        await this.client
-          .from("profiles")
-          .insert({ 
-            id: data.user.id, 
-            nickname: nickname || email.split("@")[0], 
-            role: "user" 
-          });
-      }
-      
+
       return { success: true, data };
-    } catch(error) {
-      console.error("회원가입 실패:", error);
-      return { success: false, error: error.message };
+    } catch (err) {
+      console.error("회원가입 실패:", err);
+      return { success: false, error: err.message };
     }
   }
 
   async signIn(email, password) {
     try {
       console.log("🔐 로그인 시도:", email);
-      
-      const { data, error } = await this.client.auth.signInWithPassword({ 
-        email, 
-        password 
-      });
-      
+
+      const { data, error } =
+        await this.client.auth.signInWithPassword({
+          email,
+          password
+        });
+
       if (error) throw error;
-      
+
       console.log("✅ Supabase 인증 성공");
-      
+
       if (data.user) {
         await this._setUser(data.user);
       }
-      
+
       return { success: true, data };
-    } catch(error) {
-      console.error("❌ 로그인 실패:", error);
-      return { success: false, error: error.message };
+    } catch (err) {
+      console.error("❌ 로그인 실패:", err);
+      return { success: false, error: err.message };
     }
   }
 
@@ -183,33 +197,53 @@ async _setUser(user) {
     try {
       const { error } = await this.client.auth.signOut();
       if (error) throw error;
-      
+
       this.currentUser = null;
       this.userData = null;
-      
+
       console.log("👋 로그아웃 완료");
       return { success: true };
-    } catch(error) {
-      console.error("로그아웃 실패:", error);
-      return { success: false, error: error.message };
+    } catch (err) {
+      console.error("로그아웃 실패:", err);
+      return { success: false, error: err.message };
     }
   }
 
   // =========================
-  // 게시글 CRUD
+  // 게시글 / 댓글 / 기타
+  // (아래는 기존 코드 그대로 유지)
   // =========================
-  async createPost(title, content, imageUrls=[]) {
-    if (!this.isLoggedIn()) return { success:false, error:"로그인 필요" };
-    const cleanUrls = imageUrls.map(u => typeof u==="string"? u.replace(/^["']|["']$/g,"").trim() : u).filter(Boolean);
-    const { data, error } = await this.client.from("wiki_posts").insert({
-      title, content, images: cleanUrls, uid:this.currentUser.id,
-      author:this.userData.nickname, deleted:false, time:new Date().toISOString()
-    }).select("id");
-    if (error) return { success:false, error:error.message };
-    return { success:true, data:data[0] };
+
+  async createPost(title, content, imageUrls = []) {
+    if (!this.isLoggedIn())
+      return { success: false, error: "로그인 필요" };
+
+    const cleanUrls = imageUrls
+      .map(u =>
+        typeof u === "string"
+          ? u.replace(/^["']|["']$/g, "").trim()
+          : u
+      )
+      .filter(Boolean);
+
+    const { data, error } = await this.client
+      .from("wiki_posts")
+      .insert({
+        title,
+        content,
+        images: cleanUrls,
+        uid: this.currentUser.id,
+        author: this.userData.nickname,
+        deleted: false,
+        time: new Date().toISOString()
+      })
+      .select("id");
+
+    if (error) return { success: false, error: error.message };
+    return { success: true, data: data[0] };
   }
 
-  async getPosts(includeDeleted=false) {
+ async getPosts(includeDeleted=false) {
     let query = this.client.from("wiki_posts").select("*").order("time",{ascending:false});
     if (!includeDeleted) query = query.eq("deleted", false);
     const { data, error } = await query;
