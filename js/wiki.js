@@ -8,14 +8,14 @@ if (!PAGE_ID) {
 }
 
 // =========================
-// 좋아요 기능
+// 좋아요 기능 (종 페이지용)
 // =========================
 async function loadLikes() {
   try {
     const { data, error } = await supabaseService.client
-      .from("wiki_likes")
+      .from("species_likes")
       .select("*", { count: 'exact' })
-      .eq("post_id", PAGE_ID);
+      .eq("species_id", PAGE_ID);
 
     if (error) throw error;
 
@@ -25,6 +25,7 @@ async function loadLikes() {
 
   } catch (error) {
     console.error("좋아요 로드 실패:", error);
+    document.getElementById("likeCount").textContent = "0";
   }
 }
 
@@ -40,18 +41,18 @@ async function toggleLike() {
 
     const user = supabaseService.getCurrentUser().user;
     
-    // ✅ uid 사용 (user_id가 아닌!)
+    // 이미 좋아요 했는지 확인
     const { data: existing } = await supabaseService.client
-      .from("wiki_likes")
+      .from("species_likes")
       .select("id")
-      .eq("post_id", PAGE_ID)
-      .eq("uid", user.id)  // ✅ user_id → uid
+      .eq("species_id", PAGE_ID)
+      .eq("uid", user.id)
       .maybeSingle();
 
     if (existing) {
       // 좋아요 취소
       await supabaseService.client
-        .from("wiki_likes")
+        .from("species_likes")
         .delete()
         .eq("id", existing.id);
       
@@ -60,10 +61,10 @@ async function toggleLike() {
     } else {
       // 좋아요 추가
       const { error } = await supabaseService.client
-        .from("wiki_likes")
+        .from("species_likes")
         .insert({
-          post_id: PAGE_ID,
-          uid: user.id  // ✅ user_id → uid
+          species_id: PAGE_ID,
+          uid: user.id
         });
 
       if (error) throw error;
@@ -87,14 +88,14 @@ async function toggleLike() {
 }
 
 // =========================
-// 기여 기능
+// 기여 기능 (종 페이지용)
 // =========================
 async function loadContributions() {
   try {
     const { data, error } = await supabaseService.client
-      .from("wiki_contributions")
+      .from("species_contributions")
       .select("*")
-      .eq("page_id", PAGE_ID)
+      .eq("species_id", PAGE_ID)
       .order("created_at", { ascending: false });
 
     if (error) throw error;
@@ -111,7 +112,7 @@ async function loadContributions() {
       const row = document.createElement("tr");
       
       const currentUser = supabaseService.getCurrentUser().user;
-      const isOwner = currentUser?.id === contrib.uid;  // ✅ user_id → uid
+      const isOwner = currentUser?.id === contrib.uid;
       const isAdmin = supabaseService.isAdmin();
 
       row.innerHTML = `
@@ -142,6 +143,8 @@ async function loadContributions() {
 
   } catch (error) {
     console.error("기여 로드 실패:", error);
+    const tbody = document.getElementById("contribList");
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:red;">기여 내역을 불러올 수 없습니다</td></tr>';
   }
 }
 
@@ -163,11 +166,11 @@ async function addContribution() {
     const author = user.data?.nickname || user.user.email.split("@")[0];
 
     const { error } = await supabaseService.client
-      .from("wiki_contributions")
+      .from("species_contributions")
       .insert({
-        page_id: PAGE_ID,
+        species_id: PAGE_ID,
         content: content,
-        uid: user.user.id,  // ✅ user_id → uid
+        uid: user.user.id,
         author: author
       });
 
@@ -190,8 +193,11 @@ async function editContribution(id) {
     if (!newContent) return;
 
     const { error } = await supabaseService.client
-      .from("wiki_contributions")
-      .update({ content: newContent })
+      .from("species_contributions")
+      .update({ 
+        content: newContent,
+        updated_at: new Date().toISOString()
+      })
       .eq("id", id);
 
     if (error) throw error;
@@ -210,7 +216,7 @@ async function deleteContribution(id) {
     if (!confirm("정말 삭제하시겠습니까?")) return;
 
     const { error } = await supabaseService.client
-      .from("wiki_contributions")
+      .from("species_contributions")
       .delete()
       .eq("id", id);
 
