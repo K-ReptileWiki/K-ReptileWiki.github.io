@@ -4,23 +4,22 @@
   <meta charset="UTF-8">
   <title>K-ReptileWiki 로그인</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="style.css">
   <style>
-    body { font-family: Arial, sans-serif; background:#f9fafb; }
-    .container { max-width:400px; margin:50px auto; padding:30px; background:white; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.1); }
-    h1 { text-align:center; color:#2563eb; }
+    body { font-family: 'Pretendard', sans-serif; background:#f9fafb; color: #333; }
+    .container { max-width:400px; margin:50px auto; padding:30px; background:white; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.08); }
+    h1 { text-align:center; color:#2563eb; margin-bottom: 25px; }
     form { display: flex; flex-direction: column; }
     .form-group { margin-bottom:15px; }
-    .form-group label { display:block; margin-bottom:5px; font-weight:bold; }
-    .form-group input { width:100%; padding:10px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; }
-    .btn { width:100%; padding:12px; border:none; border-radius:6px; cursor:pointer; font-weight:bold; margin-bottom:10px; }
+    .form-group label { display:block; margin-bottom:5px; font-weight:bold; font-size: 14px; }
+    .form-group input { width:100%; padding:12px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box; transition: border-color 0.2s; }
+    .form-group input:focus { border-color: #2563eb; outline: none; }
+    .btn { width:100%; padding:12px; border:none; border-radius:6px; cursor:pointer; font-weight:bold; margin-bottom:10px; font-size: 15px; }
     .btn-primary { background:#2563eb; color:white; }
     .btn-success { background:#10b981; color:white; }
     .btn-danger { background:#f87171; color:white; }
-    .btn-secondary { background:#6b7280; color:white; }
-    .user-info { padding:15px; background:#f3f4f6; border-radius:6px; margin-bottom:15px; text-align:center; }
-    .btn:disabled { background: #ccc; cursor: not-allowed; }
-    .debug-log { margin-top: 20px; padding: 10px; background: #f1f5f9; border-radius: 4px; font-size: 12px; font-family: monospace; max-height: 200px; overflow-y: auto; }
+    .btn-secondary { background:#f3f4f6; color:#4b5563; }
+    .user-info { padding:15px; background:#eff6ff; border: 1px solid #dbeafe; border-radius:8px; margin-bottom:20px; text-align:center; }
+    .debug-log { margin-top: 20px; padding: 10px; background: #1e293b; color: #f8fafc; border-radius: 6px; font-size: 11px; font-family: monospace; max-height: 150px; overflow-y: auto; }
   </style>
 </head>
 <body>
@@ -42,24 +41,24 @@
       <div id="signupFields" style="display:none;">
         <div class="form-group">
           <label>비밀번호 확인</label>
-          <input type="password" id="confirmPassword" placeholder="비밀번호 확인">
+          <input type="password" id="confirmPassword" placeholder="비밀번호 다시 입력">
         </div>
         <div class="form-group">
           <label>닉네임 (선택)</label>
-          <input type="text" id="nickname" placeholder="미입력 시 이메일 아이디 사용">
+          <input type="text" id="nickname" placeholder="미입력 시 이메일 사용">
         </div>
       </div>
 
       <button type="button" id="loginBtn" class="btn btn-primary">로그인</button>
       <button type="button" id="signupBtn" class="btn btn-success" style="display:none;">회원가입 완료</button>
-      <button type="button" id="toggleBtn" class="btn btn-secondary">회원가입 모드로 전환</button>
+      <button type="button" id="toggleBtn" class="btn btn-secondary">계정이 없으신가요? 회원가입</button>
     </form>
 
     <div id="logoutSection" style="display:none;">
       <button id="logoutBtn" class="btn btn-danger">로그아웃</button>
     </div>
 
-    <button id="cancelBtn" class="btn btn-secondary">메인으로</button>
+    <button id="cancelBtn" class="btn btn-secondary">메인으로 돌아가기</button>
 
     <div id="debugLog" class="debug-log"></div>
   </div>
@@ -78,142 +77,95 @@
 
   function log(msg) {
     const t = new Date().toLocaleTimeString();
-    console.log(msg);
     debugLog.innerHTML += `[${t}] ${msg}<br>`;
     debugLog.scrollTop = debugLog.scrollHeight;
   }
 
-  // UI 업데이트
   function updateUI() {
     const { user, profile } = supabaseService.getCurrentUser();
 
     if (!user) {
-      userInfoDiv.textContent = "로그인되지 않음";
+      userInfoDiv.textContent = "로그인이 필요합니다.";
       loginForm.style.display = "block";
       logoutSection.style.display = "none";
-      log("❌ 현재 비로그인 상태");
       return;
     }
 
-    let roleText = "일반 사용자";
-    if (profile?.role === "owner") roleText = "최고 관리자";
-    else if (profile?.role === "admin") roleText = "관리자";
-
-    const displayName = profile?.nickname || user.email;
+    const roleMap = { owner: "최고 관리자", admin: "관리자" };
+    const roleText = roleMap[profile?.role] || "일반 사용자";
 
     userInfoDiv.innerHTML = `
-      현재 로그인: <strong>${displayName}</strong><br>
-      권한: <strong>${roleText}</strong>
+      현재 접속: <strong>${profile?.nickname || user.email}</strong><br>
+      등급: <span style="color:#2563eb">${roleText}</span>
     `;
 
     loginForm.style.display = "none";
     logoutSection.style.display = "block";
-
-    log(`✅ UI 업데이트 완료: ${displayName}`);
   }
 
-  // 초기 로드
   window.addEventListener("load", async () => {
-    log("🚀 페이지 로딩... 인증 상태 확인 중");
+    log("🚀 시스템 시작...");
     await supabaseService.waitForAuth();
     updateUI();
   });
 
-  // 모드 전환 (로그인 <-> 회원가입)
   toggleBtn.addEventListener("click", () => {
     isSignupMode = !isSignupMode;
     signupFields.style.display = isSignupMode ? "block" : "none";
-    
-    if (isSignupMode) {
-      toggleBtn.textContent = "로그인 모드로 전환";
-      document.getElementById("loginBtn").style.display = "none";
-      document.getElementById("signupBtn").style.display = "block";
-    } else {
-      toggleBtn.textContent = "회원가입 모드로 전환";
-      document.getElementById("loginBtn").style.display = "block";
-      document.getElementById("signupBtn").style.display = "none";
-    }
+    document.getElementById("loginBtn").style.display = isSignupMode ? "none" : "block";
+    document.getElementById("signupBtn").style.display = isSignupMode ? "block" : "none";
+    toggleBtn.textContent = isSignupMode ? "이미 계정이 있나요? 로그인" : "계정이 없으신가요? 회원가입";
   });
 
-  // 1. 로그인 로직
+  // 로그인 로직
   document.getElementById("loginBtn").addEventListener("click", async () => {
     const email = document.getElementById("email").value.trim();
     const password = document.getElementById("password").value.trim();
 
-    if (!email || !password) {
-      alert("이메일과 비밀번호를 입력해 주세요.");
-      return;
-    }
+    if (!email || !password) return alert("필수 정보를 입력하세요.");
 
-    log(`🔐 로그인 시도: ${email}`);
+    log(`🔐 로그인 중...`);
     const result = await supabaseService.signIn(email, password);
 
     if (result.success) {
-      log("✅ 로그인 성공! 메인으로 이동합니다.");
-      await supabaseService.waitForAuth();
+      log("✅ 로그인 성공");
       location.href = "index.html";
     } else {
-      log(`❌ 로그인 실패: ${result.error}`);
       alert("로그인 실패: " + result.error);
     }
   });
 
-  // 2. 회원가입 로직 (추가된 부분)
+  // 회원가입 로직 (중요: supabase.js의 인자 순서와 형식을 맞춤)
   document.getElementById("signupBtn").addEventListener("click", async () => {
     const email = document.getElementById("email").value.trim();
     const password = document.getElementById("password").value.trim();
-    const confirmPassword = document.getElementById("confirmPassword").value.trim();
-    const nickname = document.getElementById("nickname").value.trim();
+    const confirm = document.getElementById("confirmPassword").value.trim();
+    const nickname = document.getElementById("nickname").value.trim() || email.split('@')[0];
 
-    if (!email || !password) {
-      alert("이메일과 비밀번호를 입력해 주세요.");
-      return;
-    }
+    if (!email || !password) return alert("이메일과 비밀번호를 입력하세요.");
+    if (password !== confirm) return alert("비밀번호가 일치하지 않습니다.");
+    if (password.length < 6) return alert("비밀번호는 최소 6자 이상이어야 합니다.");
 
-    if (password !== confirmPassword) {
-      alert("비밀번호 확인이 일치하지 않습니다.");
-      return;
-    }
-
-    if (password.length < 6) {
-      alert("비밀번호는 6자리 이상이어야 합니다.");
-      return;
-    }
-
-    log(`📝 회원가입 요청: ${email}`);
+    log(`📝 가입 요청 중: ${email}`);
     
-    // nickname이 없으면 이메일 앞부분 사용
-    const userNickname = nickname || email.split('@')[0];
-    
-    const result = await supabaseService.signUp(email, password, {
-      nickname: userNickname
-    });
+    // ✅ 수정된 호출 방식: 3번째 인자로 객체가 아닌 '문자열' nickname을 전달
+    const result = await supabaseService.signUp(email, password, nickname);
 
     if (result.success) {
-      log("✅ 회원가입 성공!");
-      alert("회원가입이 완료되었습니다! " + (result.data?.user?.identities?.length === 0 ? "\n(이미 가입된 계정일 수 있습니다)" : ""));
-      
-      // 가입 후 바로 로그인 상태가 된다면 메인으로, 아니라면 로그인 모드로 전환
-      await supabaseService.waitForAuth();
-      if (supabaseService.getCurrentUser().user) {
-        location.href = "index.html";
-      } else {
-        toggleBtn.click(); // 로그인 모드로 복귀
-      }
+      log("✅ 가입 성공!");
+      alert("회원가입이 완료되었습니다!\n이메일 인증이 설정되어 있다면 메일을 확인해주세요.");
+      location.reload(); // 상태 새로고침
     } else {
-      log(`❌ 회원가입 실패: ${result.error}`);
+      log(`❌ 실패: ${result.error}`);
       alert("회원가입 실패: " + result.error);
     }
   });
 
-  // 로그아웃
   document.getElementById("logoutBtn").addEventListener("click", async () => {
-    log("👋 로그아웃 진행 중...");
     await supabaseService.signOut();
-    updateUI();
+    location.reload();
   });
 
-  // 메인으로
   document.getElementById("cancelBtn").addEventListener("click", () => {
     location.href = "index.html";
   });
