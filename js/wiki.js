@@ -1,282 +1,263 @@
-import { supabaseService, supabase } from "./supabase.js";
+// js/wiki.js
+import { supabaseService } from "./supabase.js";
 
-const BAD_WORDS = ["시발", "병신", "ㅅㅂ", "ㅂㅅ", "애미", "애미 뒤짐"];
-const POST_COOLDOWN = 30000; // 30초
+const PAGE_ID = window.__PAGE_ID__;
 
-let lastPostAt = 0;
-
-function initWiki(pageId) {
-  console.log("✅ initWiki 실행됨:", pageId);
-
-  // 기여 목록 불러오기
-  async function loadContributions() {
-    const { data, error } = await supabase
-      .from("wiki_contributions")
-      .select("*")
-      .eq("post_id", pageId)
-      .order("time", { ascending: false });
-
-    if (error) {
-      console.error("❌ 기여 조회 오류:", error);
-      return;
-    }
-
-    const list = document.getElementById("contribList");
-    if (!list) return;
-
-    list.innerHTML = "";
-    
-    if (!data || data.length === 0) {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `<td colspan="4" style="text-align:center;">아직 기여가 없습니다</td>`;
-      list.appendChild(tr);
-      return;
-    }
-
-    data.forEach((row) => {
-      const tr = document.createElement("tr");
-      
-      // 수정/삭제 버튼은 작성자만 보이게
-      const isAuthor = supabaseService.isLoggedIn() && 
-                      supabaseService.getCurrentUser().user.id === row.uid;
-      const isAdmin = supabaseService.isAdmin();
-      
-      tr.innerHTML = `
-        <td>${row.username ?? "익명"}</td>
-        <td>${row.text}</td>
-        <td>${new Date(row.time).toLocaleString()}</td>
-        <td>
-          ${isAuthor || isAdmin 
-            ? `<button onclick="deleteContribution('${row.id}')">삭제</button>
-               ${isAuthor ? `<button onclick="editContribution('${row.id}', '${row.text.replace(/'/g, "\\'")}')">수정</button>` : ""}`
-            : "권한 없음"
-          }
-        </td>
-      `;
-      list.appendChild(tr);
-    });
-  }
-
-  // 기여 삭제
-  window.deleteContribution = async (id) => {
-    if (!supabaseService.isLoggedIn()) {
-      alert("로그인 후 삭제할 수 있습니다");
-      return;
-    }
-
-    if (!confirm("정말 삭제하시겠습니까?")) return;
-
-    const { user } = supabaseService.getCurrentUser();
-    const { error } = await supabase
-      .from("wiki_contributions")
-      .delete()
-      .eq("id", id)
-      .eq("uid", user.id);
-    
-    if (error) {
-      console.error("❌ 삭제 실패:", error);
-      alert("삭제 실패: " + error.message);
-    } else {
-      alert("삭제되었습니다");
-      loadContributions();
-    }
-  };
-
-  // 기여 수정
-  window.editContribution = async (id, oldText) => {
-    if (!supabaseService.isLoggedIn()) {
-      alert("로그인 후 수정할 수 있습니다");
-      return;
-    }
-
-    const newText = prompt("새로운 내용 입력:", oldText);
-    if (!newText || newText === oldText) return;
-
-    // 욕설 필터
-    if (BAD_WORDS.some(word => newText.includes(word))) {
-      alert("욕설은 사용할 수 없습니다");
-      return;
-    }
-
-    const { user } = supabaseService.getCurrentUser();
-    const { error } = await supabase
-      .from("wiki_contributions")
-      .update({ 
-        text: newText, 
-        time: new Date().toISOString() 
-      })
-      .eq("id", id)
-      .eq("uid", user.id);
-    
-    if (error) {
-      console.error("❌ 수정 실패:", error);
-      alert("수정 실패: " + error.message);
-    } else {
-      alert("수정되었습니다");
-      loadContributions();
-    }
-  };
-
-  // 기여 추가 버튼
-  const addBtn = document.getElementById("addBtn");
-  if (addBtn) {
-    addBtn.onclick = async () => {
-      console.log("✍️ 기여 버튼 클릭됨");
-
-      if (!supabaseService.isLoggedIn()) {
-        alert("로그인 후 기여할 수 있습니다");
-        location.href = "../login.html";
-        return;
-      }
-
-      const contentInput = document.getElementById("content");
-      if (!contentInput) {
-        alert("입력 필드를 찾을 수 없습니다");
-        return;
-      }
-
-      const text = contentInput.value.trim();
-      if (!text) {
-        alert("내용을 입력하세요");
-        return;
-      }
-
-      // 욕설 필터
-      if (BAD_WORDS.some(word => text.includes(word))) {
-        alert("욕설은 사용할 수 없습니다");
-        return;
-      }
-
-      // 도배 방지
-      const now = Date.now();
-      if (now - lastPostAt < POST_COOLDOWN) {
-        const remaining = Math.ceil((POST_COOLDOWN - (now - lastPostAt)) / 1000);
-        alert(`도배 방지: ${remaining}초 후에 다시 시도해 주세요`);
-        return;
-      }
-
-      const { user, data } = supabaseService.getCurrentUser();
-      const nickname = data?.nickname || user.email.split("@")[0];
-
-      const payload = {
-        id: crypto.randomUUID(),
-        post_id: pageId,
-        uid: user.id,
-        username: nickname,
-        text,
-        reports: 0,
-        time: new Date().toISOString()
-      };
-
-      console.log("📦 삽입할 payload:", payload);
-
-      const { error } = await supabase
-        .from("wiki_contributions")
-        .insert([payload]);
-      
-      if (error) {
-        console.error("❌ 기여 실패:", error);
-        alert("기여 실패: " + error.message);
-        return;
-      }
-
-      console.log("✅ 기여 삽입 성공");
-      lastPostAt = now;
-      contentInput.value = "";
-      alert("기여가 추가되었습니다!");
-      loadContributions();
-    };
-  }
-
-  // 좋아요 버튼
-  const likeBtn = document.getElementById("likeBtn");
-  if (likeBtn) {
-    // 초기 좋아요 수 표시
-    updateLikeCount();
-
-    likeBtn.onclick = async () => {
-      console.log("👍 좋아요 버튼 클릭됨");
-
-      if (!supabaseService.isLoggedIn()) {
-        alert("로그인 후 좋아요를 누를 수 있습니다");
-        location.href = "../login.html";
-        return;
-      }
-
-      const { user } = supabaseService.getCurrentUser();
-
-      // 이미 좋아요 눌렀는지 확인
-      const { data: existing } = await supabase
-        .from("wiki_likes")
-        .select("id")
-        .eq("post_id", pageId)
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      if (existing) {
-        alert("이미 좋아요를 눌렀습니다");
-        return;
-      }
-
-      // 좋아요 추가
-      const { error } = await supabase
-        .from("wiki_likes")
-        .insert([{ 
-          post_id: pageId, 
-          user_id: user.id 
-        }]);
-      
-      if (error) {
-        console.error("❌ 좋아요 실패:", error);
-        alert("좋아요 실패: " + error.message);
-        return;
-      }
-
-      // 메시지 표시
-      const likeMsg = document.getElementById("likeMsg");
-      if (likeMsg) {
-        likeMsg.textContent = "좋아요가 반영되었습니다!";
-        setTimeout(() => {
-          likeMsg.textContent = "";
-        }, 3000);
-      }
-
-      // 카운트 업데이트
-      updateLikeCount();
-    };
-  }
-
-  // 좋아요 수 업데이트
-  async function updateLikeCount() {
-    const likeBtn = document.getElementById("likeBtn");
-    if (!likeBtn) return;
-
-    const { count, error } = await supabase
-      .from("wiki_likes")
-      .select("*", { count: "exact", head: true })
-      .eq("post_id", pageId);
-
-    if (!error) {
-      likeBtn.textContent = `❤️ ${count || 0}`;
-    }
-  }
-
-  // 초기 로드
-  loadContributions();
+if (!PAGE_ID) {
+  console.error("❌ PAGE_ID가 설정되지 않았습니다!");
 }
 
-// DOM 준비 후 initWiki 실행
-document.addEventListener("DOMContentLoaded", () => {
-  console.log("🌐 DOMContentLoaded 이벤트 발생");
-  
-  // window.__PAGE_ID__가 설정되어 있으면 위키 초기화
-  if (window.__PAGE_ID__) {
-    initWiki(window.__PAGE_ID__);
-  } else {
-    console.warn("⚠️ __PAGE_ID__가 설정되지 않았습니다");
+// =========================
+// 좋아요 기능
+// =========================
+async function loadLikes() {
+  try {
+    const { data, error } = await supabaseService.client
+      .from("wiki_likes")
+      .select("*", { count: 'exact' })
+      .eq("post_id", PAGE_ID);
+
+    if (error) throw error;
+
+    const count = data?.length || 0;
+    document.getElementById("likeCount").textContent = count;
+    console.log(`❤️ 좋아요 ${count}개 로드됨`);
+
+  } catch (error) {
+    console.error("좋아요 로드 실패:", error);
   }
-});
+}
 
-console.log("🚀 wiki.js 로드됨");
+async function toggleLike() {
+  try {
+    console.log("👍 좋아요 버튼 클릭됨");
 
-export { initWiki };
+    if (!supabaseService.isLoggedIn()) {
+      alert("로그인이 필요합니다");
+      location.href = "../login.html";
+      return;
+    }
+
+    const user = supabaseService.getCurrentUser().user;
+    
+    // ✅ uid 사용 (user_id가 아닌!)
+    const { data: existing } = await supabaseService.client
+      .from("wiki_likes")
+      .select("id")
+      .eq("post_id", PAGE_ID)
+      .eq("uid", user.id)  // ✅ user_id → uid
+      .maybeSingle();
+
+    if (existing) {
+      // 좋아요 취소
+      await supabaseService.client
+        .from("wiki_likes")
+        .delete()
+        .eq("id", existing.id);
+      
+      document.getElementById("likeMsg").textContent = "좋아요 취소됨";
+      console.log("💔 좋아요 취소");
+    } else {
+      // 좋아요 추가
+      const { error } = await supabaseService.client
+        .from("wiki_likes")
+        .insert({
+          post_id: PAGE_ID,
+          uid: user.id  // ✅ user_id → uid
+        });
+
+      if (error) throw error;
+
+      document.getElementById("likeMsg").textContent = "좋아요!";
+      console.log("❤️ 좋아요 추가");
+    }
+
+    // 메시지 자동 제거
+    setTimeout(() => {
+      document.getElementById("likeMsg").textContent = "";
+    }, 2000);
+
+    // 좋아요 수 갱신
+    await loadLikes();
+
+  } catch (error) {
+    console.error("❌ 좋아요 실패:", error);
+    alert("좋아요 처리 중 오류가 발생했습니다: " + error.message);
+  }
+}
+
+// =========================
+// 기여 기능
+// =========================
+async function loadContributions() {
+  try {
+    const { data, error } = await supabaseService.client
+      .from("wiki_contributions")
+      .select("*")
+      .eq("page_id", PAGE_ID)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+
+    const tbody = document.getElementById("contribList");
+    tbody.innerHTML = "";
+
+    if (!data || data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">기여 내역이 없습니다</td></tr>';
+      return;
+    }
+
+    data.forEach(contrib => {
+      const row = document.createElement("tr");
+      
+      const currentUser = supabaseService.getCurrentUser().user;
+      const isOwner = currentUser?.id === contrib.uid;  // ✅ user_id → uid
+      const isAdmin = supabaseService.isAdmin();
+
+      row.innerHTML = `
+        <td>${contrib.author || "익명"}</td>
+        <td>${contrib.content}</td>
+        <td>${new Date(contrib.created_at).toLocaleString()}</td>
+        <td>
+          ${(isOwner || isAdmin) ? `
+            <button class="editBtn" data-id="${contrib.id}">수정</button>
+            <button class="deleteBtn" data-id="${contrib.id}">삭제</button>
+          ` : '-'}
+        </td>
+      `;
+
+      tbody.appendChild(row);
+    });
+
+    // 수정/삭제 버튼 이벤트
+    document.querySelectorAll(".editBtn").forEach(btn => {
+      btn.addEventListener("click", () => editContribution(btn.dataset.id));
+    });
+
+    document.querySelectorAll(".deleteBtn").forEach(btn => {
+      btn.addEventListener("click", () => deleteContribution(btn.dataset.id));
+    });
+
+    console.log(`📝 기여 ${data.length}개 로드됨`);
+
+  } catch (error) {
+    console.error("기여 로드 실패:", error);
+  }
+}
+
+async function addContribution() {
+  try {
+    if (!supabaseService.isLoggedIn()) {
+      alert("로그인이 필요합니다");
+      location.href = "../login.html";
+      return;
+    }
+
+    const content = document.getElementById("content").value.trim();
+    if (!content) {
+      alert("내용을 입력해주세요");
+      return;
+    }
+
+    const user = supabaseService.getCurrentUser();
+    const author = user.data?.nickname || user.user.email.split("@")[0];
+
+    const { error } = await supabaseService.client
+      .from("wiki_contributions")
+      .insert({
+        page_id: PAGE_ID,
+        content: content,
+        uid: user.user.id,  // ✅ user_id → uid
+        author: author
+      });
+
+    if (error) throw error;
+
+    document.getElementById("content").value = "";
+    alert("기여가 등록되었습니다!");
+    await loadContributions();
+    console.log("✅ 기여 추가 완료");
+
+  } catch (error) {
+    console.error("기여 추가 실패:", error);
+    alert("기여 등록 중 오류가 발생했습니다: " + error.message);
+  }
+}
+
+async function editContribution(id) {
+  try {
+    const newContent = prompt("수정할 내용을 입력하세요:");
+    if (!newContent) return;
+
+    const { error } = await supabaseService.client
+      .from("wiki_contributions")
+      .update({ content: newContent })
+      .eq("id", id);
+
+    if (error) throw error;
+
+    alert("수정되었습니다");
+    await loadContributions();
+
+  } catch (error) {
+    console.error("기여 수정 실패:", error);
+    alert("수정 중 오류가 발생했습니다");
+  }
+}
+
+async function deleteContribution(id) {
+  try {
+    if (!confirm("정말 삭제하시겠습니까?")) return;
+
+    const { error } = await supabaseService.client
+      .from("wiki_contributions")
+      .delete()
+      .eq("id", id);
+
+    if (error) throw error;
+
+    alert("삭제되었습니다");
+    await loadContributions();
+
+  } catch (error) {
+    console.error("기여 삭제 실패:", error);
+    alert("삭제 중 오류가 발생했습니다");
+  }
+}
+
+// =========================
+// 초기화
+// =========================
+async function init() {
+  console.log("🚀 wiki.js 초기화 시작");
+  console.log("📄 현재 PAGE_ID:", PAGE_ID);
+
+  await supabaseService.waitForAuth();
+  console.log("✅ 인증 완료");
+
+  // 좋아요 로드
+  await loadLikes();
+
+  // 기여 로드
+  await loadContributions();
+
+  // 이벤트 리스너 등록
+  const likeBtn = document.getElementById("likeBtn");
+  if (likeBtn) {
+    likeBtn.addEventListener("click", toggleLike);
+  }
+
+  const addBtn = document.getElementById("addBtn");
+  if (addBtn) {
+    addBtn.addEventListener("click", addContribution);
+  }
+
+  console.log("✅ wiki.js 초기화 완료");
+}
+
+// 페이지 로드 시 초기화
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", init);
+} else {
+  init();
+}
