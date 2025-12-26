@@ -4,7 +4,7 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
    Supabase 설정
 ========================= */
 const SUPABASE_URL = "https://cpaikpjzlzzujwfgnanb.supabase.co";
-const SUPABASE_ANON_KEY = "YOUR_ANON_KEY"; // 그대로 두되 RLS 필수
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwYWlrcGp6bHp6dWp3ZmduYW5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYxNDEwMzIsImV4cCI6MjA4MTcxNzAzMn0.u5diz_-p8Hh1FtkVO1CsDSUbz9fbSN2zXAIIP2637sc"; // 그대로 두되 RLS 필수
 
 export const supabase = createClient(
   SUPABASE_URL,
