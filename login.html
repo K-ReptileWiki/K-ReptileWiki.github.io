@@ -66,167 +66,109 @@
     <div id="debugLog" class="debug-log"></div>
   </div>
 
-  <script type="module">
-    import { supabaseService } from "./js/supabase.js";
+<script type="module">
+  import { supabaseService } from "./js/supabase.js";
 
-    let isSignupMode = false;
-    const userInfoDiv = document.getElementById("userInfo");
-    const loginForm = document.getElementById("loginForm");
-    const logoutSection = document.getElementById("logoutSection");
-    const signupFields = document.getElementById("signupFields");
-    const toggleBtn = document.getElementById("toggleBtn");
-    const debugLog = document.getElementById("debugLog");
+  let isSignupMode = false;
 
-    function log(msg) {
-      const timestamp = new Date().toLocaleTimeString();
-      console.log(msg);
-      debugLog.innerHTML += `[${timestamp}] ${msg}<br>`;
-      debugLog.scrollTop = debugLog.scrollHeight;
+  const userInfoDiv = document.getElementById("userInfo");
+  const loginForm = document.getElementById("loginForm");
+  const logoutSection = document.getElementById("logoutSection");
+  const signupFields = document.getElementById("signupFields");
+  const toggleBtn = document.getElementById("toggleBtn");
+  const debugLog = document.getElementById("debugLog");
+
+  function log(msg) {
+    const t = new Date().toLocaleTimeString();
+    console.log(msg);
+    debugLog.innerHTML += `[${t}] ${msg}<br>`;
+    debugLog.scrollTop = debugLog.scrollHeight;
+  }
+
+  // ✅ UI 업데이트 (중요)
+  function updateUI() {
+    const { user, profile } = supabaseService.getCurrentUser();
+
+    if (!user || !profile) {
+      userInfoDiv.textContent = "로그인되지 않음";
+      loginForm.style.display = "block";
+      logoutSection.style.display = "none";
+      log("❌ 로그인되지 않은 상태");
+      return;
     }
 
-    function updateUI() {
-      const { user, data } = supabaseService.getCurrentUser();
+    let roleText = "일반 사용자";
+    if (profile.role === "owner") roleText = "최고 관리자";
+    else if (profile.role === "admin") roleText = "관리자";
 
-      if (user) {
-        const nickname = data?.nickname || user.email.split("@")[0];
-        const role = data?.role || "user";
+    userInfoDiv.innerHTML = `
+      현재 로그인: <strong>${profile.nickname}</strong><br>
+      권한: <strong>${roleText}</strong>
+    `;
 
-        userInfoDiv.innerHTML = `
-          현재 로그인: <strong>${nickname}</strong><br>
-          권한: ${role === "admin" ? "관리자" : "일반 사용자"}
-        `;
-        loginForm.style.display = "none";
-        logoutSection.style.display = "block";
-        
-        log(`✅ UI 업데이트 완료: ${nickname} (${role})`);
-      } else {
-        userInfoDiv.textContent = "로그인되지 않음";
-        loginForm.style.display = "block";
-        logoutSection.style.display = "none";
-        
-        log("❌ 로그인되지 않은 상태");
-      }
+    loginForm.style.display = "none";
+    logoutSection.style.display = "block";
+
+    log(`✅ UI 업데이트 완료: ${profile.nickname} (${profile.role})`);
+  }
+
+  // ✅ 초기 로드
+  window.addEventListener("load", async () => {
+    log("🚀 페이지 로드 시작");
+    log("⏳ 인증 상태 확인 중...");
+
+    await supabaseService.waitForAuth();
+
+    log("✅ 인증 초기화 완료");
+    updateUI();
+  });
+
+  // 모드 전환
+  toggleBtn.addEventListener("click", () => {
+    isSignupMode = !isSignupMode;
+    signupFields.style.display = isSignupMode ? "block" : "none";
+    toggleBtn.textContent = isSignupMode ? "로그인 모드로 전환" : "회원가입 모드로 전환";
+    document.getElementById("loginBtn").style.display = isSignupMode ? "none" : "block";
+    document.getElementById("signupBtn").style.display = isSignupMode ? "block" : "none";
+  });
+
+  // 로그인
+  document.getElementById("loginBtn").addEventListener("click", async () => {
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value.trim();
+
+    if (!email || !password) {
+      alert("이메일과 비밀번호를 입력하세요");
+      return;
     }
 
-    // ✅ 페이지 로드 시 초기화
-    window.addEventListener("load", async () => {
-      log("🚀 페이지 로드 시작");
-      
-      try {
-        // 인증 완료 대기
-        log("⏳ 인증 상태 확인 중...");
-        await supabaseService.waitForAuth();
-        
-        log("✅ 인증 초기화 완료");
-        
-        // UI 업데이트
-        updateUI();
-        
-      } catch(e) {
-        log(`❌ 초기화 실패: ${e.message}`);
-        console.error("초기화 오류:", e);
-        userInfoDiv.textContent = "초기화 실패";
-        loginForm.style.display = "block";
-      }
-    });
+    log(`🔐 로그인 시도: ${email}`);
+    const result = await supabaseService.signIn(email, password);
 
-    // 회원가입/로그인 모드 전환
-    toggleBtn.addEventListener("click", () => {
-      isSignupMode = !isSignupMode;
-      signupFields.style.display = isSignupMode ? "block" : "none";
-      toggleBtn.textContent = isSignupMode ? "로그인 모드로 전환" : "회원가입 모드로 전환";
-      document.getElementById("loginBtn").style.display = isSignupMode ? "none" : "block";
-      document.getElementById("signupBtn").style.display = isSignupMode ? "block" : "none";
-    });
+    if (!result.success) {
+      log(`❌ 로그인 실패: ${result.error}`);
+      alert(result.error);
+      return;
+    }
 
-    // ✅ 로그인 버튼
-    document.getElementById("loginBtn").addEventListener("click", async (e) => {
-      const btn = e.target;
-      const email = document.getElementById("email").value.trim();
-      const password = document.getElementById("password").value.trim();
+    await supabaseService.waitForAuth();
+    updateUI();
 
-      if (!email || !password) { 
-        alert("이메일과 비밀번호를 입력하세요"); 
-        return; 
-      }
+    log("🏠 메인 페이지로 이동");
+    location.href = "index.html";
+  });
 
-      btn.disabled = true;
-      btn.textContent = "로그인 중…";
-      log(`🔐 로그인 시도: ${email}`);
+  // 로그아웃
+  document.getElementById("logoutBtn").addEventListener("click", async () => {
+    log("👋 로그아웃 시도");
+    await supabaseService.signOut();
+    updateUI();
+  });
 
-      try {
-        const result = await supabaseService.signIn(email, password);
-        
-        if (result.success) {
-          log("✅ 로그인 성공!");
-          
-          // ✅ 사용자 정보 설정 완료까지 대기
-          await new Promise(resolve => setTimeout(resolve, 500));
-          
-          // UI 업데이트
-          updateUI();
-          
-          // 메인 페이지로 이동
-          setTimeout(() => {
-            log("🏠 메인 페이지로 이동");
-            location.href = "index.html";
-          }, 1000);
-          
-        } else {
-          throw new Error(result.error);
-        }
-      } catch (error) {
-        log(`❌ 로그인 실패: ${error.message}`);
-        alert("로그인 실패: " + error.message);
-        btn.disabled = false;
-        btn.textContent = "로그인";
-      }
-    });
-
-    // 회원가입 버튼
-    document.getElementById("signupBtn").addEventListener("click", async () => {
-      const email = document.getElementById("email").value.trim();
-      const password = document.getElementById("password").value.trim();
-      const confirmPassword = document.getElementById("confirmPassword").value.trim();
-      const nickname = document.getElementById("nickname").value.trim();
-
-      if (!email || !password) { 
-        alert("이메일과 비밀번호를 입력하세요"); 
-        return; 
-      }
-      if (password !== confirmPassword) { 
-        alert("비밀번호가 일치하지 않습니다"); 
-        return; 
-      }
-
-      log(`📝 회원가입 시도: ${email}`);
-
-      const result = await supabaseService.signUp(email, password, nickname);
-      if (result.success) {
-        log("✅ 회원가입 성공!");
-        alert("회원가입 성공! 로그인해주세요.");
-        location.reload();
-      } else {
-        log(`❌ 회원가입 실패: ${result.error}`);
-        alert("회원가입 실패: " + result.error);
-      }
-    });
-
-    // 로그아웃 버튼
-    document.getElementById("logoutBtn").addEventListener("click", async () => {
-      log("👋 로그아웃 시도");
-      const result = await supabaseService.signOut();
-      if (result.success) { 
-        log("✅ 로그아웃 완료");
-        alert("로그아웃됨"); 
-        updateUI(); 
-      }
-    });
-
-    // 메인으로 버튼
-    document.getElementById("cancelBtn").addEventListener("click", () => {
-      location.href = "index.html";
-    });
-  </script>
+  // 메인으로
+  document.getElementById("cancelBtn").addEventListener("click", () => {
+    location.href = "index.html";
+  });
+</script>
 </body>
 </html>
