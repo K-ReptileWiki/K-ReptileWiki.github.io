@@ -68,6 +68,8 @@ function log(msg, isError=false){
 
 function setupQuill(){
   log("Quill 초기화...");
+  
+  // ✅ 커스텀 이미지 블롯 정의
   const ImageBlot = Quill.import('formats/image');
   class ResizableImage extends ImageBlot {
     static create(value){
@@ -78,6 +80,7 @@ function setupQuill(){
       node.setAttribute('width', width);
       node.style.width = width + 'px';
       node.style.display = 'block';
+      node.style.margin = '10px auto';
       return node;
     }
     static value(node){
@@ -86,7 +89,7 @@ function setupQuill(){
   }
   ResizableImage.blotName = 'image';
   ResizableImage.tagName = 'IMG';
-  Quill.register(ResizableImage,true);
+  Quill.register(ResizableImage, true);
 
   quill = new Quill('#editor',{
     theme:'snow',
@@ -96,10 +99,12 @@ function setupQuill(){
         [{header:[1,2,3,false]}],
         ['bold','italic','underline','strike'],
         [{color:[]},{background:[]}],
-        ['link','image'],['clean']
+        ['link','image'],
+        ['clean']
       ]
     }
   });
+  
   setupImageUpload();
   setupImageResizer();
   log("Quill 준비 완료");
@@ -107,31 +112,62 @@ function setupQuill(){
 
 function setupImageUpload(){
   const toolbar = quill.getModule('toolbar');
-  toolbar.addHandler('image',()=>{
-    if(!supabaseService.isLoggedIn()){ alert("로그인 필요"); return; }
+  
+  // ✅ 커스텀 이미지 핸들러로 완전히 교체
+  toolbar.addHandler('image', async function() {
+    if(!supabaseService.isLoggedIn()){ 
+      alert("로그인 필요"); 
+      return; 
+    }
+    
     const input = document.createElement('input');
-    input.type='file';
-    input.accept='image/*';
-    input.onchange=async ()=>{
+    input.type = 'file';
+    input.accept = 'image/*';
+    
+    input.onchange = async () => {
       const file = input.files?.[0];
       if(!file) return;
+      
       log(`선택 이미지: ${file.name} (${(file.size/1024).toFixed(1)}KB)`);
-      try{
+      
+      try {
         const user = supabaseService.getCurrentUser().user;
         const fileExt = file.name.split('.').pop();
-        const path = `${user.id}/${Date.now()}.${fileExt}`;
-        const {data,error} = await supabase.storage.from("image").upload(path,file);
+        const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
+        const path = `${user.id}/${fileName}`;
+        
+        log("📤 이미지 업로드 중...");
+        
+        const {data, error} = await supabase.storage
+          .from("image")
+          .upload(path, file);
+        
         if(error) throw error;
-        const {data: urlData} = supabase.storage.from("image").getPublicUrl(path);
+        
+        const {data: urlData} = supabase.storage
+          .from("image")
+          .getPublicUrl(path);
+        
+        // ✅ 현재 커서 위치 가져오기
         const range = quill.getSelection(true);
-        quill.insertEmbed(range.index,'image',{src:urlData.publicUrl,width:'300'});
-        quill.setSelection(range.index+1);
-        log("이미지 삽입 완료");
-      }catch(e){
-        log("이미지 업로드 실패: "+e.message,true);
-        alert("이미지 업로드 실패: "+e.message);
+        
+        // ✅ 이미지 삽입 (한 번만!)
+        quill.insertEmbed(range.index, 'image', {
+          src: urlData.publicUrl,
+          width: '300'
+        });
+        
+        // ✅ 커서를 이미지 다음으로 이동
+        quill.setSelection(range.index + 1);
+        
+        log("✅ 이미지 삽입 완료");
+        
+      } catch(e) {
+        log("❌ 이미지 업로드 실패: " + e.message, true);
+        alert("이미지 업로드 실패: " + e.message);
       }
     };
+    
     input.click();
   });
 }
@@ -142,77 +178,112 @@ function setupImageResizer(){
   const valueLabel = document.getElementById("sizeValue");
   let targetImg = null;
 
-  quill.root.addEventListener("click",e=>{
-    if(e.target.tagName==="IMG"){
+  quill.root.addEventListener("click", e => {
+    if(e.target.tagName === "IMG"){
       targetImg = e.target;
       const rect = targetImg.getBoundingClientRect();
-      resizer.style.display="block";
-      resizer.style.top=(window.scrollY+rect.top-70)+"px";
-      resizer.style.left=(window.scrollX+rect.left)+"px";
+      resizer.style.display = "block";
+      resizer.style.top = (window.scrollY + rect.top - 70) + "px";
+      resizer.style.left = (window.scrollX + rect.left) + "px";
       slider.value = targetImg.width;
-      valueLabel.textContent = targetImg.width+"px";
-    }else{ resizer.style.display="none"; }
+      valueLabel.textContent = targetImg.width + "px";
+    } else { 
+      resizer.style.display = "none"; 
+    }
   });
 
-  slider.oninput=e=>{
+  slider.oninput = e => {
     if(targetImg){
       const val = e.target.value;
-      targetImg.setAttribute("width",val);
-      targetImg.style.width=val+"px";
-      valueLabel.textContent=val+"px";
+      targetImg.setAttribute("width", val);
+      targetImg.style.width = val + "px";
+      valueLabel.textContent = val + "px";
     }
   };
+  
+  // ✅ 에디터 외부 클릭 시 리사이저 숨기기
+  document.addEventListener("click", e => {
+    if(!resizer.contains(e.target) && !quill.root.contains(e.target)){
+      resizer.style.display = "none";
+    }
+  });
 }
 
-window.addEventListener("DOMContentLoaded",async ()=>{
-  statusEl.innerText="사용자 인증 확인 중...";
-  try{
+window.addEventListener("DOMContentLoaded", async () => {
+  statusEl.innerText = "사용자 인증 확인 중...";
+  
+  try {
     await supabaseService.waitForAuth();
+    
     if(!supabaseService.isLoggedIn()){
-      log("로그인 필요. 등록 버튼 비활성화",true);
-      document.getElementById("postBtn").disabled=true;
-    }else{
+      log("로그인 필요. 등록 버튼 비활성화", true);
+      document.getElementById("postBtn").disabled = true;
+    } else {
       const nick = supabaseService.getCurrentUser().data?.nickname || "익명";
       log(`로그인 확인 완료. 작성자: ${nick}`);
     }
-  }catch(e){ log("인증 오류: "+e.message,true); }
+  } catch(e) { 
+    log("인증 오류: " + e.message, true); 
+  }
 
   setupQuill();
 
+  // ✅ 등록 버튼
   const postBtn = document.getElementById("postBtn");
-  postBtn.onclick=async ()=>{
+  postBtn.onclick = async () => {
     const title = document.getElementById("postTitle").value.trim();
     const content = quill.root.innerHTML;
-    if(!title || content==="<p><br></p>"){ alert("제목과 내용을 입력해주세요"); return; }
-    postBtn.disabled=true;
-    postBtn.innerText="등록 중...";
+    
+    if(!title || content === "<p><br></p>"){ 
+      alert("제목과 내용을 입력해주세요"); 
+      return; 
+    }
+    
+    postBtn.disabled = true;
+    postBtn.innerText = "등록 중...";
+    
+    // ✅ 이미지 URL 추출 (중복 제거)
     const tempDiv = document.createElement("div");
     tempDiv.innerHTML = content;
-    const images=[...tempDiv.querySelectorAll("img")].map(i=>i.src);
+    const imageElements = tempDiv.querySelectorAll("img");
+    const images = [...new Set([...imageElements].map(img => img.src))]; // 중복 제거
+    
+    log(`📝 게시글 등록 시도 (이미지 ${images.length}개)`);
 
-    try{
-      const res = await supabaseService.createPost(title,content,images);
+    try {
+      const res = await supabaseService.createPost(title, content, images);
+      
       if(res.success){
-        log("등록 성공! 상세 페이지 이동");
-        setTimeout(()=>location.href=`post.html?id=${res.data.id}`,800);
-      }else throw new Error(res.error);
-    }catch(e){
-      log("등록 실패: "+e.message,true);
-      alert("등록 실패: "+e.message);
-      postBtn.disabled=false;
-      postBtn.innerText="등록하기";
+        log("✅ 등록 성공! 상세 페이지 이동");
+        setTimeout(() => location.href = `post.html?id=${res.data.id}`, 800);
+      } else {
+        throw new Error(res.error);
+      }
+    } catch(e) {
+      log("❌ 등록 실패: " + e.message, true);
+      alert("등록 실패: " + e.message);
+      postBtn.disabled = false;
+      postBtn.innerText = "등록하기";
     }
   };
 
-  document.getElementById("previewBtn").onclick=()=>{
+  // 미리보기 버튼
+  document.getElementById("previewBtn").onclick = () => {
     const area = document.getElementById("previewArea");
-    area.style.display="block";
-    area.innerHTML=`<h3>[미리보기] ${document.getElementById("postTitle").value}</h3><hr><div class="ql-editor">${quill.root.innerHTML}</div>`;
+    area.style.display = "block";
+    area.innerHTML = `
+      <h3>[미리보기] ${document.getElementById("postTitle").value}</h3>
+      <hr>
+      <div class="ql-editor">${quill.root.innerHTML}</div>
+    `;
     area.scrollIntoView({behavior:"smooth"});
   };
 
-  document.getElementById("cancelBtn").onclick=()=>{
-    if(confirm("작성 중인 내용을 취소하시겠습니까?")) location.href="index.html";
+  // 취소 버튼
+  document.getElementById("cancelBtn").onclick = () => {
+    if(confirm("작성 중인 내용을 취소하시겠습니까?")) {
+      location.href = "index.html";
+    }
   };
 });
 </script>
