@@ -1,74 +1,362 @@
--- ============================================
--- 종 페이지용 좋아요 테이블
--- ============================================
-CREATE TABLE IF NOT EXISTS species_likes (
-  id BIGSERIAL PRIMARY KEY,
-  species_id TEXT NOT NULL,  -- "crested_gecko", "leopard_gecko" 등
-  uid UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(species_id, uid)  -- 한 사용자당 한 종에 1개의 좋아요만
-);
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>📝 새 문서 작성 - K-ReptileWiki</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+<script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
 
-CREATE INDEX IF NOT EXISTS idx_species_likes_species_id ON species_likes(species_id);
-CREATE INDEX IF NOT EXISTS idx_species_likes_uid ON species_likes(uid);
+<style>
+body { font-family: 'Apple SD Gothic Neo','Malgun Gothic',sans-serif; background:#f9fafb; margin:0; }
+.container { max-width: 900px; margin: 0 auto; padding: 20px; }
+.editor-container { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+#editor { height: 420px; background: #fff; }
+input#postTitle { width: 100%; padding: 14px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 6px; font-size: 18px; box-sizing: border-box; }
 
--- RLS 설정
-ALTER TABLE species_likes ENABLE ROW LEVEL SECURITY;
+.btn-group { margin-top:20px; display:flex; gap:10px; }
+button { padding: 12px 22px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; color: white; }
+#postBtn { background:#2563eb; }
+#postBtn:disabled { background:#94a3b8; cursor:not-allowed; }
+#previewBtn { background:#10b981; }
+#cancelBtn { background:#6b7280; }
+#debugBtn { background:#f97316; }
 
-CREATE POLICY "Anyone can view species likes"
-  ON species_likes FOR SELECT
-  USING (true);
+#image-resizer { display: none; position: absolute; z-index: 1000; background: white; padding: 10px; border-radius: 8px; border: 1px solid #ddd; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+#postStatus { margin-top: 15px; padding: 10px; border-radius: 6px; background: #f1f5f9; font-size: 14px; color: #334155; min-height: 20px; white-space: pre-line; border-left: 4px solid #2563eb; }
+</style>
+</head>
+<body>
 
-CREATE POLICY "Users can insert their own species likes"
-  ON species_likes FOR INSERT
-  WITH CHECK (auth.uid() = uid);
+<div id="image-resizer">
+  <span style="font-size:12px; font-weight:bold;">이미지 너비 조절</span><br>
+  <input type="range" id="sizeSlider" min="50" max="800" step="10">
+  <div id="sizeValue" style="font-size:12px; text-align:center; margin-top:5px;">300px</div>
+</div>
 
-CREATE POLICY "Users can delete their own species likes"
-  ON species_likes FOR DELETE
-  USING (auth.uid() = uid);
+<div class="container">
+  <h1>📝 새 문서 작성</h1>
 
--- ============================================
--- 종 페이지용 기여 테이블
--- ============================================
-CREATE TABLE IF NOT EXISTS species_contributions (
-  id BIGSERIAL PRIMARY KEY,
-  species_id TEXT NOT NULL,  -- "crested_gecko", "leopard_gecko" 등
-  content TEXT NOT NULL,
-  uid UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  author TEXT NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
+  <div class="editor-container">
+    <input id="postTitle" placeholder="문서 제목을 입력하세요">
+    <div id="editor"></div>
 
-CREATE INDEX IF NOT EXISTS idx_species_contributions_species_id ON species_contributions(species_id);
-CREATE INDEX IF NOT EXISTS idx_species_contributions_uid ON species_contributions(uid);
+    <div class="btn-group">
+      <button id="postBtn">등록하기</button>
+      <button id="previewBtn">미리보기</button>
+      <button id="debugBtn">🔍 디버그</button>
+      <button id="cancelBtn">취소</button>
+    </div>
 
--- RLS 설정
-ALTER TABLE species_contributions ENABLE ROW LEVEL SECURITY;
+    <div id="postStatus">시스템 준비 중...</div>
+  </div>
 
-CREATE POLICY "Anyone can view species contributions"
-  ON species_contributions FOR SELECT
-  USING (true);
+  <div id="previewArea" style="display:none; margin-top:30px; background:white; padding:20px; border-radius:10px; border:1px solid #ddd;"></div>
+</div>
 
-CREATE POLICY "Users can insert species contributions"
-  ON species_contributions FOR INSERT
-  WITH CHECK (auth.uid() = uid);
+<script type="module">
+import { supabaseService, supabase } from "./js/supabase.js";
 
-CREATE POLICY "Users can update their own species contributions"
-  ON species_contributions FOR UPDATE
-  USING (auth.uid() = uid);
+let quill = null;
+const statusEl = document.getElementById("postStatus");
+let isUploading = false;
 
-CREATE POLICY "Users can delete their own species contributions"
-  ON species_contributions FOR DELETE
-  USING (auth.uid() = uid);
+// ✅ 디버깅을 위해 전역으로 노출
+window.debugQuill = () => {
+  if (!quill) {
+    console.log("❌ Quill이 아직 초기화되지 않았습니다");
+    return;
+  }
+  
+  const html = quill.root.innerHTML;
+  const tempDiv = document.createElement("div");
+  tempDiv.innerHTML = html;
+  const images = tempDiv.querySelectorAll("img");
+  
+  console.log("=== 🔍 Quill 디버그 정보 ===");
+  console.log("전체 HTML:", html);
+  console.log("이미지 개수:", images.length);
+  console.log("이미지 URL들:");
+  images.forEach((img, i) => {
+    console.log(`  [${i+1}] ${img.src}`);
+  });
+  console.log("=========================");
+  
+  alert(`에디터에 이미지 ${images.length}개가 있습니다. 콘솔을 확인하세요.`);
+};
 
--- Admins can delete any species contributions
-CREATE POLICY "Admins can delete any species contributions"
-  ON species_contributions FOR DELETE
-  USING (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE profiles.id = auth.uid()
-      AND profiles.role = 'admin'
-    )
-  );
+function log(msg, isError=false){
+  const timestamp = new Date().toLocaleTimeString();
+  const text = `[${timestamp}] ${msg}`;
+  console.log(text);
+  statusEl.innerText += `\n${text}`;
+  statusEl.style.borderLeftColor = isError ? "#ef4444" : "#2563eb";
+}
+
+function setupQuill(){
+  log("Quill 초기화...");
+  
+  // 기본 Quill 설정 (커스텀 이미지 블롯 없이)
+  quill = new Quill('#editor',{
+    theme:'snow',
+    placeholder:"내용을 입력하세요. 이미지 업로드 가능",
+    modules:{
+      toolbar:{
+        container: [
+          [{header:[1,2,3,false]}],
+          ['bold','italic','underline','strike'],
+          [{color:[]},{background:[]}],
+          ['link','image'],
+          ['clean']
+        ],
+        handlers: {
+          image: handleImageUpload
+        }
+      }
+    }
+  });
+  
+  // ✅ 이미지 삽입 후 자동으로 스타일 적용
+  quill.on('text-change', function(delta, oldDelta, source) {
+    if (source === 'user') {
+      const images = quill.root.querySelectorAll('img');
+      images.forEach(img => {
+        if (!img.style.maxWidth) {
+          img.style.maxWidth = '300px';
+          img.style.height = 'auto';
+          img.style.display = 'block';
+          img.style.margin = '10px auto';
+        }
+      });
+    }
+  });
+  
+  setupImageResizer();
+  log("Quill 준비 완료");
+}
+
+async function handleImageUpload() {
+  if (isUploading) {
+    log("⚠️ 이미 이미지 업로드 중입니다");
+    return false; // ✅ false 반환으로 기본 동작 차단
+  }
+
+  if(!supabaseService.isLoggedIn()){ 
+    alert("로그인 필요"); 
+    return false;
+  }
+  
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  
+  input.onchange = async () => {
+    const file = input.files?.[0];
+    if(!file) {
+      isUploading = false;
+      return;
+    }
+    
+    isUploading = true;
+    log(`선택 이미지: ${file.name} (${(file.size/1024).toFixed(1)}KB)`);
+    
+    try {
+      const user = supabaseService.getCurrentUser().user;
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
+      const path = `${user.id}/${fileName}`;
+      
+      log("📤 이미지 업로드 중...");
+      
+      const {data, error} = await supabase.storage
+        .from("image")
+        .upload(path, file);
+      
+      if(error) throw error;
+      
+      const {data: urlData} = supabase.storage
+        .from("image")
+        .getPublicUrl(path);
+      
+      const imageUrl = urlData.publicUrl;
+      
+      // ✅ 현재 에디터의 이미지 개수 확인 (삽입 전)
+      const imagesBefore = quill.root.querySelectorAll('img').length;
+      log(`📊 삽입 전 이미지 개수: ${imagesBefore}`);
+      
+      // ✅ 커서 위치 가져오기
+      const range = quill.getSelection(true) || { index: quill.getLength() };
+      
+      // ✅ 이미지 삽입
+      quill.insertEmbed(range.index, 'image', imageUrl);
+      
+      // ✅ 커서 이동
+      quill.setSelection(range.index + 1);
+      
+      // ✅ 삽입 후 이미지 개수 확인
+      setTimeout(() => {
+        const imagesAfter = quill.root.querySelectorAll('img').length;
+        log(`📊 삽입 후 이미지 개수: ${imagesAfter}`);
+        
+        if (imagesAfter - imagesBefore > 1) {
+          log(`⚠️ 경고: 이미지가 ${imagesAfter - imagesBefore}개 추가되었습니다!`, true);
+        } else {
+          log("✅ 이미지 삽입 완료 (1개)");
+        }
+      }, 100);
+      
+    } catch(e) {
+      log("❌ 이미지 업로드 실패: " + e.message, true);
+      alert("이미지 업로드 실패: " + e.message);
+    } finally {
+      isUploading = false;
+    }
+  };
+  
+  input.click();
+  return false; // ✅ 기본 동작 차단
+}
+
+function setupImageResizer(){
+  const resizer = document.getElementById("image-resizer");
+  const slider = document.getElementById("sizeSlider");
+  const valueLabel = document.getElementById("sizeValue");
+  let targetImg = null;
+
+  quill.root.addEventListener("click", e => {
+    if(e.target.tagName === "IMG"){
+      targetImg = e.target;
+      const rect = targetImg.getBoundingClientRect();
+      resizer.style.display = "block";
+      resizer.style.top = (window.scrollY + rect.top - 70) + "px";
+      resizer.style.left = (window.scrollX + rect.left) + "px";
+      
+      // 현재 너비 가져오기
+      const currentWidth = targetImg.style.maxWidth ? 
+        parseInt(targetImg.style.maxWidth) : 
+        targetImg.width;
+      
+      slider.value = currentWidth || 300;
+      valueLabel.textContent = (currentWidth || 300) + "px";
+    } else { 
+      resizer.style.display = "none"; 
+    }
+  });
+
+  slider.oninput = e => {
+    if(targetImg){
+      const val = e.target.value;
+      targetImg.style.maxWidth = val + "px";
+      targetImg.style.width = val + "px";
+      valueLabel.textContent = val + "px";
+    }
+  };
+  
+  document.addEventListener("click", e => {
+    if(!resizer.contains(e.target) && !quill.root.contains(e.target)){
+      resizer.style.display = "none";
+    }
+  });
+}
+
+window.addEventListener("DOMContentLoaded", async () => {
+  statusEl.innerText = "사용자 인증 확인 중...";
+  
+  try {
+    await supabaseService.waitForAuth();
+    
+    if(!supabaseService.isLoggedIn()){
+      log("로그인 필요. 등록 버튼 비활성화", true);
+      document.getElementById("postBtn").disabled = true;
+    } else {
+      const nick = supabaseService.getCurrentUser().data?.nickname || "익명";
+      log(`로그인 확인 완료. 작성자: ${nick}`);
+    }
+  } catch(e) { 
+    log("인증 오류: " + e.message, true); 
+  }
+
+  setupQuill();
+
+  // ✅ 디버그 버튼
+  document.getElementById("debugBtn").onclick = () => {
+    window.debugQuill();
+  };
+
+  // ✅ 등록 버튼
+  const postBtn = document.getElementById("postBtn");
+  postBtn.onclick = async () => {
+    const title = document.getElementById("postTitle").value.trim();
+    const content = quill.root.innerHTML;
+    
+    if(!title || content === "<p><br></p>"){ 
+      alert("제목과 내용을 입력해주세요"); 
+      return; 
+    }
+    
+    postBtn.disabled = true;
+    postBtn.innerText = "등록 중...";
+    
+    // ✅ 이미지 URL 추출 (중복 제거)
+    const tempDiv = document.createElement("div");
+    tempDiv.innerHTML = content;
+    const imageElements = tempDiv.querySelectorAll("img");
+    const allImages = [...imageElements].map(img => img.src);
+    const images = [...new Set(allImages)]; // 중복 제거
+    
+    log(`📝 게시글 등록 시도`);
+    log(`📊 HTML의 이미지 개수: ${imageElements.length}개`);
+    log(`📊 중복 제거 후: ${images.length}개`);
+    
+    if (allImages.length !== images.length) {
+      log(`⚠️ 경고: ${allImages.length - images.length}개의 중복 이미지가 제거되었습니다`, true);
+    }
+
+    try {
+      const res = await supabaseService.createPost(title, content, images);
+      
+      if(res.success){
+        log("✅ 등록 성공! 상세 페이지 이동");
+        setTimeout(() => location.href = `post.html?id=${res.data.id}`, 800);
+      } else {
+        throw new Error(res.error);
+      }
+    } catch(e) {
+      log("❌ 등록 실패: " + e.message, true);
+      alert("등록 실패: " + e.message);
+      postBtn.disabled = false;
+      postBtn.innerText = "등록하기";
+    }
+  };
+
+  // 미리보기 버튼
+  document.getElementById("previewBtn").onclick = () => {
+    const area = document.getElementById("previewArea");
+    const content = quill.root.innerHTML;
+    
+    const tempDiv = document.createElement("div");
+    tempDiv.innerHTML = content;
+    const imageCount = tempDiv.querySelectorAll("img").length;
+    
+    area.style.display = "block";
+    area.innerHTML = `
+      <h3>[미리보기] ${document.getElementById("postTitle").value}</h3>
+      <p style="color:#666;font-size:14px;">이미지 ${imageCount}개 포함</p>
+      <hr>
+      <div class="ql-editor">${content}</div>
+    `;
+    area.scrollIntoView({behavior:"smooth"});
+    
+    log(`👁️ 미리보기 표시 (이미지 ${imageCount}개)`);
+  };
+
+  // 취소 버튼
+  document.getElementById("cancelBtn").onclick = () => {
+    if(confirm("작성 중인 내용을 취소하시겠습니까?")) {
+      location.href = "index.html";
+    }
+  };
+});
+</script>
+</body>
+</html>
