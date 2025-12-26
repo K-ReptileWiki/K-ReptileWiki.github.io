@@ -12,6 +12,9 @@
     .post-detail h2 { color:#2563eb; margin-top:0; }
     .post-detail img { max-width:100%; height:auto; border-radius:8px; margin:10px 0; }
     .post-meta { color:#6b7280; font-size:14px; margin:15px 0; padding:10px; background:#f3f4f6; border-radius:4px; }
+    .post-stats { display:flex; gap:15px; align-items:center; margin:15px 0; }
+    .stat-item { display:flex; align-items:center; gap:5px; padding:8px 12px; background:#f3f4f6; border-radius:6px; font-size:14px; color:#475569; }
+    .stat-item .icon { font-size:16px; }
     .btn { padding:8px 16px; border:none; border-radius:6px; cursor:pointer; font-weight:bold; margin-right:10px; }
     .btn-primary { background:#2563eb; color:white; }
     .btn-danger { background:#f87171; color:white; }
@@ -67,9 +70,21 @@ if (!postId) location.href = "index.html";
 
 async function init() {
   await supabaseService.waitForAuth();
+  
+  // ✅ 조회수 기록 (페이지 로드 시 자동)
+  await recordView();
+  
   await loadPost();
   await loadVersions();
   await loadComments();
+}
+
+// ✅ 조회수 기록 함수
+async function recordView() {
+  const result = await supabaseService.recordView(postId);
+  if (result.success && !result.alreadyViewed) {
+    console.log("👀 조회수 증가");
+  }
 }
 
 async function loadPost() {
@@ -84,6 +99,10 @@ async function loadPost() {
   const post = result.data;
   currentVersion = post.version;
 
+  // ✅ 조회수 가져오기
+  const viewCount = await supabaseService.getViewCount(postId);
+  const likeCount = await supabaseService.getLikeCount(postId);
+
   const deletedBanner = post.deleted ? `<div style="background:#fee2e2;color:#991b1b;padding:10px;border-radius:4px;margin-bottom:15px;">
     ⚠️ 이 글은 삭제되었습니다. ${post.deleted_at ? new Date(post.deleted_at).toLocaleString() : ''}</div>` : '';
 
@@ -96,6 +115,19 @@ async function loadPost() {
     <div class="post-meta">
       버전: ${post.version} | 작성자: ${post.author??"익명"} | ${new Date(post.time).toLocaleString()}
     </div>
+    
+    <!-- ✅ 조회수 & 좋아요 통계 -->
+    <div class="post-stats">
+      <div class="stat-item">
+        <span class="icon">👀</span>
+        <span>조회 <strong id="viewCount">${viewCount}</strong></span>
+      </div>
+      <div class="stat-item">
+        <span class="icon">❤️</span>
+        <span>좋아요 <strong id="likeCountDisplay">${likeCount}</strong></span>
+      </div>
+    </div>
+    
     <div>${post.content}</div>
     ${imgHtml}
     <div style="margin-top:20px;">
@@ -146,6 +178,11 @@ function renderActionButtons(post) {
 async function updateLikeButton() {
   const likeBtn = document.getElementById("likeBtn");
   const count = await supabaseService.getLikeCount(postId);
+  
+  // ✅ 좋아요 수도 업데이트
+  const likeCountDisplay = document.getElementById("likeCountDisplay");
+  if (likeCountDisplay) likeCountDisplay.textContent = count;
+  
   likeBtn.textContent = `❤️ ${count}`;
 
   likeBtn.onclick = async () => {
