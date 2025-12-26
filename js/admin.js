@@ -40,14 +40,20 @@ let currentUser = null;
 let currentProfile = null;
 
 async function requireAdmin() {
-  const { data: { user } } = await supabase.auth.getUser();
+  // 1️⃣ 세션 먼저 가져오기
+  const {
+    data: { session }
+  } = await supabase.auth.getSession();
 
-  if (!user) {
+  if (!session || !session.user) {
     alert("로그인이 필요합니다");
     location.href = "login.html";
-    throw new Error("로그인 필요");
+    throw new Error("NO_SESSION");
   }
 
+  const user = session.user;
+
+  // 2️⃣ profile 조회
   const { data: profile, error } = await supabase
     .from("profiles")
     .select("id, nickname, role")
@@ -56,18 +62,21 @@ async function requireAdmin() {
 
   if (error || !profile) {
     alert("프로필 조회 실패");
-    throw new Error("프로필 오류");
+    throw new Error("PROFILE_ERROR");
   }
 
+  // 3️⃣ 권한 체크
   if (!["owner", "admin"].includes(profile.role)) {
     alert("관리자 권한이 없습니다");
     location.href = "index.html";
-    throw new Error("권한 없음");
+    throw new Error("NO_PERMISSION");
   }
 
+  // 4️⃣ 전역 저장
   currentUser = user;
   currentProfile = profile;
 }
+
 
 /* =========================
    STATS
