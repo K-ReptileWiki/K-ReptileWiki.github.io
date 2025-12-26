@@ -8,32 +8,38 @@
   <style>
     body { background:#f9fafb; }
     .container { max-width:900px; margin:20px auto; padding:20px; }
-    .post-detail { background:white; padding:30px; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.1); margin-bottom:20px; }
-    .post-detail h2 { color:#2563eb; margin-top:0; }
-    .post-detail img { max-width:100%; height:auto; border-radius:8px; margin:10px 0; }
-    .post-meta { color:#6b7280; font-size:14px; margin:15px 0; padding:10px; background:#f3f4f6; border-radius:4px; }
-    .post-stats { display:flex; gap:15px; align-items:center; margin:15px 0; }
-    .stat-item { display:flex; align-items:center; gap:5px; padding:8px 12px; background:#f3f4f6; border-radius:6px; font-size:14px; color:#475569; }
-    .stat-item .icon { font-size:16px; }
-    .btn { padding:8px 16px; border:none; border-radius:6px; cursor:pointer; font-weight:bold; margin-right:10px; }
+    .post-detail {
+      background:white; padding:30px; border-radius:8px;
+      box-shadow:0 2px 8px rgba(0,0,0,0.1); margin-bottom:20px;
+    }
+    .post-detail img {
+      max-width:100%;
+      height:auto;
+      border-radius:8px;
+      margin:10px 0;
+      display:block;
+    }
+    .post-meta {
+      color:#6b7280; font-size:14px; margin:15px 0;
+      padding:10px; background:#f3f4f6; border-radius:4px;
+    }
+    .post-stats { display:flex; gap:15px; margin:15px 0; }
+    .stat-item {
+      background:#f3f4f6; padding:8px 12px;
+      border-radius:6px; font-size:14px;
+    }
+    .btn {
+      padding:8px 16px; border:none; border-radius:6px;
+      cursor:pointer; font-weight:bold; margin-right:10px;
+    }
     .btn-primary { background:#2563eb; color:white; }
     .btn-danger { background:#f87171; color:white; }
-    .btn-secondary { background:#6b7280; color:white; }
     .btn-warning { background:#fbbf24; color:white; }
-    .comment-section, .version-section { background:white; padding:20px; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.1); margin-bottom:20px; }
-    .comment-card, .version-card { background:#f9fafb; padding:15px; margin:10px 0; border-radius:6px; border-left:3px solid #2563eb; }
-    .version-card { border-left-color:#fbbf24; cursor:pointer; transition:all 0.2s; }
-    .version-card:hover { background:#f3f4f6; transform:translateX(5px); }
-    .version-card.current { border-left-color:#10b981; background:#ecfdf5; }
-    .comment-input { width:100%; padding:10px; border:1px solid #ddd; border-radius:4px; resize:vertical; min-height:80px; box-sizing:border-box; }
-    .version-badge { display:inline-block; padding:4px 8px; border-radius:4px; font-size:12px; font-weight:bold; margin-right:5px; }
-    .badge-created { background:#dbeafe; color:#1e40af; }
-    .badge-updated { background:#fef3c7; color:#92400e; }
-    .badge-deleted { background:#fee2e2; color:#991b1b; }
-    .badge-current { background:#d1fae5; color:#065f46; }
+    .btn-secondary { background:#6b7280; color:white; }
   </style>
 </head>
 <body>
+
 <div class="container">
   <h1>🦎 K-ReptileWiki</h1>
 
@@ -42,278 +48,184 @@
 
   <hr style="margin:30px 0;">
 
-  <div class="version-section">
+  <div id="versionSection" class="post-detail">
     <h2>📜 버전 히스토리</h2>
-    <p style="color:#666;font-size:14px;">이 글의 모든 수정 이력을 확인하고 이전 버전으로 복원할 수 있습니다.</p>
     <div id="versionList">로딩 중...</div>
   </div>
 
   <hr style="margin:30px 0;">
 
-  <div class="comment-section">
+  <div class="post-detail">
     <h2>💬 댓글</h2>
     <div id="commentList">로딩 중...</div>
-    <h3 style="margin-top:30px;">댓글 작성</h3>
-    <textarea id="commentInput" class="comment-input" placeholder="댓글을 입력하세요"></textarea>
-    <button id="addCommentBtn" class="btn btn-primary" style="margin-top:10px;">댓글 작성</button>
+    <textarea id="commentInput" style="width:100%;min-height:80px;"></textarea>
+    <button id="addCommentBtn" class="btn btn-primary">댓글 작성</button>
   </div>
 </div>
 
 <script type="module">
 import { supabaseService } from "./js/supabase.js";
 
-const params = new URLSearchParams(location.search);
-const postId = params.get("id");
-let currentVersion = null;
-
+const postId = new URLSearchParams(location.search).get("id");
 if (!postId) location.href = "index.html";
+
+let currentVersion = null;
 
 async function init() {
   await supabaseService.waitForAuth();
-  
-  // ✅ 조회수 기록 (페이지 로드 시 자동)
-  await recordView();
-  
+  await supabaseService.recordView(postId);
   await loadPost();
   await loadVersions();
   await loadComments();
 }
 
-// ✅ 조회수 기록 함수
-async function recordView() {
-  const result = await supabaseService.recordView(postId);
-  if (result.success && !result.alreadyViewed) {
-    console.log("👀 조회수 증가");
-  }
-}
-
 async function loadPost() {
   const div = document.getElementById("postDetail");
-  const result = await supabaseService.getPost(postId);
+  const res = await supabaseService.getPost(postId);
 
-  if (!result.success) {
-    div.innerHTML = `<p>글을 불러올 수 없습니다: ${result.error}</p>`;
+  if (!res.success) {
+    div.textContent = "글을 불러올 수 없습니다.";
     return;
   }
 
-  const post = result.data;
+  const post = res.data;
   currentVersion = post.version;
 
-  // ✅ 조회수 가져오기
   const viewCount = await supabaseService.getViewCount(postId);
   const likeCount = await supabaseService.getLikeCount(postId);
 
-  const deletedBanner = post.deleted ? `<div style="background:#fee2e2;color:#991b1b;padding:10px;border-radius:4px;margin-bottom:15px;">
-    ⚠️ 이 글은 삭제되었습니다. ${post.deleted_at ? new Date(post.deleted_at).toLocaleString() : ''}</div>` : '';
-
-  let imgHtml = "";
-  if (post.images && Array.isArray(post.images)) imgHtml = post.images.map(u=>`<img src="${u}" class="species-image" alt="첨부 이미지">`).join("");
-
   div.innerHTML = `
-    ${deletedBanner}
     <h2>${post.title}</h2>
+
     <div class="post-meta">
-      버전: ${post.version} | 작성자: ${post.author??"익명"} | ${new Date(post.time).toLocaleString()}
+      버전 ${post.version} |
+      작성자 ${post.author ?? "익명"} |
+      ${new Date(post.time).toLocaleString()}
     </div>
-    
-    <!-- ✅ 조회수 & 좋아요 통계 -->
+
     <div class="post-stats">
-      <div class="stat-item">
-        <span class="icon">👀</span>
-        <span>조회 <strong id="viewCount">${viewCount}</strong></span>
-      </div>
-      <div class="stat-item">
-        <span class="icon">❤️</span>
-        <span>좋아요 <strong id="likeCountDisplay">${likeCount}</strong></span>
-      </div>
+      <div class="stat-item">👀 조회 ${viewCount}</div>
+      <div class="stat-item">❤️ 좋아요 <span id="likeCount">${likeCount}</span></div>
     </div>
-    
-    <div>${post.content}</div>
-    ${imgHtml}
+
+    <!-- ✅ 이미지 포함된 Quill HTML만 출력 -->
+    <div class="ql-editor">
+      ${post.content}
+    </div>
+
     <div style="margin-top:20px;">
-      <button id="likeBtn" class="btn btn-primary">❤️ 로딩 중...</button>
-      <span id="likeMsg" style="color:#10b981;margin-left:10px;"></span>
-      <span id="actionBtnContainer"></span>
+      <button id="likeBtn" class="btn btn-primary">❤️ 좋아요</button>
+      <span id="actionBtns"></span>
     </div>
   `;
 
-  await updateLikeButton();
-  renderActionButtons(post);
+  setupLikeButton();
+  setupActionButtons(post);
 }
 
-function renderActionButtons(post) {
-  const container = document.getElementById("actionBtnContainer");
-  container.innerHTML = "";
-
+function setupActionButtons(post) {
   if (!supabaseService.isLoggedIn()) return;
   const { user } = supabaseService.getCurrentUser();
-  const isAuthor = user?.id === post.uid;
-  const isAdmin = supabaseService.isAdmin();
+  if (user.id !== post.uid) return;
 
-  if (!post.deleted && (isAuthor || isAdmin)) {
-    if (isAuthor) {
-      const editBtn = document.createElement("button");
-      editBtn.className = "btn btn-warning";
-      editBtn.textContent = "✏️ 수정";
-      editBtn.onclick = () => editPost(post);
-      container.appendChild(editBtn);
+  const box = document.getElementById("actionBtns");
 
-      const deleteBtn = document.createElement("button");
-      deleteBtn.className = "btn btn-danger";
-      deleteBtn.textContent = "🗑️ 삭제";
-      deleteBtn.onclick = () => deletePost(post);
-      container.appendChild(deleteBtn);
-    }
+  const editBtn = document.createElement("button");
+  editBtn.className = "btn btn-warning";
+  editBtn.textContent = "✏️ 수정";
+  editBtn.onclick = () => location.href = `edit.html?id=${postId}`;
 
-    if (isAdmin && post.deleted) {
-      const restoreBtn = document.createElement("button");
-      restoreBtn.className = "btn btn-warning";
-      restoreBtn.textContent = "♻️ 최신 버전으로 복원";
-      restoreBtn.onclick = () => restoreLatestVersion();
-      container.appendChild(restoreBtn);
-    }
-  }
+  const delBtn = document.createElement("button");
+  delBtn.className = "btn btn-danger";
+  delBtn.textContent = "🗑️ 삭제";
+  delBtn.onclick = async () => {
+    if (!confirm("삭제할까요?")) return;
+    await supabaseService.deletePost(postId);
+    location.href = "index.html";
+  };
+
+  box.append(editBtn, delBtn);
 }
 
-async function updateLikeButton() {
-  const likeBtn = document.getElementById("likeBtn");
-  const count = await supabaseService.getLikeCount(postId);
-  
-  // ✅ 좋아요 수도 업데이트
-  const likeCountDisplay = document.getElementById("likeCountDisplay");
-  if (likeCountDisplay) likeCountDisplay.textContent = count;
-  
-  likeBtn.textContent = `❤️ ${count}`;
-
-  likeBtn.onclick = async () => {
-    if (!supabaseService.isLoggedIn()) { alert("로그인이 필요합니다"); location.href="login.html"; return; }
-    const res = await supabaseService.toggleLike(postId);
-    if (res.success) {
-      document.getElementById("likeMsg").textContent = "좋아요!";
-      setTimeout(()=>document.getElementById("likeMsg").textContent="",2000);
-      await updateLikeButton();
-    } else alert(res.error);
+async function setupLikeButton() {
+  const btn = document.getElementById("likeBtn");
+  btn.onclick = async () => {
+    if (!supabaseService.isLoggedIn()) {
+      alert("로그인 필요");
+      location.href = "login.html";
+      return;
+    }
+    await supabaseService.toggleLike(postId);
+    document.getElementById("likeCount").textContent =
+      await supabaseService.getLikeCount(postId);
   };
 }
 
 async function loadVersions() {
   const div = document.getElementById("versionList");
-  const result = await supabaseService.getPostVersions(postId);
-  if (!result.success) { div.innerHTML=`<p>버전을 불러올 수 없습니다: ${result.error}</p>`; return; }
-  if (!result.data || result.data.length===0) { div.innerHTML="<p>버전 히스토리가 없습니다.</p>"; return; }
+  const res = await supabaseService.getPostVersions(postId);
+
+  if (!res.success || !res.data?.length) {
+    div.textContent = "버전 없음";
+    return;
+  }
 
   div.innerHTML = "";
-  result.data.forEach(v=>{
-    const versionDiv = document.createElement("div");
-    versionDiv.className = `version-card ${v.version_number===currentVersion?'current':''}`;
-    versionDiv.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <div>
-          <strong>버전 ${v.version_number}</strong>
-          <span class="version-badge ${v.action==='created'?'badge-created':v.action==='updated'?'badge-updated':'badge-deleted'}">${v.action}</span>
-          ${v.version_number===currentVersion?'<span class="version-badge badge-current">현재</span>':''}<br>
-          <small style="color:#666;">${new Date(v.created_at).toLocaleString()} | ${v.author??"익명"}</small>
-          ${v.change_note?`<br><small style="color:#999;">${v.change_note}</small>`:""}
-        </div>
-        <div>
-          <button class="btn btn-secondary viewVersionBtn" data-version="${v.version_number}" style="padding:4px 8px;font-size:12px;">👁️ 보기</button>
-          ${(v.version_number!==currentVersion && (supabaseService.isAdmin() || supabaseService.getCurrentUser().user?.id===v.uid))?`<button class="btn btn-warning restoreVersionBtn" data-version="${v.version_number}" style="padding:4px 8px;font-size:12px;">♻️ 복원</button>`:""}
-        </div>
-      </div>
-    `;
-    div.appendChild(versionDiv);
-  });
-
-  div.querySelectorAll(".viewVersionBtn").forEach(btn=>{
-    btn.addEventListener("click",()=>viewVersion(parseInt(btn.dataset.version)));
-  });
-  div.querySelectorAll(".restoreVersionBtn").forEach(btn=>{
-    btn.addEventListener("click",()=>restoreVersion(parseInt(btn.dataset.version)));
+  res.data.forEach(v => {
+    const d = document.createElement("div");
+    d.style.cursor = "pointer";
+    d.style.margin = "10px 0";
+    d.textContent = `버전 ${v.version_number} (${v.action})`;
+    d.onclick = () => viewVersion(v.version_number);
+    div.appendChild(d);
   });
 }
 
-async function viewVersion(versionNumber) {
-  const res = await supabaseService.getPostVersion(postId,versionNumber);
-  if (!res.success){ alert("버전을 불러올 수 없습니다: "+res.error); return; }
+async function viewVersion(version) {
+  const res = await supabaseService.getPostVersion(postId, version);
+  if (!res.success) return;
+
   const v = res.data;
   const modal = document.createElement("div");
-  modal.style.cssText=`position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px;`;
-  let imgHtml="";
-  if (v.images && Array.isArray(v.images)) imgHtml=v.images.map(u=>`<img src="${u}" style="max-width:100%;border-radius:8px;margin:10px 0;">`).join("");
-  modal.innerHTML=`
-    <div style="background:white;padding:30px;border-radius:8px;max-width:800px;max-height:80vh;overflow-y:auto;">
-      <h2 style="color:#2563eb;margin-top:0;">버전 ${v.version_number}</h2>
-      <div style="color:#666;font-size:14px;margin-bottom:15px;">
-        ${new Date(v.created_at).toLocaleString()} | ${v.author??"익명"}
-      </div>
-      <hr>
-      <h3>${v.title}</h3>
-      <div>${v.content}</div>
-      ${imgHtml}
-      <div style="margin-top:20px;text-align:right;">
-        <button class="btn btn-secondary closeBtn">닫기</button>
-      </div>
-    </div>`;
+  modal.style.cssText =
+    "position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;justify-content:center;align-items:center;";
+  modal.innerHTML = `
+    <div style="background:white;padding:30px;max-width:800px;max-height:80vh;overflow:auto;">
+      <h2>${v.title} (v${v.version_number})</h2>
+      <div class="ql-editor">${v.content}</div>
+      <button id="closeModal" class="btn btn-secondary">닫기</button>
+    </div>
+  `;
   document.body.appendChild(modal);
-  modal.querySelector(".closeBtn").onclick=()=>modal.remove();
-  modal.addEventListener("click",e=>{if(e.target===modal)modal.remove();});
+  modal.querySelector("#closeModal").onclick = () => modal.remove();
 }
 
-async function restoreVersion(versionNumber) {
-  if (!confirm(`버전 ${versionNumber}으로 복원하시겠습니까?`)) return;
-  const res = await supabaseService.restorePostVersion(postId,versionNumber);
-  if(res.success){ alert("복원 완료"); location.reload(); } else alert("복원 실패: "+res.error);
-}
-
-async function restoreLatestVersion() {
-  const res = await supabaseService.getPostVersions(postId);
-  if(!res.success || !res.data || res.data.length===0){ alert("복원할 버전이 없습니다"); return; }
-  await restoreVersion(res.data[0].version_number);
-}
-
-function editPost(post){
-  const newTitle = prompt("제목:",post.title);
-  if(!newTitle) return;
-  const newContent = prompt("내용 (HTML):",post.content);
-  if(!newContent) return;
-  updatePost(newTitle,newContent,post.images);
-}
-
-async function updatePost(title,content,images){
-  const res = await supabaseService.updatePost(postId,title,content,images);
-  if(res.success){ alert("수정 완료"); location.reload(); } else alert("수정 실패: "+res.error);
-}
-
-async function deletePost(){
-  if(!confirm("정말 삭제하시겠습니까?")) return;
-  const res = await supabaseService.deletePost(postId);
-  if(res.success){ alert("삭제 완료"); location.reload(); } else alert("삭제 실패: "+res.error);
-}
-
-async function loadComments(){
+async function loadComments() {
+  const div = document.getElementById("commentList");
   const res = await supabaseService.getComments(postId);
-  const list = document.getElementById("commentList");
-  if(!res.success){ list.textContent="댓글 불러오기 실패"; return; }
-  if(!res.data || res.data.length===0){ list.innerHTML="<p>댓글이 없습니다.</p>"; return; }
-  list.innerHTML="";
-  res.data.forEach(c=>{
-    const div=document.createElement("div");
-    div.className="comment-card";
-    div.innerHTML=`<p>${c.content}</p><small>${c.author??"익명"} | ${new Date(c.time).toLocaleString()}</small>`;
-    list.appendChild(div);
+
+  if (!res.success || !res.data?.length) {
+    div.textContent = "댓글 없음";
+    return;
+  }
+
+  div.innerHTML = "";
+  res.data.forEach(c => {
+    const d = document.createElement("div");
+    d.textContent = `${c.author ?? "익명"}: ${c.content}`;
+    div.appendChild(d);
   });
 }
 
-document.getElementById("addCommentBtn").addEventListener("click",async ()=>{
-  const content=document.getElementById("commentInput").value.trim();
-  if(!content){ alert("댓글 입력"); return; }
-  if(!supabaseService.isLoggedIn()){ alert("로그인 필요"); location.href="login.html"; return; }
-  const res = await supabaseService.addComment(postId,content);
-  if(res.success){ document.getElementById("commentInput").value=""; await loadComments(); }
-  else alert("댓글 작성 실패: "+res.error);
-});
+document.getElementById("addCommentBtn").onclick = async () => {
+  const input = document.getElementById("commentInput");
+  if (!input.value.trim()) return;
+  await supabaseService.addComment(postId, input.value);
+  input.value = "";
+  loadComments();
+};
 
-document.getElementById("goHomeBtn").addEventListener("click",()=>location.href="index.html");
+document.getElementById("goHomeBtn").onclick = () => location.href = "index.html";
 
 init();
 </script>
