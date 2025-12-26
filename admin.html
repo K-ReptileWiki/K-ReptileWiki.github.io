@@ -221,18 +221,6 @@
   </div>
 </div>
 
-<script type="module">
-  import { loadStats } from "./js/admin.js";
-  import { loadLogs } from "./js/admin.js";
-
-  window.searchLogs = () => {
-    const q = document.getElementById("logSearch").value;
-    loadLogs(q);
-  };
-
-  loadStats();
-</script>
-
 <script type="module" src="js/admin.js"></script>
 </body>
 </html>
