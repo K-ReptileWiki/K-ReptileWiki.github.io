@@ -4,12 +4,9 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
    Supabase 설정
 ========================= */
 const SUPABASE_URL = "https://cpaikpjzlzzujwfgnanb.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwYWlrcGp6bHp6dWp3ZmduYW5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYxNDEwMzIsImV4cCI6MjA4MTcxNzAzMn0.u5diz_-p8Hh1FtkVO1CsDSUbz9fbSN2zXAIIP2637sc"; // 그대로 두되 RLS 필수
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwYWlrcGp6bHp6dWp3ZmduYW5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYxNDEwMzIsImV4cCI6MjA4MTcxNzAzMn0.u5diz_-p8Hh1FtkVO1CsDSUbz9fbSN2zXAIIP2637sc";
 
-export const supabase = createClient(
-  SUPABASE_URL,
-  SUPABASE_ANON_KEY
-);
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 /* =========================
    DOM
@@ -40,10 +37,7 @@ let currentUser = null;
 let currentProfile = null;
 
 async function requireAdmin() {
-  // 1️⃣ 세션 먼저 가져오기
-  const {
-    data: { session }
-  } = await supabase.auth.getSession();
+  const { data: { session } } = await supabase.auth.getSession();
 
   if (!session || !session.user) {
     alert("로그인이 필요합니다");
@@ -53,7 +47,6 @@ async function requireAdmin() {
 
   const user = session.user;
 
-  // 2️⃣ profile 조회
   const { data: profile, error } = await supabase
     .from("profiles")
     .select("id, nickname, role")
@@ -65,18 +58,15 @@ async function requireAdmin() {
     throw new Error("PROFILE_ERROR");
   }
 
-  // 3️⃣ 권한 체크
   if (!["owner", "admin"].includes(profile.role)) {
     alert("관리자 권한이 없습니다");
     location.href = "index.html";
     throw new Error("NO_PERMISSION");
   }
 
-  // 4️⃣ 전역 저장
   currentUser = user;
   currentProfile = profile;
 }
-
 
 /* =========================
    STATS
@@ -90,9 +80,9 @@ async function loadStats() {
     ]);
 
   statsDiv.innerHTML = `
-    <div class="stat-box"><strong>${users ?? 0}</strong>사용자</div>
-    <div class="stat-box"><strong>${posts ?? 0}</strong>게시글</div>
-    <div class="stat-box"><strong>${comments ?? 0}</strong>댓글</div>
+    <div class="stat-box"><strong>${users ?? 0}</strong> 사용자</div>
+    <div class="stat-box"><strong>${posts ?? 0}</strong> 게시글</div>
+    <div class="stat-box"><strong>${comments ?? 0}</strong> 댓글</div>
   `;
 }
 
@@ -113,9 +103,7 @@ async function loadUsers() {
 
   usersDiv.innerHTML = "";
   data.forEach(u => {
-    const canPromote =
-      currentProfile.role === "owner" &&
-      u.role !== "owner";
+    const canPromote = currentProfile.role === "owner" && u.role !== "owner";
 
     const div = document.createElement("div");
     div.className = "card";
@@ -184,6 +172,10 @@ async function loadComments() {
     .limit(20);
 
   if (error) return showError(commentsDiv, "댓글 로딩 실패");
+  if (!data.length) {
+    commentsDiv.innerHTML = `<div class="empty">댓글 없음</div>`;
+    return;
+  }
 
   commentsDiv.innerHTML = data.map(c => `
     <div class="card">
@@ -193,7 +185,7 @@ async function loadComments() {
       </div>
       <div class="card-actions">
         <button class="btn btn-danger"
-          onclick="deleteComment(${c.id})">삭제</button>
+          onclick="deleteComment('${c.id}')">삭제</button>
       </div>
     </div>
   `).join("");
