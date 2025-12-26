@@ -64,49 +64,42 @@ class SupabaseService {
     });
   }
 
-  async _setUser(user) {
-    if (this._settingUser) {
-      console.log("⏸️ 이미 사용자 설정 중...");
-      return;
+async _setUser(user) {
+  if (this._settingUser) return;
+  this._settingUser = true;
+
+  console.log("👤 사용자 설정 중:", user.email);
+
+  try {
+    this.currentUser = user;
+
+    const { data, error } = await this.client
+      .from("profiles")
+      .select("id, nickname, role")
+      .eq("id", user.id)
+      .single();
+
+    if (error) {
+      console.error("❌ profiles 조회 실패", error);
+      alert("프로필 정보를 불러올 수 없습니다.\n관리자에게 문의하세요.");
+      throw error;
     }
-    
-    this._settingUser = true;
-    console.log("👤 사용자 설정 중:", user.email);
 
-    try {
-      this.currentUser = user;
-
-      let { data, error } = await this.client
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single();
-
-      if (error || !data) {
-        console.log("📝 프로필 생성 중...");
-        const nickname = user.email.split("@")[0];
-        const insertResp = await this.client
-          .from("profiles")
-          .insert({ id: user.id, nickname, role: "user" })
-          .select()
-          .single();
-        data = insertResp.data || { nickname, role: "user" };
-      }
-
-      this.userData = data;
-      console.log("✅ 사용자 설정 완료:", this.userData.nickname);
-
-    } catch(e) {
-      console.error("❌ 프로필 로딩 에러:", e);
-      this.userData = { 
-        nickname: user.email.split("@")[0], 
-        role: "user" 
-      };
-    } finally {
-      this._settingUser = false;
-      this._completeAuth();
+    if (!data) {
+      throw new Error("프로필이 존재하지 않습니다.");
     }
+
+    this.userData = data;
+
+    console.log(
+      `✅ 사용자 설정 완료: ${data.nickname} (${data.role})`
+    );
+
+  } finally {
+    this._settingUser = false;
+    this._completeAuth();
   }
+}
 
   _completeAuth() {
     if (!this._authResolved) {
