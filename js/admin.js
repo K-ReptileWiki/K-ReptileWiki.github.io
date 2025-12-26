@@ -1,104 +1,172 @@
-import { supabaseService, supabase } from "./supabase.js";
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
-/* =========================
-   ROLE HELPERS
-========================== */
-function myRole() {
-  return supabaseService.getCurrentUser().data.role;
-}
-function myId() {
-  return supabaseService.getCurrentUser().user.id;
-}
-function isAdmin() {
-  return ["mod","owner"].includes(myRole());
-}
-function isOwner() {
-  return myRole() === "owner";
-}
+// 🔑 Supabase 설정
+const SUPABASE_URL = "https://cpaikpjzlzzujwfgnanb.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwYWlrcGp6bHp6dWp3ZmduYW5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYxNDEwMzIsImV4cCI6MjA4MTcxNzAzMn0.u5diz_-p8Hh1FtkVO1CsDSUbz9fbSN2zXAIIP2637sc";
 
-/* =========================
-   LOG SYSTEM
-========================== */
-async function logAction(action, table, id, snapshot = null) {
-  await supabase.from("admin_logs").insert({
-    admin_id: myId(),
-    action,
-    target_table: table,
-    target_id: id,
-    snapshot
-  });
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// DOM
+const usersDiv = document.getElementById("users");
+const postsDiv = document.getElementById("posts");
+const commentsDiv = document.getElementById("comments");
+const logsDiv = document.getElementById("logs");
+
+// 공통 에러 출력
+function showError(el, msg) {
+  el.innerHTML = `<div class="empty">❌ ${msg}</div>`;
 }
 
-/* =========================
-   USERS
-========================== */
-export async function updateRole(uid, role) {
-  if (!isOwner()) throw new Error("owner만 가능");
+// 🔐 로그인 + 권한 확인
+async function checkAdmin() {
+  const { data: { user }, error } = await supabase.auth.getUser();
 
-  const { data: before } = await supabase
+  if (error || !user) {
+    alert("로그인이 필요합니다.");
+    location.href = "login.html";
+    return null;
+  }
+
+  const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("*")
-    .eq("id", uid)
+    .select("role, nickname")
+    .eq("id", user.id)
     .single();
 
-  await supabase.from("profiles").update({ role }).eq("id", uid);
-  await logAction("ROLE_CHANGE", "profiles", uid, before);
+  if (profileError) {
+    alert("프로필 정보를 불러올 수 없습니다.");
+    return null;
+  }
+
+  if (profile.role !== "owner") {
+    alert("최고 관리자만 접근 가능합니다.");
+    location.href = "index.html";
+    return null;
+  }
+
+  return user;
 }
 
-/* =========================
-   POSTS
-========================== */
-export async function deletePost(id) {
-  if (!isAdmin()) throw new Error("권한 없음");
+// 👥 사용자 로드
+async function loadUsers() {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, nickname, role, created_at")
+    .order("created_at", { ascending: false });
 
-  const { data } = await supabase
-    .from("wiki_posts")
-    .select("*")
-    .eq("id", id)
-    .single();
+  if (error) {
+    showError(usersDiv, "사용자 로딩 실패");
+    return;
+  }
 
-  await supabase.from("wiki_posts").update({ deleted: true }).eq("id", id);
-  await logAction("POST_DELETE", "wiki_posts", id, data);
+  if (!data.length) {
+    usersDiv.innerHTML = `<div class="empty">사용자 없음</div>`;
+    return;
+  }
+
+  usersDiv.innerHTML = data.map(u => `
+    <div class="card">
+      <div class="card-content">
+        <strong>${u.nickname}</strong>
+        <span class="badge ${u.role === "owner" ? "badge-admin" : "badge-user"}">
+          ${u.role}
+        </span>
+        <small>${new Date(u.created_at).toLocaleString()}</small>
+      </div>
+    </div>
+  `).join("");
 }
 
-export async function restorePost(id) {
-  await supabase.from("wiki_posts").update({ deleted: false }).eq("id", id);
-  await logAction("POST_RESTORE", "wiki_posts", id);
+// 📝 게시글 로드
+async function loadPosts() {
+  const { data, error } = await supabase
+    .from("posts")
+    .select("id, title, created_at")
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  if (error) {
+    showError(postsDiv, "게시글 로딩 실패");
+    return;
+  }
+
+  if (!data.length) {
+    postsDiv.innerHTML = `<div class="empty">게시글 없음</div>`;
+    return;
+  }
+
+  postsDiv.innerHTML = data.map(p => `
+    <div class="card">
+      <div class="card-content">
+        <strong>${p.title}</strong>
+        <small>${new Date(p.created_at).toLocaleString()}</small>
+      </div>
+    </div>
+  `).join("");
 }
 
-/* =========================
-   COMMENTS
-========================== */
-export async function deleteComment(id) {
-  if (!isAdmin()) throw new Error("권한 없음");
+// 💬 댓글 로드
+async function loadComments() {
+  const { data, error } = await supabase
+    .from("comments")
+    .select("id, content, created_at")
+    .order("created_at", { ascending: false })
+    .limit(20);
 
-  const { data } = await supabase
-    .from("wiki_comments")
-    .select("*")
-    .eq("id", id)
-    .single();
+  if (error) {
+    showError(commentsDiv, "댓글 로딩 실패");
+    return;
+  }
 
-  await supabase.from("wiki_comments").delete().eq("id", id);
-  await logAction("COMMENT_DELETE", "wiki_comments", id, data);
+  if (!data.length) {
+    commentsDiv.innerHTML = `<div class="empty">댓글 없음</div>`;
+    return;
+  }
+
+  commentsDiv.innerHTML = data.map(c => `
+    <div class="card">
+      <div class="card-content">
+        ${c.content}
+        <small>${new Date(c.created_at).toLocaleString()}</small>
+      </div>
+    </div>
+  `).join("");
 }
 
-/* =========================
-   UNDO SYSTEM
-========================== */
-export async function undo(logId) {
-  if (!isOwner()) throw new Error("owner만 가능");
-
-  const { data: log } = await supabase
+// 📜 로그 로드
+async function loadLogs() {
+  const { data, error } = await supabase
     .from("admin_logs")
-    .select("*")
-    .eq("id", logId)
-    .single();
+    .select("action, created_at")
+    .order("created_at", { ascending: false })
+    .limit(30);
 
-  if (!log.snapshot) throw new Error("복구 불가");
+  if (error) {
+    showError(logsDiv, "로그 로딩 실패");
+    return;
+  }
 
-  await supabase
-    .from(log.target_table)
-    .upsert(log.snapshot);
+  if (!data.length) {
+    logsDiv.innerHTML = `<div class="empty">로그 없음</div>`;
+    return;
+  }
 
-  await logAction("UNDO", log.target_table, log.target_id);
+  logsDiv.innerHTML = data.map(l => `
+    <div class="log">
+      [${new Date(l.created_at).toLocaleString()}] ${l.action}
+    </div>
+  `).join("");
 }
+
+// 🚀 초기 실행
+(async () => {
+  const user = await checkAdmin();
+  if (!user) return;
+
+  await Promise.all([
+    loadUsers(),
+    loadPosts(),
+    loadComments(),
+    loadLogs()
+  ]);
+})();
