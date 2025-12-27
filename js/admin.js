@@ -153,25 +153,40 @@ window.promoteUser = async (uid, nickname) => {
   if (!confirm(`${nickname}님을 관리자로 승급할까요?`)) return;
 
   try {
-    const { error } = await supabase
-      .from("profiles")
-      .update({ role: "admin" })
-      .eq("id", uid);
-
-    if (error) {
-      console.error("승급 실패:", error);
-      alert("승급 실패: " + error.message);
+    console.log("🔧 승급 시작:", uid, nickname);
+    
+    // 현재 권한 확인
+    if (currentProfile.role !== 'owner' && currentProfile.role !== 'admin') {
+      alert("권한이 없습니다");
       return;
     }
 
-    // 로그 기록 (실패해도 승급은 성공)
+    // 승급 시도
+    const { data, error } = await supabase
+      .from("profiles")
+      .update({ role: "admin" })
+      .eq("id", uid)
+      .select();
+
+    if (error) {
+      console.error("❌ 승급 실패:", error);
+      alert("승급 실패: " + error.message + "\n\nRLS 정책을 확인해주세요.");
+      return;
+    }
+
+    console.log("✅ 승급 성공:", data);
+
+    // 로그 기록
     await logAction(`ROLE → admin (${nickname})`);
     
-    alert("승급 완료!");
+    alert(`${nickname}님이 관리자로 승급되었습니다!`);
+    
+    // 목록 새로고침
     await loadUsers();
+    
   } catch (error) {
-    console.error("promoteUser 오류:", error);
-    alert("승급 처리 중 오류 발생");
+    console.error("❌ promoteUser 오류:", error);
+    alert("승급 처리 중 오류 발생: " + error.message);
   }
 };
 
@@ -326,21 +341,35 @@ window.searchLogs = () => {
 
 async function logAction(action) {
   try {
+    // admin_logs 테이블 존재 여부 확인
+    const { error: checkError } = await supabase
+      .from("admin_logs")
+      .select("id")
+      .limit(1);
+
+    // 테이블이 없으면 콘솔에만 로그
+    if (checkError) {
+      console.log("📝 로그 (테이블 없음):", action);
+      return;
+    }
+
+    // 테이블이 있으면 삽입
     const { error } = await supabase
       .from("admin_logs")
       .insert({
-        action,
-        actor: currentUser.id,
+        action: action,
+        actor: currentUser?.id || null,
         created_at: new Date().toISOString()
       });
 
     if (error) {
       console.error("로그 기록 실패:", error);
-      // 로그 실패는 무시 (중요한 작업은 아니므로)
+    } else {
+      console.log("📝 로그 기록:", action);
     }
   } catch (error) {
     console.error("logAction 오류:", error);
-    // 로그 실패는 무시
+    // 로그 실패는 무시 (중요한 작업은 아니므로)
   }
 }
 
