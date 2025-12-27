@@ -177,7 +177,7 @@ window.promoteUser = async (uid, nickname) => {
     console.log("✅ 승급 성공:", data);
 
     // 로그 기록
-    await logAction(`ROLE → admin (${nickname})`);
+    await logAction(`${nickname}님을 관리자로 승급함`);
     
     alert(`${nickname}님이 관리자로 승급되었습니다!`);
     
@@ -283,8 +283,8 @@ window.deleteComment = async (id, preview) => {
       return;
     }
 
-    // 로그 기록 (실패해도 삭제는 성공)
-    await logAction(`DELETE COMMENT (${id})`);
+    // 로그 기록
+    await logAction(`댓글을 삭제함 (내용: "${preview}...")`);
     
     alert("삭제 완료!");
     await loadComments();
@@ -301,7 +301,12 @@ async function loadLogs(keyword = "") {
   try {
     let q = supabase
       .from("admin_logs")
-      .select("action, created_at, actor")
+      .select(`
+        action, 
+        created_at, 
+        actor,
+        profiles:actor (nickname)
+      `)
       .order("created_at", { ascending: false })
       .limit(50);
 
@@ -313,7 +318,6 @@ async function loadLogs(keyword = "") {
     
     if (error) {
       console.error("로그 로드 실패:", error);
-      // admin_logs 테이블이 없을 수 있으므로 경고만 표시
       logsDiv.innerHTML = `<div class="empty">⚠️ 로그 테이블이 없거나 권한이 없습니다</div>`;
       return;
     }
@@ -323,11 +327,18 @@ async function loadLogs(keyword = "") {
       return;
     }
 
-    logsDiv.innerHTML = data.map(l => `
-      <div class="log">
-        [${new Date(l.created_at).toLocaleString()}] ${l.action}
-      </div>
-    `).join("");
+    logsDiv.innerHTML = data.map(l => {
+      const date = new Date(l.created_at);
+      const dateStr = `${date.getFullYear()}.${String(date.getMonth()+1).padStart(2,'0')}.${String(date.getDate()).padStart(2,'0')}`;
+      const timeStr = `${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}:${String(date.getSeconds()).padStart(2,'0')}`;
+      const actor = l.profiles?.nickname || "시스템";
+      
+      return `
+        <div class="log">
+          ${dateStr} ${timeStr} - ${actor}님이 ${l.action}
+        </div>
+      `;
+    }).join("");
   } catch (error) {
     console.error("loadLogs 오류:", error);
     logsDiv.innerHTML = `<div class="empty">⚠️ 로그를 불러올 수 없습니다</div>`;
