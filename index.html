@@ -70,10 +70,12 @@
 
         if (user) {
           const nickname = profile?.nickname || user.email.split("@")[0];
+          const isAdmin = profile?.role === "admin" || profile?.role === "owner";
+          
           userInfoDiv.innerHTML = `
             ${nickname}님
             <button id="logoutBtn" class="btn btn-danger" style="margin-left:10px;padding:4px 8px;">로그아웃</button>
-            ${profile?.role === "admin" ? '<button id="adminBtn" class="btn btn-danger" style="padding:4px 8px;">관리자</button>' : ''}
+            ${isAdmin ? '<button id="adminBtn" class="btn" style="background:#10b981;color:white;padding:4px 8px;margin-left:5px;">관리자</button>' : ''}
           `;
 
           document.getElementById("logoutBtn").addEventListener("click", async () => {
@@ -82,7 +84,9 @@
           });
 
           const adminBtn = document.getElementById("adminBtn");
-          if (adminBtn) adminBtn.addEventListener("click", () => location.href="admin.html");
+          if (adminBtn) {
+            adminBtn.addEventListener("click", () => location.href="admin.html");
+          }
 
           if (writeLink) writeLink.style.display="block";
 
