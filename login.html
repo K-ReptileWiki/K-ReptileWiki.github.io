@@ -13,7 +13,8 @@
     .form-group label { display:block; margin-bottom:5px; font-weight:bold; font-size: 14px; }
     .form-group input { width:100%; padding:12px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box; transition: border-color 0.2s; }
     .form-group input:focus { border-color: #2563eb; outline: none; }
-    .btn { width:100%; padding:12px; border:none; border-radius:6px; cursor:pointer; font-weight:bold; margin-bottom:10px; font-size: 15px; }
+    .btn { width:100%; padding:12px; border:none; border-radius:6px; cursor:pointer; font-weight:bold; margin-bottom:10px; font-size: 15px; transition: 0.2s; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
     .btn-primary { background:#2563eb; color:white; }
     .btn-success { background:#10b981; color:white; }
     .btn-danger { background:#f87171; color:white; }
@@ -31,21 +32,21 @@
     <form id="loginForm" style="display:none;">
       <div class="form-group">
         <label>이메일</label>
-        <input type="email" id="email" placeholder="example@email.com">
+        <input type="email" id="email" placeholder="example@email.com" autocomplete="email">
       </div>
       <div class="form-group">
         <label>비밀번호</label>
-        <input type="password" id="password" placeholder="비밀번호">
+        <input type="password" id="password" placeholder="비밀번호 (6자 이상)" autocomplete="current-password">
       </div>
 
       <div id="signupFields" style="display:none;">
         <div class="form-group">
           <label>비밀번호 확인</label>
-          <input type="password" id="confirmPassword" placeholder="비밀번호 다시 입력">
+          <input type="password" id="confirmPassword" placeholder="비밀번호 다시 입력" autocomplete="new-password">
         </div>
         <div class="form-group">
           <label>닉네임 (선택)</label>
-          <input type="text" id="nickname" placeholder="미입력 시 이메일 사용">
+          <input type="text" id="nickname" placeholder="미입력 시 이메일 앞부분 사용" autocomplete="nickname">
         </div>
       </div>
 
@@ -122,52 +123,160 @@
     const email = document.getElementById("email").value.trim();
     const password = document.getElementById("password").value.trim();
 
-    if (!email || !password) return alert("필수 정보를 입력하세요.");
+    if (!email || !password) {
+      alert("이메일과 비밀번호를 모두 입력해주세요.");
+      return;
+    }
 
-    log(`🔐 로그인 중...`);
+    log(`🔐 로그인 시도: ${email}`);
+    
+    const loginBtn = document.getElementById("loginBtn");
+    loginBtn.disabled = true;
+    loginBtn.textContent = "로그인 중...";
+    
     const result = await supabaseService.signIn(email, password);
 
     if (result.success) {
       log("✅ 로그인 성공");
-      location.href = "index.html";
+      alert("로그인 성공!");
+      setTimeout(() => location.href = "index.html", 300);
     } else {
-      alert("로그인 실패: " + result.error);
+      log(`❌ 실패: ${result.error}`);
+      
+      // 에러 메시지 한글화
+      let errorMsg = result.error;
+      if (result.error.includes("Invalid login credentials") || result.error.includes("Invalid")) {
+        errorMsg = "이메일 또는 비밀번호가 올바르지 않습니다.\n\n" +
+                   "• 회원가입을 하셨나요?\n" +
+                   "• 이메일과 비밀번호를 다시 확인해주세요.\n" +
+                   "• 비밀번호는 대소문자를 구분합니다.";
+      } else if (result.error.includes("Email not confirmed")) {
+        errorMsg = "이메일 인증이 필요합니다. 메일함을 확인해주세요.";
+      }
+      
+      alert("로그인 실패\n\n" + errorMsg);
+      loginBtn.disabled = false;
+      loginBtn.textContent = "로그인";
     }
   });
 
-  // 회원가입 로직 (중요: supabase.js의 인자 순서와 형식을 맞춤)
+  // 회원가입 로직
   document.getElementById("signupBtn").addEventListener("click", async () => {
     const email = document.getElementById("email").value.trim();
     const password = document.getElementById("password").value.trim();
     const confirm = document.getElementById("confirmPassword").value.trim();
     const nickname = document.getElementById("nickname").value.trim() || email.split('@')[0];
 
-    if (!email || !password) return alert("이메일과 비밀번호를 입력하세요.");
-    if (password !== confirm) return alert("비밀번호가 일치하지 않습니다.");
-    if (password.length < 6) return alert("비밀번호는 최소 6자 이상이어야 합니다.");
+    // 유효성 검사
+    if (!email || !password) {
+      alert("이메일과 비밀번호를 입력하세요.");
+      return;
+    }
 
-    log(`📝 가입 요청 중: ${email}`);
+    if (password !== confirm) {
+      alert("비밀번호가 일치하지 않습니다.");
+      return;
+    }
+
+    if (password.length < 6) {
+      alert("비밀번호는 최소 6자 이상이어야 합니다.");
+      return;
+    }
+
+    log(`📝 회원가입 시도: ${email}`);
     
-    // ✅ 수정된 호출 방식: 3번째 인자로 객체가 아닌 '문자열' nickname을 전달
+    const signupBtn = document.getElementById("signupBtn");
+    signupBtn.disabled = true;
+    signupBtn.textContent = "처리 중...";
+    
     const result = await supabaseService.signUp(email, password, nickname);
 
     if (result.success) {
-      log("✅ 가입 성공!");
-      alert("회원가입이 완료되었습니다!\n이메일 인증이 설정되어 있다면 메일을 확인해주세요.");
-      location.reload(); // 상태 새로고침
+      log("✅ 회원가입 성공!");
+      alert("회원가입이 완료되었습니다!\n바로 로그인됩니다.");
+      
+      // 자동 로그인 시도
+      log("🔄 자동 로그인 중...");
+      const loginResult = await supabaseService.signIn(email, password);
+      
+      if (loginResult.success) {
+        log("✅ 자동 로그인 성공!");
+        setTimeout(() => location.href = "index.html", 500);
+      } else {
+        alert("회원가입은 완료되었습니다.\n로그인 화면으로 이동합니다.");
+        location.reload();
+      }
+      
     } else {
       log(`❌ 실패: ${result.error}`);
-      alert("회원가입 실패: " + result.error);
+      
+      // 에러 메시지 처리
+      let errorMsg = result.error;
+      let waitTime = 0;
+      
+      if (result.error.includes("you can only request this after")) {
+        const seconds = result.error.match(/\d+/)?.[0];
+        waitTime = parseInt(seconds) || 3;
+        errorMsg = `보안상의 이유로 ${waitTime}초 후에 다시 시도해주세요.`;
+        
+        // 카운트다운 타이머
+        let remaining = waitTime;
+        const timer = setInterval(() => {
+          remaining--;
+          signupBtn.textContent = `${remaining}초 후 재시도 가능`;
+          
+          if (remaining <= 0) {
+            clearInterval(timer);
+            signupBtn.disabled = false;
+            signupBtn.textContent = "회원가입 완료";
+            log("⏰ 재시도 가능!");
+          }
+        }, 1000);
+        
+      } else if (result.error.includes("already registered") || result.error.includes("User already registered")) {
+        errorMsg = "이미 가입된 이메일입니다.\n로그인을 시도해주세요.";
+        signupBtn.disabled = false;
+        signupBtn.textContent = "회원가입 완료";
+        
+        // 로그인 모드로 전환 제안
+        setTimeout(() => {
+          if (confirm("로그인 화면으로 전환할까요?")) {
+            toggleBtn.click();
+          }
+        }, 100);
+        
+      } else {
+        signupBtn.disabled = false;
+        signupBtn.textContent = "회원가입 완료";
+      }
+      
+      alert("회원가입 실패\n\n" + errorMsg);
     }
   });
 
   document.getElementById("logoutBtn").addEventListener("click", async () => {
+    if (!confirm("로그아웃 하시겠습니까?")) return;
+    
     await supabaseService.signOut();
+    alert("로그아웃되었습니다.");
     location.reload();
   });
 
   document.getElementById("cancelBtn").addEventListener("click", () => {
     location.href = "index.html";
+  });
+
+  // Enter 키로 로그인/회원가입
+  document.getElementById("password").addEventListener("keypress", (e) => {
+    if (e.key === "Enter" && !isSignupMode) {
+      document.getElementById("loginBtn").click();
+    }
+  });
+
+  document.getElementById("confirmPassword").addEventListener("keypress", (e) => {
+    if (e.key === "Enter" && isSignupMode) {
+      document.getElementById("signupBtn").click();
+    }
   });
 </script>
 </body>
