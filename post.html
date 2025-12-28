@@ -31,11 +31,28 @@
     .btn {
       padding:8px 16px; border:none; border-radius:6px;
       cursor:pointer; font-weight:bold; margin-right:10px;
+      transition:0.2s;
     }
+    .btn:hover { transform:translateY(-2px); }
+    .btn:disabled { opacity:0.5; cursor:not-allowed; }
     .btn-primary { background:#2563eb; color:white; }
     .btn-danger { background:#f87171; color:white; }
     .btn-warning { background:#fbbf24; color:white; }
     .btn-secondary { background:#6b7280; color:white; }
+    .btn-success { background:#10b981; color:white; }
+    
+    .deleted-notice {
+      background:#fee2e2;
+      border:2px solid #ef4444;
+      padding:20px;
+      border-radius:8px;
+      text-align:center;
+      margin-bottom:20px;
+    }
+    .deleted-notice h3 {
+      color:#dc2626;
+      margin:0 0 10px 0;
+    }
   </style>
 </head>
 <body>
@@ -43,6 +60,7 @@
 <div class="container">
   <h1>🦎 K-ReptileWiki</h1>
 
+  <div id="deletedNotice"></div>
   <div id="postDetail" class="post-detail">로딩 중...</div>
   <button id="goHomeBtn" class="btn btn-secondary">🏠 메인으로</button>
 
@@ -70,6 +88,7 @@ const postId = new URLSearchParams(location.search).get("id");
 if (!postId) location.href = "index.html";
 
 let currentVersion = null;
+let currentPost = null;
 
 async function init() {
   await supabaseService.waitForAuth();
@@ -81,6 +100,7 @@ async function init() {
 
 async function loadPost() {
   const div = document.getElementById("postDetail");
+  const noticeDiv = document.getElementById("deletedNotice");
   const res = await supabaseService.getPost(postId);
 
   if (!res.success) {
@@ -89,7 +109,18 @@ async function loadPost() {
   }
 
   const post = res.data;
+  currentPost = post;
   currentVersion = post.version;
+
+  // 삭제된 글 표시
+  if (post.deleted) {
+    noticeDiv.innerHTML = `
+      <div class="deleted-notice">
+        <h3>⚠️ 삭제된 글입니다</h3>
+        <p>이 게시글은 관리자에 의해 삭제되었습니다.</p>
+      </div>
+    `;
+  }
 
   const viewCount = await supabaseService.getViewCount(postId);
   const likeCount = await supabaseService.getLikeCount(postId);
@@ -101,6 +132,7 @@ async function loadPost() {
       버전 ${post.version} |
       작성자 ${post.author ?? "익명"} |
       ${new Date(post.time).toLocaleString()}
+      ${post.deleted ? '<span style="color:red;font-weight:bold;"> | 삭제됨</span>' : ''}
     </div>
 
     <div class="post-stats">
@@ -108,7 +140,6 @@ async function loadPost() {
       <div class="stat-item">❤️ 좋아요 <span id="likeCount">${likeCount}</span></div>
     </div>
 
-    <!-- ✅ 이미지 포함된 Quill HTML만 출력 -->
     <div class="ql-editor">
       ${post.content}
     </div>
@@ -124,27 +155,79 @@ async function loadPost() {
 }
 
 function setupActionButtons(post) {
-  if (!supabaseService.isLoggedIn()) return;
-  const { user } = supabaseService.getCurrentUser();
-  if (user.id !== post.uid) return;
-
   const box = document.getElementById("actionBtns");
+  const { user, profile } = supabaseService.getCurrentUser();
+  
+  if (!user) return;
 
-  const editBtn = document.createElement("button");
-  editBtn.className = "btn btn-warning";
-  editBtn.textContent = "✏️ 수정";
-  editBtn.onclick = () => location.href = `edit.html?id=${postId}`;
+  const isAuthor = user.id === post.uid;
+  const isAdmin = profile?.role === "admin" || profile?.role === "owner";
 
-  const delBtn = document.createElement("button");
-  delBtn.className = "btn btn-danger";
-  delBtn.textContent = "🗑️ 삭제";
-  delBtn.onclick = async () => {
-    if (!confirm("삭제할까요?")) return;
-    await supabaseService.deletePost(postId);
-    location.href = "index.html";
-  };
+  // 작성자 버튼
+  if (isAuthor && !post.deleted) {
+    const editBtn = document.createElement("button");
+    editBtn.className = "btn btn-warning";
+    editBtn.textContent = "✏️ 수정";
+    editBtn.onclick = () => location.href = `edit.html?id=${postId}`;
 
-  box.append(editBtn, delBtn);
+    const delBtn = document.createElement("button");
+    delBtn.className = "btn btn-danger";
+    delBtn.textContent = "🗑️ 삭제";
+    delBtn.onclick = handleDelete;
+
+    box.append(editBtn, delBtn);
+  }
+
+  // 관리자 복구 버튼
+  if (isAdmin && post.deleted) {
+    const restoreBtn = document.createElement("button");
+    restoreBtn.className = "btn btn-success";
+    restoreBtn.textContent = "♻️ 복구";
+    restoreBtn.onclick = handleRestore;
+    box.appendChild(restoreBtn);
+  }
+}
+
+async function handleDelete() {
+  if (!confirm("정말 삭제하시겠습니까?")) return;
+
+  try {
+    console.log("🗑️ 글 삭제 시작:", postId);
+    
+    const result = await supabaseService.deletePost(postId);
+    
+    if (result.success) {
+      console.log("✅ 글 삭제 성공");
+      alert("삭제되었습니다.");
+      location.href = "index.html";
+    } else {
+      throw new Error(result.error);
+    }
+  } catch (error) {
+    console.error("❌ 삭제 실패:", error);
+    alert("삭제 실패: " + error.message);
+  }
+}
+
+async function handleRestore() {
+  if (!confirm("이 글을 복구하시겠습니까?")) return;
+
+  try {
+    console.log("♻️ 글 복구 시작:", postId);
+    
+    const result = await supabaseService.restorePost(postId);
+    
+    if (result.success) {
+      console.log("✅ 글 복구 성공");
+      alert("복구되었습니다.");
+      location.reload();
+    } else {
+      throw new Error(result.error);
+    }
+  } catch (error) {
+    console.error("❌ 복구 실패:", error);
+    alert("복구 실패: " + error.message);
+  }
 }
 
 async function setupLikeButton() {
@@ -155,9 +238,15 @@ async function setupLikeButton() {
       location.href = "login.html";
       return;
     }
-    await supabaseService.toggleLike(postId);
-    document.getElementById("likeCount").textContent =
-      await supabaseService.getLikeCount(postId);
+    
+    try {
+      await supabaseService.toggleLike(postId);
+      const newCount = await supabaseService.getLikeCount(postId);
+      document.getElementById("likeCount").textContent = newCount;
+    } catch (error) {
+      console.error("좋아요 오류:", error);
+      alert("좋아요 처리 중 오류가 발생했습니다.");
+    }
   };
 }
 
@@ -175,7 +264,10 @@ async function loadVersions() {
     const d = document.createElement("div");
     d.style.cursor = "pointer";
     d.style.margin = "10px 0";
-    d.textContent = `버전 ${v.version_number} (${v.action})`;
+    d.style.padding = "8px";
+    d.style.background = "#f3f4f6";
+    d.style.borderRadius = "4px";
+    d.textContent = `버전 ${v.version_number} (${v.action}) - ${new Date(v.created_at).toLocaleString()}`;
     d.onclick = () => viewVersion(v.version_number);
     div.appendChild(d);
   });
@@ -188,16 +280,19 @@ async function viewVersion(version) {
   const v = res.data;
   const modal = document.createElement("div");
   modal.style.cssText =
-    "position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;justify-content:center;align-items:center;";
+    "position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;justify-content:center;align-items:center;z-index:9999;";
   modal.innerHTML = `
-    <div style="background:white;padding:30px;max-width:800px;max-height:80vh;overflow:auto;">
+    <div style="background:white;padding:30px;max-width:800px;max-height:80vh;overflow:auto;border-radius:10px;">
       <h2>${v.title} (v${v.version_number})</h2>
       <div class="ql-editor">${v.content}</div>
-      <button id="closeModal" class="btn btn-secondary">닫기</button>
+      <button id="closeModal" class="btn btn-secondary" style="margin-top:15px;">닫기</button>
     </div>
   `;
   document.body.appendChild(modal);
   modal.querySelector("#closeModal").onclick = () => modal.remove();
+  modal.onclick = (e) => {
+    if (e.target === modal) modal.remove();
+  };
 }
 
 async function loadComments() {
@@ -205,24 +300,76 @@ async function loadComments() {
   const res = await supabaseService.getComments(postId);
 
   if (!res.success || !res.data?.length) {
-    div.textContent = "댓글 없음";
+    div.innerHTML = '<p style="color:#888;">댓글이 없습니다.</p>';
     return;
   }
 
   div.innerHTML = "";
   res.data.forEach(c => {
+    const { user } = supabaseService.getCurrentUser();
+    const isOwner = user?.id === c.uid;
+
     const d = document.createElement("div");
-    d.textContent = `${c.author ?? "익명"}: ${c.content}`;
+    d.className = "comment-card";
+    d.innerHTML = `
+      <p><strong>${c.author ?? "익명"}</strong></p>
+      <p>${c.content}</p>
+      <small>${new Date(c.time).toLocaleString()}</small>
+      ${isOwner ? `<button class="btn btn-danger" style="font-size:12px;padding:4px 8px;margin-top:5px;" onclick="deleteComment('${c.id}')">삭제</button>` : ''}
+    `;
     div.appendChild(d);
   });
 }
 
+window.deleteComment = async (commentId) => {
+  if (!confirm("댓글을 삭제하시겠습니까?")) return;
+
+  try {
+    console.log("🗑️ 댓글 삭제 시작:", commentId);
+    
+    const result = await supabaseService.deleteComment(commentId);
+    
+    if (result.success) {
+      console.log("✅ 댓글 삭제 성공");
+      alert("삭제되었습니다");
+      await loadComments();
+    } else {
+      throw new Error(result.error);
+    }
+  } catch (error) {
+    console.error("❌ 댓글 삭제 실패:", error);
+    alert("삭제 실패: " + error.message);
+  }
+};
+
 document.getElementById("addCommentBtn").onclick = async () => {
   const input = document.getElementById("commentInput");
-  if (!input.value.trim()) return;
-  await supabaseService.addComment(postId, input.value);
-  input.value = "";
-  loadComments();
+  const content = input.value.trim();
+  
+  if (!content) {
+    alert("댓글 내용을 입력해주세요");
+    return;
+  }
+
+  if (!supabaseService.isLoggedIn()) {
+    alert("로그인이 필요합니다");
+    location.href = "login.html";
+    return;
+  }
+
+  try {
+    const result = await supabaseService.addComment(postId, content);
+    
+    if (result.success) {
+      input.value = "";
+      await loadComments();
+    } else {
+      throw new Error(result.error);
+    }
+  } catch (error) {
+    console.error("댓글 작성 실패:", error);
+    alert("댓글 작성 실패: " + error.message);
+  }
 };
 
 document.getElementById("goHomeBtn").onclick = () => location.href = "index.html";
