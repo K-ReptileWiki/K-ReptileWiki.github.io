@@ -192,7 +192,14 @@ function setupActionButtons(post) {
 }
 
 async function handleDelete() {
-  if (!confirm("정말 삭제하시겠습니까?")) return;
+  const { profile } = supabaseService.getCurrentUser();
+  const isAdmin = profile?.role === "admin" || profile?.role === "owner";
+  
+  const confirmMsg = isAdmin && currentPost.uid !== supabaseService.getCurrentUser().user.id
+    ? "⚠️ 관리자 권한으로 다른 사용자의 글을 삭제합니다.\n정말 삭제하시겠습니까?"
+    : "정말 삭제하시겠습니까?";
+  
+  if (!confirm(confirmMsg)) return;
 
   try {
     console.log("🗑️ 글 삭제 시작:", postId);
@@ -309,23 +316,29 @@ async function loadComments() {
 
   div.innerHTML = "";
   res.data.forEach(c => {
-    const { user } = supabaseService.getCurrentUser();
+    const { user, profile } = supabaseService.getCurrentUser();
     const isOwner = user?.id === c.uid;
+    const isAdmin = profile?.role === "admin" || profile?.role === "owner";
+    const canDelete = isOwner || isAdmin;
 
     const d = document.createElement("div");
     d.className = "comment-card";
     d.innerHTML = `
-      <p><strong>${c.author ?? "익명"}</strong></p>
+      <p><strong>${c.author ?? "익명"}</strong> ${isAdmin && !isOwner ? '<span style="color:#6b7280;font-size:12px;">(관리자 권한)</span>' : ''}</p>
       <p>${c.content}</p>
       <small>${new Date(c.time).toLocaleString()}</small>
-      ${isOwner ? `<button class="btn btn-danger" style="font-size:12px;padding:4px 8px;margin-top:5px;" onclick="deleteComment('${c.id}')">삭제</button>` : ''}
+      ${canDelete ? `<button class="btn btn-danger" style="font-size:12px;padding:4px 8px;margin-top:5px;" onclick="deleteComment('${c.id}', ${!isOwner})">${isAdmin && !isOwner ? '🛡️ 관리자 삭제' : '삭제'}</button>` : ''}
     `;
     div.appendChild(d);
   });
 }
 
-window.deleteComment = async (commentId) => {
-  if (!confirm("댓글을 삭제하시겠습니까?")) return;
+window.deleteComment = async (commentId, isAdminDelete = false) => {
+  const confirmMsg = isAdminDelete
+    ? "⚠️ 관리자 권한으로 다른 사용자의 댓글을 삭제합니다.\n정말 삭제하시겠습니까?"
+    : "댓글을 삭제하시겠습니까?";
+  
+  if (!confirm(confirmMsg)) return;
 
   try {
     console.log("🗑️ 댓글 삭제 시작:", commentId);
