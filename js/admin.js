@@ -155,13 +155,11 @@ window.promoteUser = async (uid, nickname) => {
   try {
     console.log("🔧 승급 시작:", uid, nickname);
     
-    // 현재 권한 확인
     if (currentProfile.role !== 'owner' && currentProfile.role !== 'admin') {
       alert("권한이 없습니다");
       return;
     }
 
-    // 승급 시도
     const { data, error } = await supabase
       .from("profiles")
       .update({ role: "admin" })
@@ -176,12 +174,10 @@ window.promoteUser = async (uid, nickname) => {
 
     console.log("✅ 승급 성공:", data);
 
-    // 로그 기록
     await logAction(`${nickname}님을 관리자로 승급함`);
     
     alert(`${nickname}님이 관리자로 승급되었습니다!`);
     
-    // 목록 새로고침
     await loadUsers();
     
   } catch (error) {
@@ -197,7 +193,7 @@ async function loadPosts() {
   try {
     const { data, error } = await supabase
       .from("wiki_posts")
-      .select("id, title, time, deleted")
+      .select("id, title, time, deleted, author")
       .order("time", { ascending: false })
       .limit(20);
 
@@ -216,10 +212,12 @@ async function loadPosts() {
         <div class="card-content">
           <strong>${p.title}</strong>
           ${p.deleted ? '<span style="color:red;">(삭제됨)</span>' : ''}
-          <small>${new Date(p.time).toLocaleString()}</small>
+          <small>작성자: ${p.author || '익명'} | ${new Date(p.time).toLocaleString()}</small>
         </div>
         <div class="card-actions">
           <button class="btn btn-secondary" onclick="location.href='post.html?id=${p.id}'">보기</button>
+          ${!p.deleted ? `<button class="btn btn-danger" onclick="window.deletePost('${p.id}', '${p.title.replace(/'/g, "\\'")}')">삭제</button>` : ''}
+          ${p.deleted ? `<button class="btn btn-success" onclick="window.restorePost('${p.id}', '${p.title.replace(/'/g, "\\'")}')">복구</button>` : ''}
         </div>
       </div>
     `).join("");
@@ -228,6 +226,70 @@ async function loadPosts() {
     showError(postsDiv, "게시글 로드 중 오류 발생");
   }
 }
+
+window.deletePost = async (id, title) => {
+  if (!confirm(`"${title}" 글을 삭제할까요?`)) return;
+
+  try {
+    console.log("🗑️ 글 삭제 시작:", id);
+
+    // soft delete (deleted 컬럼을 true로)
+    const { error } = await supabase
+      .from("wiki_posts")
+      .update({ 
+        deleted: true,
+        deleted_at: new Date().toISOString()
+      })
+      .eq("id", id);
+
+    if (error) {
+      console.error("❌ 삭제 실패:", error);
+      alert("삭제 실패: " + error.message);
+      return;
+    }
+
+    console.log("✅ 글 삭제 성공");
+    await logAction(`게시글을 삭제함 (제목: "${title}")`);
+    
+    alert("삭제 완료!");
+    await loadPosts();
+    await loadStats(); // 통계 갱신
+  } catch (error) {
+    console.error("deletePost 오류:", error);
+    alert("삭제 처리 중 오류 발생");
+  }
+};
+
+window.restorePost = async (id, title) => {
+  if (!confirm(`"${title}" 글을 복구할까요?`)) return;
+
+  try {
+    console.log("♻️ 글 복구 시작:", id);
+
+    const { error } = await supabase
+      .from("wiki_posts")
+      .update({ 
+        deleted: false,
+        deleted_at: null
+      })
+      .eq("id", id);
+
+    if (error) {
+      console.error("❌ 복구 실패:", error);
+      alert("복구 실패: " + error.message);
+      return;
+    }
+
+    console.log("✅ 글 복구 성공");
+    await logAction(`게시글을 복구함 (제목: "${title}")`);
+    
+    alert("복구 완료!");
+    await loadPosts();
+  } catch (error) {
+    console.error("restorePost 오류:", error);
+    alert("복구 처리 중 오류 발생");
+  }
+};
 
 /* =========================
    COMMENTS
@@ -258,7 +320,7 @@ async function loadComments() {
         </div>
         <div class="card-actions">
           <button class="btn btn-danger"
-            onclick="window.deleteComment('${c.id}', '${c.content.substring(0, 20)}')">삭제</button>
+            onclick="window.deleteComment('${c.id}', '${c.content.substring(0, 20).replace(/'/g, "\\'")}')">삭제</button>
         </div>
       </div>
     `).join("");
@@ -272,25 +334,29 @@ window.deleteComment = async (id, preview) => {
   if (!confirm(`"${preview}..." 댓글을 삭제할까요?`)) return;
 
   try {
+    console.log("🗑️ 댓글 삭제 시작:", id);
+
+    // 하드 삭제 (실제로 DB에서 제거)
     const { error } = await supabase
       .from("wiki_comments")
       .delete()
       .eq("id", id);
 
     if (error) {
-      console.error("댓글 삭제 실패:", error);
+      console.error("❌ 댓글 삭제 실패:", error);
       alert("삭제 실패: " + error.message);
       return;
     }
 
-    // 로그 기록
+    console.log("✅ 댓글 삭제 성공");
     await logAction(`댓글을 삭제함 (내용: "${preview}...")`);
     
     alert("삭제 완료!");
     await loadComments();
+    await loadStats(); // 통계 갱신
   } catch (error) {
     console.error("deleteComment 오류:", error);
-    alert("삭제 처리 중 오류 발생");
+    alert("삭제 처리 중 오류 발생: " + error.message);
   }
 };
 
@@ -352,19 +418,16 @@ window.searchLogs = () => {
 
 async function logAction(action) {
   try {
-    // admin_logs 테이블 존재 여부 확인
     const { error: checkError } = await supabase
       .from("admin_logs")
       .select("id")
       .limit(1);
 
-    // 테이블이 없으면 콘솔에만 로그
     if (checkError) {
       console.log("📝 로그 (테이블 없음):", action);
       return;
     }
 
-    // 테이블이 있으면 삽입
     const { error } = await supabase
       .from("admin_logs")
       .insert({
@@ -380,7 +443,6 @@ async function logAction(action) {
     }
   } catch (error) {
     console.error("logAction 오류:", error);
-    // 로그 실패는 무시 (중요한 작업은 아니므로)
   }
 }
 
