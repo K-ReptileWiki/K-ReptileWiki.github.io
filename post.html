@@ -192,10 +192,10 @@ function setupActionButtons(post) {
 }
 
 async function handleDelete() {
-  const { profile } = supabaseService.getCurrentUser();
+  const { profile, user } = supabaseService.getCurrentUser();
   const isAdmin = profile?.role === "admin" || profile?.role === "owner";
   
-  const confirmMsg = isAdmin && currentPost.uid !== supabaseService.getCurrentUser().user.id
+  const confirmMsg = isAdmin && currentPost.uid !== user.id
     ? "⚠️ 관리자 권한으로 다른 사용자의 글을 삭제합니다.\n정말 삭제하시겠습니까?"
     : "정말 삭제하시겠습니까?";
   
@@ -204,18 +204,35 @@ async function handleDelete() {
   try {
     console.log("🗑️ 글 삭제 시작:", postId);
     
-    const result = await supabaseService.deletePost(postId);
+    // Supabase 직접 호출
+    const { error } = await supabaseService.client
+      .from("wiki_posts")
+      .update({ 
+        deleted: true,
+        deleted_at: new Date().toISOString()
+      })
+      .eq("id", postId);
     
-    if (result.success) {
-      console.log("✅ 글 삭제 성공");
-      alert("삭제되었습니다.");
-      location.href = "index.html";
-    } else {
-      throw new Error(result.error);
+    if (error) {
+      console.error("❌ Supabase 오류:", error);
+      throw error;
     }
+    
+    console.log("✅ 글 삭제 성공");
+    alert("삭제되었습니다.");
+    location.href = "index.html";
+    
   } catch (error) {
     console.error("❌ 삭제 실패:", error);
-    alert("삭제 실패: " + error.message);
+    
+    // 권한 오류인 경우 자세한 메시지 표시
+    if (error.message?.includes("policy") || error.code === "42501") {
+      alert("삭제 권한이 없습니다.\n\nSupabase RLS 정책을 확인해주세요:\n" +
+            "wiki_posts 테이블의 UPDATE 정책에서\n" +
+            "관리자 권한을 추가해야 합니다.");
+    } else {
+      alert("삭제 실패: " + error.message);
+    }
   }
 }
 
@@ -225,15 +242,24 @@ async function handleRestore() {
   try {
     console.log("♻️ 글 복구 시작:", postId);
     
-    const result = await supabaseService.restorePost(postId);
+    // Supabase 직접 호출
+    const { error } = await supabaseService.client
+      .from("wiki_posts")
+      .update({ 
+        deleted: false,
+        deleted_at: null
+      })
+      .eq("id", postId);
     
-    if (result.success) {
-      console.log("✅ 글 복구 성공");
-      alert("복구되었습니다.");
-      location.reload();
-    } else {
-      throw new Error(result.error);
+    if (error) {
+      console.error("❌ Supabase 오류:", error);
+      throw error;
     }
+    
+    console.log("✅ 글 복구 성공");
+    alert("복구되었습니다.");
+    location.reload();
+    
   } catch (error) {
     console.error("❌ 복구 실패:", error);
     alert("복구 실패: " + error.message);
@@ -343,18 +369,32 @@ window.deleteComment = async (commentId, isAdminDelete = false) => {
   try {
     console.log("🗑️ 댓글 삭제 시작:", commentId);
     
-    const result = await supabaseService.deleteComment(commentId);
+    // Supabase 직접 호출 (하드 삭제)
+    const { error } = await supabaseService.client
+      .from("wiki_comments")
+      .delete()
+      .eq("id", commentId);
     
-    if (result.success) {
-      console.log("✅ 댓글 삭제 성공");
-      alert("삭제되었습니다");
-      await loadComments();
-    } else {
-      throw new Error(result.error);
+    if (error) {
+      console.error("❌ Supabase 오류:", error);
+      throw error;
     }
+    
+    console.log("✅ 댓글 삭제 성공");
+    alert("삭제되었습니다");
+    await loadComments();
+    
   } catch (error) {
     console.error("❌ 댓글 삭제 실패:", error);
-    alert("삭제 실패: " + error.message);
+    
+    // 권한 오류인 경우 자세한 메시지 표시
+    if (error.message?.includes("policy") || error.code === "42501") {
+      alert("삭제 권한이 없습니다.\n\nSupabase RLS 정책을 확인해주세요:\n" +
+            "wiki_comments 테이블의 DELETE 정책에서\n" +
+            "관리자 권한을 추가해야 합니다.");
+    } else {
+      alert("삭제 실패: " + error.message);
+    }
   }
 };
 
