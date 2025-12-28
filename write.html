@@ -20,13 +20,66 @@ button { padding: 12px 22px; border: none; border-radius: 6px; cursor: pointer; 
 #postBtn:disabled { background:#94a3b8; cursor:not-allowed; }
 #previewBtn { background:#10b981; }
 #cancelBtn { background:#6b7280; }
-#debugBtn { background:#f97316; }
 
 #image-resizer { display: none; position: absolute; z-index: 1000; background: white; padding: 10px; border-radius: 8px; border: 1px solid #ddd; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
 #postStatus { margin-top: 15px; padding: 10px; border-radius: 6px; background: #f1f5f9; font-size: 14px; color: #334155; min-height: 20px; white-space: pre-line; border-left: 4px solid #2563eb; }
+
+/* 업로드 오버레이 */
+.upload-overlay {
+  display:none;
+  position:fixed;
+  top:0;
+  left:0;
+  right:0;
+  bottom:0;
+  background:rgba(0,0,0,0.8);
+  z-index:9999;
+  justify-content:center;
+  align-items:center;
+}
+.upload-overlay.active { display:flex; }
+.upload-progress {
+  background:white;
+  padding:30px 40px;
+  border-radius:10px;
+  text-align:center;
+  min-width:320px;
+}
+.spinner {
+  border:4px solid #f3f3f3;
+  border-top:4px solid #2563eb;
+  border-radius:50%;
+  width:50px;
+  height:50px;
+  animation:spin 0.8s linear infinite;
+  margin:0 auto 20px;
+}
+@keyframes spin {
+  0% { transform:rotate(0deg); }
+  100% { transform:rotate(360deg); }
+}
+.progress-text {
+  font-size:16px;
+  font-weight:bold;
+  color:#1e3a8a;
+  margin-bottom:8px;
+}
+.progress-detail {
+  font-size:13px;
+  color:#64748b;
+}
 </style>
 </head>
 <body>
+
+<!-- 업로드 오버레이 -->
+<div id="uploadOverlay" class="upload-overlay">
+  <div class="upload-progress">
+    <div class="spinner"></div>
+    <div class="progress-text" id="progressText">이미지 업로드 중...</div>
+    <div class="progress-detail" id="progressDetail">압축 및 최적화 중</div>
+  </div>
+</div>
 
 <div id="image-resizer">
   <span style="font-size:12px; font-weight:bold;">이미지 너비 조절</span><br>
@@ -44,7 +97,6 @@ button { padding: 12px 22px; border: none; border-radius: 6px; cursor: pointer; 
     <div class="btn-group">
       <button id="postBtn">등록하기</button>
       <button id="previewBtn">미리보기</button>
-      <button id="debugBtn">🔍 디버그</button>
       <button id="cancelBtn">취소</button>
     </div>
 
@@ -59,31 +111,10 @@ import { supabaseService, supabase } from "./js/supabase.js";
 
 let quill = null;
 const statusEl = document.getElementById("postStatus");
+const uploadOverlay = document.getElementById("uploadOverlay");
+const progressText = document.getElementById("progressText");
+const progressDetail = document.getElementById("progressDetail");
 let isUploading = false;
-
-// ✅ 디버깅을 위해 전역으로 노출
-window.debugQuill = () => {
-  if (!quill) {
-    console.log("❌ Quill이 아직 초기화되지 않았습니다");
-    return;
-  }
-  
-  const html = quill.root.innerHTML;
-  const tempDiv = document.createElement("div");
-  tempDiv.innerHTML = html;
-  const images = tempDiv.querySelectorAll("img");
-  
-  console.log("=== 🔍 Quill 디버그 정보 ===");
-  console.log("전체 HTML:", html);
-  console.log("이미지 개수:", images.length);
-  console.log("이미지 URL들:");
-  images.forEach((img, i) => {
-    console.log(`  [${i+1}] ${img.src}`);
-  });
-  console.log("=========================");
-  
-  alert(`에디터에 이미지 ${images.length}개가 있습니다. 콘솔을 확인하세요.`);
-};
 
 function log(msg, isError=false){
   const timestamp = new Date().toLocaleTimeString();
@@ -96,7 +127,6 @@ function log(msg, isError=false){
 function setupQuill(){
   log("Quill 초기화...");
   
-  // 기본 Quill 설정 (커스텀 이미지 블롯 없이)
   quill = new Quill('#editor',{
     theme:'snow',
     placeholder:"내용을 입력하세요. 이미지 업로드 가능",
@@ -116,7 +146,6 @@ function setupQuill(){
     }
   });
   
-  // ✅ 이미지 삽입 후 자동으로 스타일 적용
   quill.on('text-change', function(delta, oldDelta, source) {
     if (source === 'user') {
       const images = quill.root.querySelectorAll('img');
@@ -135,10 +164,67 @@ function setupQuill(){
   log("Quill 준비 완료");
 }
 
+// 🚀 이미지 압축 함수
+async function compressImage(file, maxWidth = 1200, quality = 0.8) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    
+    reader.onload = (e) => {
+      const img = new Image();
+      
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        
+        // 최대 너비 제한
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width;
+          width = maxWidth;
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Canvas를 Blob으로 변환
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              reject(new Error('압축 실패'));
+              return;
+            }
+            
+            // 압축된 파일 생성
+            const compressedFile = new File(
+              [blob], 
+              file.name, 
+              { type: 'image/jpeg', lastModified: Date.now() }
+            );
+            
+            resolve(compressedFile);
+          },
+          'image/jpeg',
+          quality
+        );
+      };
+      
+      img.onerror = () => reject(new Error('이미지 로드 실패'));
+      img.src = e.target.result;
+    };
+    
+    reader.onerror = () => reject(new Error('파일 읽기 실패'));
+    reader.readAsDataURL(file);
+  });
+}
+
 async function handleImageUpload() {
   if (isUploading) {
-    log("⚠️ 이미 이미지 업로드 중입니다");
-    return false; // ✅ false 반환으로 기본 동작 차단
+    alert("⏳ 이미지 업로드가 끝난 후에 다시 시도하세요.");
+    log("⚠️ 업로드 진행 중 - 중복 시도 차단");
+    return false;
   }
 
   if(!supabaseService.isLoggedIn()){ 
@@ -158,19 +244,37 @@ async function handleImageUpload() {
     }
     
     isUploading = true;
-    log(`선택 이미지: ${file.name} (${(file.size/1024).toFixed(1)}KB)`);
+    const originalSize = (file.size / 1024).toFixed(1);
+    log(`선택 이미지: ${file.name} (${originalSize}KB)`);
+    
+    // 오버레이 표시
+    uploadOverlay.classList.add('active');
+    progressText.textContent = "이미지 업로드 중...";
+    progressDetail.textContent = `원본 크기: ${originalSize}KB`;
     
     try {
       const user = supabaseService.getCurrentUser().user;
-      const fileExt = file.name.split('.').pop();
+      const fileExt = 'jpg'; // 압축 후 항상 jpg
       const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
       const path = `${user.id}/${fileName}`;
       
-      log("📤 이미지 업로드 중...");
+      // 🚀 이미지 압축
+      progressDetail.textContent = "이미지 압축 중...";
+      const compressedFile = await compressImage(file, 1200, 0.8);
+      const compressedSize = (compressedFile.size / 1024).toFixed(1);
+      const reduction = ((1 - compressedFile.size / file.size) * 100).toFixed(0);
       
+      log(`✅ 압축 완료: ${originalSize}KB → ${compressedSize}KB (${reduction}% 감소)`);
+      progressDetail.textContent = `압축 완료: ${compressedSize}KB (${reduction}% 감소)`;
+      
+      // 📤 업로드
+      progressDetail.textContent = "서버로 업로드 중...";
       const {data, error} = await supabase.storage
         .from("image")
-        .upload(path, file);
+        .upload(path, compressedFile, {
+          cacheControl: '3600',
+          upsert: false
+        });
       
       if(error) throw error;
       
@@ -180,33 +284,29 @@ async function handleImageUpload() {
       
       const imageUrl = urlData.publicUrl;
       
-      // ✅ 현재 에디터의 이미지 개수 확인 (삽입 전)
-      const imagesBefore = quill.root.querySelectorAll('img').length;
-      log(`📊 삽입 전 이미지 개수: ${imagesBefore}`);
-      
-      // ✅ 커서 위치 가져오기
+      // 에디터에 삽입
       const range = quill.getSelection(true) || { index: quill.getLength() };
-      
-      // ✅ 이미지 삽입
       quill.insertEmbed(range.index, 'image', imageUrl);
-      
-      // ✅ 커서 이동
       quill.setSelection(range.index + 1);
       
-      // ✅ 삽입 후 이미지 개수 확인
+      log("✅ 이미지 삽입 완료");
+      progressText.textContent = "업로드 완료!";
+      progressDetail.textContent = `최종 크기: ${compressedSize}KB`;
+      
+      // 0.5초 후 오버레이 숨김
       setTimeout(() => {
-        const imagesAfter = quill.root.querySelectorAll('img').length;
-        log(`📊 삽입 후 이미지 개수: ${imagesAfter}`);
-        
-        if (imagesAfter - imagesBefore > 1) {
-          log(`⚠️ 경고: 이미지가 ${imagesAfter - imagesBefore}개 추가되었습니다!`, true);
-        } else {
-          log("✅ 이미지 삽입 완료 (1개)");
-        }
-      }, 100);
+        uploadOverlay.classList.remove('active');
+      }, 500);
       
     } catch(e) {
       log("❌ 이미지 업로드 실패: " + e.message, true);
+      progressText.textContent = "업로드 실패";
+      progressDetail.textContent = e.message;
+      
+      setTimeout(() => {
+        uploadOverlay.classList.remove('active');
+      }, 2000);
+      
       alert("이미지 업로드 실패: " + e.message);
     } finally {
       isUploading = false;
@@ -214,7 +314,7 @@ async function handleImageUpload() {
   };
   
   input.click();
-  return false; // ✅ 기본 동작 차단
+  return false;
 }
 
 function setupImageResizer(){
@@ -231,7 +331,6 @@ function setupImageResizer(){
       resizer.style.top = (window.scrollY + rect.top - 70) + "px";
       resizer.style.left = (window.scrollX + rect.left) + "px";
       
-      // 현재 너비 가져오기
       const currentWidth = targetImg.style.maxWidth ? 
         parseInt(targetImg.style.maxWidth) : 
         targetImg.width;
@@ -278,12 +377,7 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   setupQuill();
 
-  // ✅ 디버그 버튼
-  document.getElementById("debugBtn").onclick = () => {
-    window.debugQuill();
-  };
-
-  // ✅ 등록 버튼
+  // 등록 버튼
   const postBtn = document.getElementById("postBtn");
   postBtn.onclick = async () => {
     const title = document.getElementById("postTitle").value.trim();
@@ -297,20 +391,14 @@ window.addEventListener("DOMContentLoaded", async () => {
     postBtn.disabled = true;
     postBtn.innerText = "등록 중...";
     
-    // ✅ 이미지 URL 추출 (중복 제거)
     const tempDiv = document.createElement("div");
     tempDiv.innerHTML = content;
     const imageElements = tempDiv.querySelectorAll("img");
     const allImages = [...imageElements].map(img => img.src);
-    const images = [...new Set(allImages)]; // 중복 제거
+    const images = [...new Set(allImages)];
     
     log(`📝 게시글 등록 시도`);
-    log(`📊 HTML의 이미지 개수: ${imageElements.length}개`);
-    log(`📊 중복 제거 후: ${images.length}개`);
-    
-    if (allImages.length !== images.length) {
-      log(`⚠️ 경고: ${allImages.length - images.length}개의 중복 이미지가 제거되었습니다`, true);
-    }
+    log(`📊 이미지 ${images.length}개 포함`);
 
     try {
       const res = await supabaseService.createPost(title, content, images);
