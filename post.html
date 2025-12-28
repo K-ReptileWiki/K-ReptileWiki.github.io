@@ -163,22 +163,25 @@ function setupActionButtons(post) {
   const isAuthor = user.id === post.uid;
   const isAdmin = profile?.role === "admin" || profile?.role === "owner";
 
-  // 작성자 버튼
+  // 수정 버튼 (작성자만)
   if (isAuthor && !post.deleted) {
     const editBtn = document.createElement("button");
     editBtn.className = "btn btn-warning";
     editBtn.textContent = "✏️ 수정";
     editBtn.onclick = () => location.href = `edit.html?id=${postId}`;
-
-    const delBtn = document.createElement("button");
-    delBtn.className = "btn btn-danger";
-    delBtn.textContent = "🗑️ 삭제";
-    delBtn.onclick = handleDelete;
-
-    box.append(editBtn, delBtn);
+    box.appendChild(editBtn);
   }
 
-  // 관리자 복구 버튼
+  // 삭제 버튼 (작성자 또는 관리자)
+  if ((isAuthor || isAdmin) && !post.deleted) {
+    const delBtn = document.createElement("button");
+    delBtn.className = "btn btn-danger";
+    delBtn.textContent = isAdmin && !isAuthor ? "🛡️ 관리자 삭제" : "🗑️ 삭제";
+    delBtn.onclick = handleDelete;
+    box.appendChild(delBtn);
+  }
+
+  // 복구 버튼 (관리자만)
   if (isAdmin && post.deleted) {
     const restoreBtn = document.createElement("button");
     restoreBtn.className = "btn btn-success";
