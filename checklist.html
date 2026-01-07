@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>사육 체크리스트 - K-ReptileWiki</title>
+    <title>사육 체크리스트 (Supabase) - K-ReptileWiki</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         * {
             margin: 0;
@@ -40,6 +41,24 @@
         .subtitle {
             color: #666;
             font-size: 1.1em;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 60px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .loading-spinner {
+            font-size: 3em;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
         }
         
         .pet-selector {
@@ -261,8 +280,24 @@
             color: #666;
         }
         
-        .no-pet-message h2 {
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
             margin-bottom: 20px;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .sync-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 12px;
+            background: #d4edda;
+            color: #155724;
+            border-radius: 5px;
+            font-size: 0.9em;
         }
     </style>
 </head>
@@ -270,18 +305,27 @@
     <div class="container">
         <div class="header">
             <h1>🦎 사육 체크리스트</h1>
-            <p class="subtitle">일일 케어 기록으로 건강한 사육환경을 만들어보세요</p>
+            <p class="subtitle">일일 케어 기록으로 건강한 사육환경을 만들어보세요 <span class="sync-status">☁️ 클라우드 연동</span></p>
         </div>
         
-        <div class="pet-selector">
-            <div class="section-header">
-                <h2>내 반려 파충류</h2>
-                <button class="add-pet-btn" onclick="openAddPetModal()">+ 추가하기</button>
+        <div id="loadingContainer" class="loading">
+            <div class="loading-spinner">⏳</div>
+            <p>데이터를 불러오는 중...</p>
+        </div>
+        
+        <div id="errorContainer" style="display: none;"></div>
+        
+        <div id="mainContent" style="display: none;">
+            <div class="pet-selector">
+                <div class="section-header">
+                    <h2>내 반려 파충류</h2>
+                    <button class="add-pet-btn" onclick="openAddPetModal()">+ 추가하기</button>
+                </div>
+                <div class="pet-grid" id="petGrid"></div>
             </div>
-            <div class="pet-grid" id="petGrid"></div>
+            
+            <div id="checklistContainer"></div>
         </div>
-        
-        <div id="checklistContainer"></div>
     </div>
     
     <div class="modal" id="addPetModal">
@@ -305,81 +349,100 @@
     </div>
     
     <script>
+        // ⚠️ 여기에 여러분의 Supabase 정보를 입력하세요
+        const SUPABASE_URL = 'https://cpaikpjzlzzujwfgnanb.supabase.co'
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwYWlrcGp6bHp6dWp3ZmduYW5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYxNDEwMzIsImV4cCI6MjA4MTcxNzAzMn0.u5diz_-p8Hh1FtkVO1CsDSUbz9fbSN2zXAIIP2637sc'
+        
+        let supabase;
         let pets = [];
         let selectedPetId = null;
         let checklistData = {};
         
-        // 로컬 스토리지에서 데이터 로드
-        function loadData() {
-            const savedPets = localStorage.getItem('reptilePets');
-            const savedChecklist = localStorage.getItem('reptileChecklist');
-            
-            if (savedPets) {
-                pets = JSON.parse(savedPets);
+        // Supabase 초기화
+        async function initSupabase() {
+            try {
+                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+                
+                // 데이터 로드
+                await loadPets();
+                
+                document.getElementById('loadingContainer').style.display = 'none';
+                document.getElementById('mainContent').style.display = 'block';
+                
+                if (pets.length > 0) {
+                    selectedPetId = pets[0].id;
+                    await loadChecklist();
+                }
+                
+                renderPets();
+                renderChecklist();
+            } catch (error) {
+                showError('Supabase 연결 오류: ' + error.message);
             }
-            
-            if (savedChecklist) {
-                checklistData = JSON.parse(savedChecklist);
+        }
+        
+        function showError(message) {
+            document.getElementById('loadingContainer').style.display = 'none';
+            const errorContainer = document.getElementById('errorContainer');
+            errorContainer.innerHTML = `
+                <div class="error-message">
+                    <strong>⚠️ 오류:</strong> ${message}
+                    <br><br>
+                    <strong>해결 방법:</strong>
+                    <ol style="margin-top: 10px; padding-left: 20px;">
+                        <li>코드에서 SUPABASE_URL과 SUPABASE_KEY를 정확히 입력했는지 확인하세요</li>
+                        <li>Supabase 대시보드에서 테이블이 생성되었는지 확인하세요</li>
+                        <li>RLS(Row Level Security) 정책이 올바른지 확인하세요</li>
+                    </ol>
+                </div>
+            `;
+            errorContainer.style.display = 'block';
+        }
+        
+        // 펫 데이터 로드
+        async function loadPets() {
+            try {
+                const { data, error } = await supabase
+                    .from('pets')
+                    .select('*')
+                    .order('created_at', { ascending: true });
+                
+                if (error) throw error;
+                
+                pets = data || [];
+            } catch (error) {
+                console.error('펫 로드 오류:', error);
+                throw error;
             }
+        }
+        
+        // 체크리스트 로드
+        async function loadChecklist() {
+            if (!selectedPetId) return;
             
-            if (pets.length > 0) {
-                selectedPetId = pets[0].id;
+            try {
+                const today = new Date().toISOString().split('T')[0];
+                
+                const { data, error } = await supabase
+                    .from('checklists')
+                    .select('*')
+                    .eq('pet_id', selectedPetId)
+                    .eq('date', today)
+                    .single();
+                
+                if (error && error.code !== 'PGRST116') { // PGRST116 = 데이터 없음
+                    throw error;
+                }
+                
+                if (data) {
+                    checklistData[selectedPetId] = data;
+                } else {
+                    checklistData[selectedPetId] = getDefaultChecklist();
+                }
+            } catch (error) {
+                console.error('체크리스트 로드 오류:', error);
+                checklistData[selectedPetId] = getDefaultChecklist();
             }
-        }
-        
-        function saveData() {
-            localStorage.setItem('reptilePets', JSON.stringify(pets));
-            localStorage.setItem('reptileChecklist', JSON.stringify(checklistData));
-        }
-        
-        function openAddPetModal() {
-            document.getElementById('addPetModal').classList.add('active');
-        }
-        
-        function closeAddPetModal() {
-            document.getElementById('addPetModal').classList.remove('active');
-            document.getElementById('petNameInput').value = '';
-            document.getElementById('petSpeciesInput').value = '';
-        }
-        
-        function addPet() {
-            const name = document.getElementById('petNameInput').value.trim();
-            const species = document.getElementById('petSpeciesInput').value;
-            
-            if (!name || !species) {
-                alert('이름과 종을 모두 입력해주세요.');
-                return;
-            }
-            
-            const newPet = {
-                id: Date.now(),
-                name: name,
-                species: species,
-                icon: getSpeciesIcon(species)
-            };
-            
-            pets.push(newPet);
-            selectedPetId = newPet.id;
-            
-            // 새 펫의 체크리스트 데이터 초기화
-            checklistData[newPet.id] = getDefaultChecklist();
-            
-            saveData();
-            closeAddPetModal();
-            renderPets();
-            renderChecklist();
-        }
-        
-        function getSpeciesIcon(species) {
-            const icons = {
-                '크레스티드 게코': '🦎',
-                '레오파드 게코': '🦎',
-                '볼 파이톤': '🐍',
-                '콘 스네이크': '🐍',
-                '비어디드 드래곤': '🦖',
-                '블루텅 스킹크': '🦎'
-            };
-            return icons[species] || '🦎';
         }
         
         function getDefaultChecklist() {
@@ -395,6 +458,62 @@
                     health: { checked: false, value: '', time: '' }
                 }
             };
+        }
+        
+        function getSpeciesIcon(species) {
+            const icons = {
+                '크레스티드 게코': '🦎',
+                '레오파드 게코': '🦎',
+                '볼 파이톤': '🐍',
+                '콘 스네이크': '🐍',
+                '비어디드 드래곤': '🦖',
+                '블루텅 스킹크': '🦎'
+            };
+            return icons[species] || '🦎';
+        }
+        
+        function openAddPetModal() {
+            document.getElementById('addPetModal').classList.add('active');
+        }
+        
+        function closeAddPetModal() {
+            document.getElementById('addPetModal').classList.remove('active');
+            document.getElementById('petNameInput').value = '';
+            document.getElementById('petSpeciesInput').value = '';
+        }
+        
+        async function addPet() {
+            const name = document.getElementById('petNameInput').value.trim();
+            const species = document.getElementById('petSpeciesInput').value;
+            
+            if (!name || !species) {
+                alert('이름과 종을 모두 입력해주세요.');
+                return;
+            }
+            
+            try {
+                const { data, error } = await supabase
+                    .from('pets')
+                    .insert([{
+                        name: name,
+                        species: species,
+                        icon: getSpeciesIcon(species)
+                    }])
+                    .select()
+                    .single();
+                
+                if (error) throw error;
+                
+                pets.push(data);
+                selectedPetId = data.id;
+                checklistData[data.id] = getDefaultChecklist();
+                
+                closeAddPetModal();
+                renderPets();
+                renderChecklist();
+            } catch (error) {
+                alert('펫 추가 오류: ' + error.message);
+            }
         }
         
         function renderPets() {
@@ -414,8 +533,9 @@
             `).join('');
         }
         
-        function selectPet(petId) {
+        async function selectPet(petId) {
             selectedPetId = petId;
+            await loadChecklist();
             renderPets();
             renderChecklist();
         }
@@ -423,15 +543,9 @@
         function renderChecklist() {
             const container = document.getElementById('checklistContainer');
             
-            if (!selectedPetId) {
+            if (!selectedPetId || !checklistData[selectedPetId]) {
                 container.innerHTML = '';
                 return;
-            }
-            
-            const today = new Date().toISOString().split('T')[0];
-            
-            if (!checklistData[selectedPetId] || checklistData[selectedPetId].date !== today) {
-                checklistData[selectedPetId] = getDefaultChecklist();
             }
             
             const data = checklistData[selectedPetId];
@@ -529,7 +643,7 @@
             `;
         }
         
-        function updateCheckItem(itemKey, checked) {
+        async function updateCheckItem(itemKey, checked) {
             const data = checklistData[selectedPetId];
             data.items[itemKey].checked = checked;
             
@@ -541,31 +655,40 @@
                 });
             }
             
-            saveData();
+            await saveChecklist();
             renderChecklist();
         }
         
-        function updateCheckValue(itemKey, value) {
+        async function updateCheckValue(itemKey, value) {
             checklistData[selectedPetId].items[itemKey].value = value;
-            saveData();
+            await saveChecklist();
+        }
+        
+        async function saveChecklist() {
+            if (!selectedPetId) return;
+            
+            try {
+                const data = checklistData[selectedPetId];
+                
+                const { error } = await supabase
+                    .from('checklists')
+                    .upsert({
+                        pet_id: selectedPetId,
+                        date: data.date,
+                        items: data.items
+                    }, {
+                        onConflict: 'pet_id,date'
+                    });
+                
+                if (error) throw error;
+            } catch (error) {
+                console.error('체크리스트 저장 오류:', error);
+                alert('저장 중 오류가 발생했습니다: ' + error.message);
+            }
         }
         
         // 초기화
-        loadData();
-        renderPets();
-        renderChecklist();
-        
-        // 자정에 체크리스트 리셋
-        setInterval(() => {
-            const now = new Date();
-            if (now.getHours() === 0 && now.getMinutes() === 0) {
-                Object.keys(checklistData).forEach(petId => {
-                    checklistData[petId] = getDefaultChecklist();
-                });
-                saveData();
-                renderChecklist();
-            }
-        }, 60000);
+        initSupabase();
     </script>
 </body>
 </html>
