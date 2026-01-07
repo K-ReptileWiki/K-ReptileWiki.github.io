@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>성장 기록 - K-ReptileWiki</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            color: #667eea;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: #666;
+            font-size: 1.1em;
+        }
+        
+        .content-grid {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 30px;
+        }
+        
+        @media (max-width: 968px) {
+            .content-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .card {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .pet-selector {
+            margin-bottom: 20px;
+        }
+        
+        .pet-select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1em;
+            margin-bottom: 10px;
+        }
+        
+        .add-record-form {
+            margin-top: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+            font-weight: 600;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1em;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+        
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+            margin-top: 10px;
+        }
+        
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+        
+        .chart-container {
+            height: 400px;
+            margin-bottom: 30px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .stat-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+            margin: 10px 0;
+        }
+        
+        .stat-label {
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        .stat-change {
+            font-size: 0.85em;
+            margin-top: 5px;
+        }
+        
+        .stat-change.positive {
+            color: #28a745;
+        }
+        
+        .stat-change.negative {
+            color: #dc3545;
+        }
+        
+        .records-table {
+            width: 100%;
+            margin-top: 20px;
+            border-collapse: collapse;
+        }
+        
+        .records-table th,
+        .records-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .records-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .records-table tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .delete-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+        
+        .delete-btn:hover {
+            background: #c82333;
+        }
+        
+        .no-data {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+        
+        .tab-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .tab-btn {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #ddd;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .tab-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📈 성장 기록 차트</h1>
+            <p class="subtitle">몸무게와 길이 변화를 추적하고 시각화하세요</p>
+        </div>
+        
+        <div class="content-grid">
+            <div class="card">
+                <h2 style="margin-bottom: 20px;">🦎 기록 추가</h2>
+                
+                <div class="pet-selector">
+                    <label class="form-label">반려동물 선택</label>
+                    <select class="pet-select" id="petSelect" onchange="loadPetData()">
+                        <option value="">선택하세요</option>
+                    </select>
+                </div>
+                
+                <div class="add-record-form" id="addRecordForm" style="display: none;">
+                    <div class="form-group">
+                        <label class="form-label">날짜</label>
+                        <input type="date" class="form-input" id="recordDate" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">몸무게 (g)</label>
+                        <input type="number" class="form-input" id="recordWeight" placeholder="예: 45" step="0.1">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">길이 (cm)</label>
+                        <input type="number" class="form-input" id="recordLength" placeholder="예: 18" step="0.1">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">메모 (선택)</label>
+                        <input type="text" class="form-input" id="recordNote" placeholder="예: 탈피 완료">
+                    </div>
+                    
+                    <button class="btn btn-primary" onclick="addRecord()">기록 추가</button>
+                    <button class="btn btn-secondary" onclick="exportData()">📊 데이터 내보내기</button>
+                </div>
+                
+                <div id="noPetMessage" class="no-data">
+                    <p>먼저 체크리스트에서<br>반려동물을 등록해주세요!</p>
+                </div>
+            </div>
+            
+            <div>
+                <div class="card">
+                    <div class="tab-buttons">
+                        <button class="tab-btn active" onclick="switchTab('weight')">몸무게</button>
+                        <button class="tab-btn" onclick="switchTab('length')">길이</button>
+                    </div>
+                    
+                    <div class="chart-container">
+                        <canvas id="growthChart"></canvas>
+                    </div>
+                    
+                    <div class="stats-grid" id="statsGrid"></div>
+                </div>
+                
+                <div class="card" style="margin-top: 30px;">
+                    <h2 style="margin-bottom: 20px;">📋 기록 내역</h2>
+                    <div id="recordsTableContainer"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let pets = [];
+        let growthData = {};
+        let selectedPetId = null;
+        let currentTab = 'weight';
+        let chart = null;
+        
+        function loadData() {
+            const savedPets = localStorage.getItem('reptilePets');
+            const savedGrowth = localStorage.getItem('reptileGrowth');
+            
+            if (savedPets) {
+                pets = JSON.parse(savedPets);
+            }
+            
+            if (savedGrowth) {
+                growthData = JSON.parse(savedGrowth);
+            }
+            
+            renderPetSelect();
+        }
+        
+        function saveData() {
+            localStorage.setItem('reptileGrowth', JSON.stringify(growthData));
+        }
+        
+        function renderPetSelect() {
+            const select = document.getElementById('petSelect');
+            
+            if (pets.length === 0) {
+                document.getElementById('noPetMessage').style.display = 'block';
+                document.getElementById('addRecordForm').style.display = 'none';
+                return;
+            }
+            
+            select.innerHTML = '<option value="">선택하세요</option>' + 
+                pets.map(pet => `<option value="${pet.id}">${pet.icon} ${pet.name} (${pet.species})</option>`).join('');
+        }
+        
+        function loadPetData() {
+            const select = document.getElementById('petSelect');
+            selectedPetId = select.value ? parseInt(select.value) : null;
+            
+            if (selectedPetId) {
+                document.getElementById('noPetMessage').style.display = 'none';
+                document.getElementById('addRecordForm').style.display = 'block';
+                document.getElementById('recordDate').valueAsDate = new Date();
+                
+                if (!growthData[selectedPetId]) {
+                    growthData[selectedPetId] = [];
+                }
+                
+                updateChart();
+                updateStats();
+                renderRecordsTable();
+            } else {
+                document.getElementById('addRecordForm').style.display = 'none';
+                if (chart) chart.destroy();
+            }
+        }
+        
+        function addRecord() {
+            if (!selectedPetId) return;
+            
+            const date = document.getElementById('recordDate').value;
+            const weight = parseFloat(document.getElementById('recordWeight').value);
+            const length = parseFloat(document.getElementById('recordLength').value);
+            const note = document.getElementById('recordNote').value;
+            
+            if (!date) {
+                alert('날짜를 입력해주세요.');
+                return;
+            }
+            
+            if (!weight && !length) {
+                alert('몸무게 또는 길이 중 하나는 입력해주세요.');
+                return;
+            }
+            
+            const record = {
+                date: date,
+                weight: weight || null,
+                length: length || null,
+                note: note
+            };
+            
+            growthData[selectedPetId].push(record);
+            growthData[selectedPetId].sort((a, b) => new Date(a.date) - new Date(b.date));
+            
+            saveData();
+            
+            document.getElementById('recordWeight').value = '';
+            document.getElementById('recordLength').value = '';
+            document.getElementById('recordNote').value = '';
+            
+            updateChart();
+            updateStats();
+            renderRecordsTable();
+        }
+        
+        function deleteRecord(index) {
+            if (confirm('이 기록을 삭제하시겠습니까?')) {
+                growthData[selectedPetId].splice(index, 1);
+                saveData();
+                updateChart();
+                updateStats();
+                renderRecordsTable();
+            }
+        }
+        
+        function switchTab(tab) {
+            currentTab = tab;
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            updateChart();
+            updateStats();
+        }
+        
+        function updateChart() {
+            if (!selectedPetId || !growthData[selectedPetId]) return;
+            
+            const data = growthData[selectedPetId];
+            const labels = data.map(r => new Date(r.date).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' }));
+            const values = data.map(r => currentTab === 'weight' ? r.weight : r.length);
+            
+            const ctx = document.getElementById('growthChart').getContext('2d');
+            
+            if (chart) {
+                chart.destroy();
+            }
+            
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: currentTab === 'weight' ? '몸무게 (g)' : '길이 (cm)',
+                        data: values,
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 6,
+                        pointHoverRadius: 8,
+                        pointBackgroundColor: '#667eea',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                afterLabel: function(context) {
+                                    const record = data[context.dataIndex];
+                                    return record.note ? `메모: ${record.note}` : '';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            ticks: {
+                                callback: function(value) {
+                                    return value + (currentTab === 'weight' ? 'g' : 'cm');
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function updateStats() {
+            if (!selectedPetId || !growthData[selectedPetId] || growthData[selectedPetId].length === 0) {
+                document.getElementById('statsGrid').innerHTML = '<p class="no-data">아직 기록이 없습니다</p>';
+                return;
+            }
+            
+            const data = growthData[selectedPetId];
+            const values = data.map(r => currentTab === 'weight' ? r.weight : r.length).filter(v => v !== null);
+            
+            if (values.length === 0) {
+                document.getElementById('statsGrid').innerHTML = `<p class="no-data">${currentTab === 'weight' ? '몸무게' : '길이'} 기록이 없습니다</p>`;
+                return;
+            }
+            
+            const latest = values[values.length - 1];
+            const previous = values.length > 1 ? values[values.length - 2] : latest;
+            const change = latest - previous;
+            const changePercent = previous > 0 ? ((change / previous) * 100).toFixed(1) : 0;
+            
+            const min = Math.min(...values);
+            const max = Math.max(...values);
+            const avg = (values.reduce((a, b) => a + b, 0) / values.length).toFixed(1);
+            const total = latest - values[0];
+            
+            const unit = currentTab === 'weight' ? 'g' : 'cm';
+            
+            document.getElementById('statsGrid').innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-label">현재 ${currentTab === 'weight' ? '몸무게' : '길이'}</div>
+                    <div class="stat-value">${latest}${unit}</div>
+                    <div class="stat-change ${change >= 0 ? 'positive' : 'negative'}">
+                        ${change >= 0 ? '▲' : '▼'} ${Math.abs(change).toFixed(1)}${unit} (${changePercent}%)
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-label">평균</div>
+                    <div class="stat-value">${avg}${unit}</div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-label">최소 / 최대</div>
+                    <div class="stat-value" style="font-size: 1.5em;">${min} / ${max}${unit}</div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-label">총 성장량</div>
+                    <div class="stat-value">${total >= 0 ? '+' : ''}${total.toFixed(1)}${unit}</div>
+                </div>
+            `;
+        }
+        
+        function renderRecordsTable() {
+            const container = document.getElementById('recordsTableContainer');
+            
+            if (!selectedPetId || !growthData[selectedPetId] || growthData[selectedPetId].length === 0) {
+                container.innerHTML = '<p class="no-data">아직 기록이 없습니다</p>';
+                return;
+            }
+            
+            const data = [...growthData[selectedPetId]].reverse();
+            
+            container.innerHTML = `
+                <table class="records-table">
+                    <thead>
+                        <tr>
+                            <th>날짜</th>
+                            <th>몸무게</th>
+                            <th>길이</th>
+                            <th>메모</th>
+                            <th>삭제</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data.map((record, index) => `
+                            <tr>
+                                <td>${new Date(record.date).toLocaleDateString('ko-KR')}</td>
+                                <td>${record.weight ? record.weight + 'g' : '-'}</td>
+                                <td>${record.length ? record.length + 'cm' : '-'}</td>
+                                <td>${record.note || '-'}</td>
+                                <td>
+                                    <button class="delete-btn" onclick="deleteRecord(${data.length - 1 - index})">삭제</button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+        
+        function exportData() {
+            if (!selectedPetId || !growthData[selectedPetId]) return;
+            
+            const pet = pets.find(p => p.id === selectedPetId);
+            const data = growthData[selectedPetId];
+            
+            let csv = '날짜,몸무게(g),길이(cm),메모\n';
+            data.forEach(record => {
+                csv += `${record.date},${record.weight || ''},${record.length || ''},${record.note || ''}\n`;
+            });
+            
+            const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `${pet.name}_growth_data.csv`;
+            link.click();
+        }
+        
+        loadData();
+    </script>
+</body>
+</html>
