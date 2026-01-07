@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>비용 계산기 - K-ReptileWiki</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            color: #667eea;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: #666;
+            font-size: 1.1em;
+        }
+        
+        .calculator-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+        
+        @media (max-width: 968px) {
+            .calculator-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .card {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .section-title {
+            font-size: 1.5em;
+            color: #333;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .species-selector {
+            margin-bottom: 20px;
+        }
+        
+        .species-select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1em;
+        }
+        
+        .cost-category {
+            margin-bottom: 30px;
+        }
+        
+        .category-header {
+            background: #f8f9fa;
+            padding: 12px 15px;
+            border-radius: 8px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+        }
+        
+        .cost-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .cost-item:last-child {
+            border-bottom: none;
+        }
+        
+        .item-name {
+            flex: 1;
+            color: #333;
+        }
+        
+        .item-input {
+            width: 120px;
+            padding: 8px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            text-align: right;
+            font-size: 1em;
+        }
+        
+        .preset-buttons {
+            display: flex;
+            gap: 5px;
+            margin-left: 10px;
+        }
+        
+        .preset-btn {
+            padding: 4px 8px;
+            border: 1px solid #ddd;
+            background: #f8f9fa;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85em;
+            transition: all 0.2s;
+        }
+        
+        .preset-btn:hover {
+            background: #e9ecef;
+        }
+        
+        .summary-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .summary-title {
+            font-size: 1.2em;
+            margin-bottom: 20px;
+            opacity: 0.9;
+        }
+        
+        .summary-amount {
+            font-size: 3em;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .summary-label {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .breakdown-list {
+            list-style: none;
+        }
+        
+        .breakdown-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+        
+        .breakdown-name {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .breakdown-amount {
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .monthly-section {
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 2px solid #e0e0e0;
+        }
+        
+        .toggle-section {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            cursor: pointer;
+        }
+        
+        .toggle-checkbox {
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+        }
+        
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        
+        .info-box h4 {
+            color: #1976d2;
+            margin-bottom: 10px;
+        }
+        
+        .info-box p {
+            color: #555;
+            line-height: 1.6;
+        }
+        
+        .reset-btn {
+            width: 100%;
+            padding: 12px;
+            background: #f44336;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            margin-top: 20px;
+            transition: background 0.3s;
+        }
+        
+        .reset-btn:hover {
+            background: #d32f2f;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>💰 사육 비용 계산기</h1>
+            <p class="subtitle">초기 셋업 비용과 월간 유지비를 계산해보세요</p>
+        </div>
+        
+        <div class="calculator-grid">
+            <div class="card">
+                <div class="section-title">🦎 종 선택</div>
+                <div class="species-selector">
+                    <select class="species-select" id="speciesSelect" onchange="loadPresetCosts()">
+                        <option value="custom">직접 입력</option>
+                        <option value="crested_gecko">크레스티드 게코</option>
+                        <option value="leopard_gecko">레오파드 게코</option>
+                        <option value="ball_python">볼 파이톤</option>
+                        <option value="corn_snake">콘 스네이크</option>
+                        <option value="bearded_dragon">비어디드 드래곤</option>
+                    </select>
+                </div>
+                
+                <div class="cost-category">
+                    <div class="category-header">🏠 초기 셋업 비용</div>
+                    
+                    <div class="cost-item">
+                        <span class="item-name">사육장 (테라리움)</span>
+                        <input type="number" class="item-input" id="terrarium" value="0" oninput="calculate()">
+                    </div>
+                    
+                    <div class="cost-item">
+                        <span class="item-name">온도 조절 (히터/램프)</span>
+                        <input type="number" class="item-input" id="heating" value="0" oninput="calculate()">
+                    </div>
+                    
+                    <div class="cost-item">
+                        <span class="item-name">조명</span>
+                        <input type="number" class="item-input" id="lighting" value="0" oninput="calculate()">
+                    </div>
+                    
+                    <div class="cost-item">
+                        <span class="item-name">바닥재</span>
+                        <input type="number" class="item-input" id="substrate" value="0" oninput="calculate()">
+                    </div>
+                    
+                    <div class="cost-item">
+                        <span class="item-name">은신처 & 장식</span>
+                        <input type="number" class="item-input" id="decoration" value="0" oninput="calculate()">
+                    </div>
+                    
+                    <div class="cost-item">
+                        <span class="item-name">물그릇 & 먹이그릇</span>
+                        <input type="number" class="item-input" id="bowls" value="0" oninput="calculate()">
+                    </div>
+                    
+                    <div class="cost-item">
+                        <span class="item-name">온습도계</span>
+                        <input type="number" class="item-input" id="thermometer" value="0" oninput="calculate()">
+                    </div>
+                    
+                    <div class="cost-item">
+                        <span class="item-name">개체 구입</span>
+                        <input type="number" class="item-input" id="animal" value="0" oninput="calculate()">
+                    </div>
+                    
+                    <div class="cost-item">
+                        <span class="item-name">기타 용품</span>
+                        <input type="number" class="item-input" id="other_initial" value="0" oninput="calculate()">
+                    </div>
+                </div>
+                
+                <div class="monthly-section">
+                    <div class="category-header">📅 월간 유지비</div>
+                    
+                    <div class="cost-item">
+                        <span class="item-name">먹이 (곤충/냉동먹이)</span>
+                        <input type="number" class="item-input" id="food" value="0" oninput="calculate()">
+                    </div>
+                    
+                    <div class="cost-item">
+                        <span class="item-name">영양제</span>
+                        <input type="number" class="item-input" id="supplements" value="0" oninput="calculate()">
+                    </div>
+                    
+                    <div class="cost-item">
+                        <span class="item-name">전기료 (히터/조명)</span>
+                        <input type="number" class="item-input" id="electricity" value="0" oninput="calculate()">
+                    </div>
+                    
+                    <div class="cost-item">
+                        <span class="item-name">바닥재 교체</span>
+                        <input type="number" class="item-input" id="substrate_replace" value="0" oninput="calculate()">
+                    </div>
+                    
+                    <div class="cost-item">
+                        <span class="item-name">기타 소모품</span>
+                        <input type="number" class="item-input" id="other_monthly" value="0" oninput="calculate()">
+                    </div>
+                </div>
+                
+                <button class="reset-btn" onclick="resetAll()">🔄 초기화</button>
+            </div>
+            
+            <div>
+                <div class="summary-card">
+                    <div class="summary-title">💵 초기 셋업 총 비용</div>
+                    <div class="summary-amount" id="initialTotal">0원</div>
+                    <div class="summary-label">1회 투자 비용</div>
+                </div>
+                
+                <div class="card">
+                    <div class="section-title">📊 비용 상세 내역</div>
+                    <ul class="breakdown-list" id="initialBreakdown"></ul>
+                </div>
+                
+                <div class="summary-card" style="margin-top: 30px; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);">
+                    <div class="summary-title">📅 월간 유지비</div>
+                    <div class="summary-amount" id="monthlyTotal">0원</div>
+                    <div class="summary-label">매월 드는 비용</div>
+                </div>
+                
+                <div class="card">
+                    <div class="section-title">💡 연간 예상 비용</div>
+                    <ul class="breakdown-list">
+                        <li class="breakdown-item">
+                            <span class="breakdown-name">초기 셋업</span>
+                            <span class="breakdown-amount" id="yearlyInitial">0원</span>
+                        </li>
+                        <li class="breakdown-item">
+                            <span class="breakdown-name">연간 유지비 (12개월)</span>
+                            <span class="breakdown-amount" id="yearlyMaintenance">0원</span>
+                        </li>
+                        <li class="breakdown-item" style="background: #fff3cd; border: 2px solid #ffc107;">
+                            <span class="breakdown-name" style="font-size: 1.2em;">첫 해 총 비용</span>
+                            <span class="breakdown-amount" style="font-size: 1.3em;" id="firstYearTotal">0원</span>
+                        </li>
+                    </ul>
+                </div>
+                
+                <div class="info-box">
+                    <h4>💡 비용 절감 팁</h4>
+                    <p>• 중고 사육장을 구매하면 초기 비용을 30-50% 절감할 수 있습니다</p>
+                    <p>• LED 조명을 사용하면 전기료를 절감할 수 있습니다</p>
+                    <p>• 귀뚜라미를 직접 번식하면 먹이비를 크게 줄일 수 있습니다</p>
+                    <p>• 바닥재는 재사용 가능한 타입을 선택하면 교체 비용이 적습니다</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const presets = {
+            crested_gecko: {
+                terrarium: 150000,
+                heating: 30000,
+                lighting: 40000,
+                substrate: 15000,
+                decoration: 50000,
+                bowls: 20000,
+                thermometer: 25000,
+                animal: 100000,
+                other_initial: 20000,
+                food: 30000,
+                supplements: 10000,
+                electricity: 15000,
+                substrate_replace: 10000,
+                other_monthly: 5000
+            },
+            leopard_gecko: {
+                terrarium: 120000,
+                heating: 40000,
+                lighting: 30000,
+                substrate: 10000,
+                decoration: 40000,
+                bowls: 15000,
+                thermometer: 25000,
+                animal: 80000,
+                other_initial: 20000,
+                food: 25000,
+                supplements: 10000,
+                electricity: 20000,
+                substrate_replace: 8000,
+                other_monthly: 5000
+            },
+            ball_python: {
+                terrarium: 200000,
+                heating: 60000,
+                lighting: 40000,
+                substrate: 20000,
+                decoration: 60000,
+                bowls: 25000,
+                thermometer: 30000,
+                animal: 150000,
+                other_initial: 30000,
+                food: 40000,
+                supplements: 5000,
+                electricity: 30000,
+                substrate_replace: 15000,
+                other_monthly: 10000
+            },
+            corn_snake: {
+                terrarium: 150000,
+                heating: 50000,
+                lighting: 30000,
+                substrate: 15000,
+                decoration: 50000,
+                bowls: 20000,
+                thermometer: 25000,
+                animal: 100000,
+                other_initial: 25000,
+                food: 30000,
+                supplements: 5000,
+                electricity: 25000,
+                substrate_replace: 12000,
+                other_monthly: 8000
+            },
+            bearded_dragon: {
+                terrarium: 250000,
+                heating: 80000,
+                lighting: 100000,
+                substrate: 20000,
+                decoration: 70000,
+                bowls: 30000,
+                thermometer: 30000,
+                animal: 200000,
+                other_initial: 40000,
+                food: 50000,
+                supplements: 15000,
+                electricity: 40000,
+                substrate_replace: 15000,
+                other_monthly: 10000
+            }
+        };
+        
+        function loadPresetCosts() {
+            const species = document.getElementById('speciesSelect').value;
+            
+            if (species === 'custom') return;
+            
+            const preset = presets[species];
+            
+            Object.keys(preset).forEach(key => {
+                const input = document.getElementById(key);
+                if (input) {
+                    input.value = preset[key];
+                }
+            });
+            
+            calculate();
+        }
+        
+        function calculate() {
+            const initialItems = [
+                { id: 'terrarium', name: '사육장' },
+                { id: 'heating', name: '온도 조절' },
+                { id: 'lighting', name: '조명' },
+                { id: 'substrate', name: '바닥재' },
+                { id: 'decoration', name: '은신처 & 장식' },
+                { id: 'bowls', name: '물그릇 & 먹이그릇' },
+                { id: 'thermometer', name: '온습도계' },
+                { id: 'animal', name: '개체 구입' },
+                { id: 'other_initial', name: '기타 용품' }
+            ];
+            
+            const monthlyItems = [
+                { id: 'food', name: '먹이' },
+                { id: 'supplements', name: '영양제' },
+                { id: 'electricity', name: '전기료' },
+                { id: 'substrate_replace', name: '바닥재 교체' },
+                { id: 'other_monthly', name: '기타 소모품' }
+            ];
+            
+            let initialTotal = 0;
+            let monthlyTotal = 0;
+            
+            let breakdownHTML = '';
+            
+            initialItems.forEach(item => {
+                const value = parseInt(document.getElementById(item.id).value) || 0;
+                initialTotal += value;
+                
+                if (value > 0) {
+                    breakdownHTML += `
+                        <li class="breakdown-item">
+                            <span class="breakdown-name">${item.name}</span>
+                            <span class="breakdown-amount">${value.toLocaleString()}원</span>
+                        </li>
+                    `;
+                }
+            });
+            
+            monthlyItems.forEach(item => {
+                const value = parseInt(document.getElementById(item.id).value) || 0;
+                monthlyTotal += value;
+            });
+            
+            document.getElementById('initialTotal').textContent = initialTotal.toLocaleString() + '원';
+            document.getElementById('monthlyTotal').textContent = monthlyTotal.toLocaleString() + '원';
+            document.getElementById('initialBreakdown').innerHTML = breakdownHTML || '<li class="breakdown-item"><span class="breakdown-name">입력된 항목이 없습니다</span></li>';
+            
+            document.getElementById('yearlyInitial').textContent = initialTotal.toLocaleString() + '원';
+            document.getElementById('yearlyMaintenance').textContent = (monthlyTotal * 12).toLocaleString() + '원';
+            document.getElementById('firstYearTotal').textContent = (initialTotal + monthlyTotal * 12).toLocaleString() + '원';
+        }
+        
+        function resetAll() {
+            if (confirm('모든 입력을 초기화하시겠습니까?')) {
+                document.querySelectorAll('.item-input').forEach(input => {
+                    input.value = 0;
+                });
+                document.getElementById('speciesSelect').value = 'custom';
+                calculate();
+            }
+        }
+        
+        calculate();
+    </script>
+</body>
+</html>
