@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>사육 체크리스트 - K-ReptileWiki</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            color: #667eea;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: #666;
+            font-size: 1.1em;
+        }
+        
+        .pet-selector {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+        }
+        
+        .pet-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .pet-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 3px solid transparent;
+            text-align: center;
+        }
+        
+        .pet-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .pet-card.selected {
+            border-color: #667eea;
+            background: #e3e8ff;
+        }
+        
+        .pet-icon {
+            font-size: 3em;
+            margin-bottom: 10px;
+        }
+        
+        .add-pet-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1.1em;
+            margin-top: 20px;
+            transition: background 0.3s;
+        }
+        
+        .add-pet-btn:hover {
+            background: #5568d3;
+        }
+        
+        .checklist-section {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+        
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        
+        .section-title {
+            font-size: 1.5em;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .check-item {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            margin-bottom: 10px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            transition: all 0.3s;
+        }
+        
+        .check-item:hover {
+            background: #e9ecef;
+        }
+        
+        .check-item.completed {
+            background: #d4edda;
+        }
+        
+        .checkbox {
+            width: 25px;
+            height: 25px;
+            cursor: pointer;
+            margin-right: 15px;
+        }
+        
+        .check-label {
+            flex: 1;
+            font-size: 1.1em;
+            color: #333;
+        }
+        
+        .check-input {
+            padding: 8px 12px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 0.95em;
+            width: 120px;
+        }
+        
+        .time-display {
+            color: #666;
+            font-size: 0.9em;
+            margin-left: 10px;
+        }
+        
+        .progress-bar {
+            background: #e0e0e0;
+            height: 30px;
+            border-radius: 15px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+        
+        .progress-fill {
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            height: 100%;
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 500px;
+            width: 90%;
+        }
+        
+        .modal-input {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1em;
+        }
+        
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+        
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+        
+        .btn-secondary:hover {
+            background: #d0d0d0;
+        }
+        
+        .no-pet-message {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+        
+        .no-pet-message h2 {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🦎 사육 체크리스트</h1>
+            <p class="subtitle">일일 케어 기록으로 건강한 사육환경을 만들어보세요</p>
+        </div>
+        
+        <div class="pet-selector">
+            <div class="section-header">
+                <h2>내 반려 파충류</h2>
+                <button class="add-pet-btn" onclick="openAddPetModal()">+ 추가하기</button>
+            </div>
+            <div class="pet-grid" id="petGrid"></div>
+        </div>
+        
+        <div id="checklistContainer"></div>
+    </div>
+    
+    <div class="modal" id="addPetModal">
+        <div class="modal-content">
+            <h2>새 반려동물 추가</h2>
+            <input type="text" class="modal-input" id="petNameInput" placeholder="이름 (예: 초코)">
+            <select class="modal-input" id="petSpeciesInput">
+                <option value="">종을 선택하세요</option>
+                <option value="크레스티드 게코">크레스티드 게코</option>
+                <option value="레오파드 게코">레오파드 게코</option>
+                <option value="볼 파이톤">볼 파이톤</option>
+                <option value="콘 스네이크">콘 스네이크</option>
+                <option value="비어디드 드래곤">비어디드 드래곤</option>
+                <option value="블루텅 스킹크">블루텅 스킹크</option>
+            </select>
+            <div class="modal-buttons">
+                <button class="btn btn-secondary" onclick="closeAddPetModal()">취소</button>
+                <button class="btn btn-primary" onclick="addPet()">추가</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let pets = [];
+        let selectedPetId = null;
+        let checklistData = {};
+        
+        // 로컬 스토리지에서 데이터 로드
+        function loadData() {
+            const savedPets = localStorage.getItem('reptilePets');
+            const savedChecklist = localStorage.getItem('reptileChecklist');
+            
+            if (savedPets) {
+                pets = JSON.parse(savedPets);
+            }
+            
+            if (savedChecklist) {
+                checklistData = JSON.parse(savedChecklist);
+            }
+            
+            if (pets.length > 0) {
+                selectedPetId = pets[0].id;
+            }
+        }
+        
+        function saveData() {
+            localStorage.setItem('reptilePets', JSON.stringify(pets));
+            localStorage.setItem('reptileChecklist', JSON.stringify(checklistData));
+        }
+        
+        function openAddPetModal() {
+            document.getElementById('addPetModal').classList.add('active');
+        }
+        
+        function closeAddPetModal() {
+            document.getElementById('addPetModal').classList.remove('active');
+            document.getElementById('petNameInput').value = '';
+            document.getElementById('petSpeciesInput').value = '';
+        }
+        
+        function addPet() {
+            const name = document.getElementById('petNameInput').value.trim();
+            const species = document.getElementById('petSpeciesInput').value;
+            
+            if (!name || !species) {
+                alert('이름과 종을 모두 입력해주세요.');
+                return;
+            }
+            
+            const newPet = {
+                id: Date.now(),
+                name: name,
+                species: species,
+                icon: getSpeciesIcon(species)
+            };
+            
+            pets.push(newPet);
+            selectedPetId = newPet.id;
+            
+            // 새 펫의 체크리스트 데이터 초기화
+            checklistData[newPet.id] = getDefaultChecklist();
+            
+            saveData();
+            closeAddPetModal();
+            renderPets();
+            renderChecklist();
+        }
+        
+        function getSpeciesIcon(species) {
+            const icons = {
+                '크레스티드 게코': '🦎',
+                '레오파드 게코': '🦎',
+                '볼 파이톤': '🐍',
+                '콘 스네이크': '🐍',
+                '비어디드 드래곤': '🦖',
+                '블루텅 스킹크': '🦎'
+            };
+            return icons[species] || '🦎';
+        }
+        
+        function getDefaultChecklist() {
+            const today = new Date().toISOString().split('T')[0];
+            return {
+                date: today,
+                items: {
+                    temperature: { checked: false, value: '', time: '' },
+                    humidity: { checked: false, value: '', time: '' },
+                    feeding: { checked: false, value: '', time: '' },
+                    water: { checked: false, value: '', time: '' },
+                    cleaning: { checked: false, value: '', time: '' },
+                    health: { checked: false, value: '', time: '' }
+                }
+            };
+        }
+        
+        function renderPets() {
+            const grid = document.getElementById('petGrid');
+            
+            if (pets.length === 0) {
+                grid.innerHTML = '<div class="no-pet-message"><h2>아직 등록된 반려동물이 없습니다</h2><p>+ 추가하기 버튼을 눌러 첫 반려동물을 등록하세요!</p></div>';
+                return;
+            }
+            
+            grid.innerHTML = pets.map(pet => `
+                <div class="pet-card ${pet.id === selectedPetId ? 'selected' : ''}" onclick="selectPet(${pet.id})">
+                    <div class="pet-icon">${pet.icon}</div>
+                    <h3>${pet.name}</h3>
+                    <p style="color: #666; font-size: 0.9em;">${pet.species}</p>
+                </div>
+            `).join('');
+        }
+        
+        function selectPet(petId) {
+            selectedPetId = petId;
+            renderPets();
+            renderChecklist();
+        }
+        
+        function renderChecklist() {
+            const container = document.getElementById('checklistContainer');
+            
+            if (!selectedPetId) {
+                container.innerHTML = '';
+                return;
+            }
+            
+            const today = new Date().toISOString().split('T')[0];
+            
+            if (!checklistData[selectedPetId] || checklistData[selectedPetId].date !== today) {
+                checklistData[selectedPetId] = getDefaultChecklist();
+            }
+            
+            const data = checklistData[selectedPetId];
+            const items = data.items;
+            
+            const totalItems = Object.keys(items).length;
+            const completedItems = Object.values(items).filter(item => item.checked).length;
+            const progress = (completedItems / totalItems) * 100;
+            
+            container.innerHTML = `
+                <div class="checklist-section">
+                    <div class="section-header">
+                        <div class="section-title">
+                            📋 오늘의 케어 체크리스트
+                        </div>
+                        <div style="font-size: 1.1em; color: #667eea; font-weight: bold;">
+                            ${completedItems} / ${totalItems} 완료
+                        </div>
+                    </div>
+                    
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: ${progress}%">
+                            ${Math.round(progress)}%
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 30px;">
+                        <div class="check-item ${items.temperature.checked ? 'completed' : ''}">
+                            <input type="checkbox" class="checkbox" 
+                                ${items.temperature.checked ? 'checked' : ''}
+                                onchange="updateCheckItem('temperature', this.checked)">
+                            <span class="check-label">🌡️ 온도 확인</span>
+                            <input type="text" class="check-input" placeholder="예: 28°C" 
+                                value="${items.temperature.value}"
+                                onchange="updateCheckValue('temperature', this.value)">
+                            <span class="time-display">${items.temperature.time}</span>
+                        </div>
+                        
+                        <div class="check-item ${items.humidity.checked ? 'completed' : ''}">
+                            <input type="checkbox" class="checkbox" 
+                                ${items.humidity.checked ? 'checked' : ''}
+                                onchange="updateCheckItem('humidity', this.checked)">
+                            <span class="check-label">💧 습도 확인</span>
+                            <input type="text" class="check-input" placeholder="예: 60%" 
+                                value="${items.humidity.value}"
+                                onchange="updateCheckValue('humidity', this.value)">
+                            <span class="time-display">${items.humidity.time}</span>
+                        </div>
+                        
+                        <div class="check-item ${items.feeding.checked ? 'completed' : ''}">
+                            <input type="checkbox" class="checkbox" 
+                                ${items.feeding.checked ? 'checked' : ''}
+                                onchange="updateCheckItem('feeding', this.checked)">
+                            <span class="check-label">🍖 먹이 급여</span>
+                            <input type="text" class="check-input" placeholder="예: 귀뚜라미 5마리" 
+                                value="${items.feeding.value}"
+                                onchange="updateCheckValue('feeding', this.value)">
+                            <span class="time-display">${items.feeding.time}</span>
+                        </div>
+                        
+                        <div class="check-item ${items.water.checked ? 'completed' : ''}">
+                            <input type="checkbox" class="checkbox" 
+                                ${items.water.checked ? 'checked' : ''}
+                                onchange="updateCheckItem('water', this.checked)">
+                            <span class="check-label">💦 물 교체</span>
+                            <input type="text" class="check-input" placeholder="메모" 
+                                value="${items.water.value}"
+                                onchange="updateCheckValue('water', this.value)">
+                            <span class="time-display">${items.water.time}</span>
+                        </div>
+                        
+                        <div class="check-item ${items.cleaning.checked ? 'completed' : ''}">
+                            <input type="checkbox" class="checkbox" 
+                                ${items.cleaning.checked ? 'checked' : ''}
+                                onchange="updateCheckItem('cleaning', this.checked)">
+                            <span class="check-label">🧹 청소 및 점검</span>
+                            <input type="text" class="check-input" placeholder="메모" 
+                                value="${items.cleaning.value}"
+                                onchange="updateCheckValue('cleaning', this.value)">
+                            <span class="time-display">${items.cleaning.time}</span>
+                        </div>
+                        
+                        <div class="check-item ${items.health.checked ? 'completed' : ''}">
+                            <input type="checkbox" class="checkbox" 
+                                ${items.health.checked ? 'checked' : ''}
+                                onchange="updateCheckItem('health', this.checked)">
+                            <span class="check-label">🏥 건강 상태 체크</span>
+                            <input type="text" class="check-input" placeholder="예: 양호" 
+                                value="${items.health.value}"
+                                onchange="updateCheckValue('health', this.value)">
+                            <span class="time-display">${items.health.time}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function updateCheckItem(itemKey, checked) {
+            const data = checklistData[selectedPetId];
+            data.items[itemKey].checked = checked;
+            
+            if (checked) {
+                const now = new Date();
+                data.items[itemKey].time = now.toLocaleTimeString('ko-KR', { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                });
+            }
+            
+            saveData();
+            renderChecklist();
+        }
+        
+        function updateCheckValue(itemKey, value) {
+            checklistData[selectedPetId].items[itemKey].value = value;
+            saveData();
+        }
+        
+        // 초기화
+        loadData();
+        renderPets();
+        renderChecklist();
+        
+        // 자정에 체크리스트 리셋
+        setInterval(() => {
+            const now = new Date();
+            if (now.getHours() === 0 && now.getMinutes() === 0) {
+                Object.keys(checklistData).forEach(petId => {
+                    checklistData[petId] = getDefaultChecklist();
+                });
+                saveData();
+                renderChecklist();
+            }
+        }, 60000);
+    </script>
+</body>
+</html>
